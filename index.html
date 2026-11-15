@@ -1098,11 +1098,13 @@ function faceTexture(kind) {
     g.strokeStyle = '#6a3a2a'; g.lineWidth = 3; g.beginPath(); g.moveTo(56, 89); g.quadraticCurveTo(64, 92, 73, 88); g.stroke();
     ell(34, 76, 6, 3.5, 'rgba(230,130,110,.25)'); ell(94, 76, 6, 3.5, 'rgba(230,130,110,.25)');
   } else if (kind === 'nang') {
-    g.fillStyle = '#15131c';
-    g.beginPath(); g.moveTo(30, 60); g.quadraticCurveTo(42, 50, 54, 58); g.quadraticCurveTo(42, 66, 30, 60); g.fill();
-    g.beginPath(); g.moveTo(98, 60); g.quadraticCurveTo(86, 50, 74, 58); g.quadraticCurveTo(86, 66, 98, 60); g.fill();
-    ell(45, 58, 2.2, 2.2, '#fff'); ell(83, 58, 2.2, 2.2, '#fff');
-    g.strokeStyle = '#15131c'; g.lineWidth = 4.5; g.beginPath(); g.moveTo(28, 46); g.lineTo(54, 52); g.moveTo(100, 46); g.lineTo(74, 52); g.stroke();
+    ell(44, 60, 7, 5.5, '#1a1410'); ell(84, 60, 7, 5.5, '#1a1410'); ell(46, 58.5, 2, 2, '#fff'); ell(86, 58.5, 2, 2, '#fff');
+    g.fillStyle = 'rgba(217,169,130,1)'; g.fillRect(36, 52, 17, 4); g.fillRect(76, 52, 17, 4);
+    g.strokeStyle = '#1a1410'; g.lineWidth = 2; g.beginPath(); g.moveTo(37, 56); g.quadraticCurveTo(44, 54, 52, 56); g.moveTo(76, 56); g.quadraticCurveTo(84, 54, 91, 56); g.stroke();
+    g.strokeStyle = '#15120f'; g.lineWidth = 5; g.beginPath(); g.moveTo(31, 45); g.lineTo(54, 45); g.moveTo(74, 45); g.lineTo(97, 45); g.stroke();
+    g.strokeStyle = 'rgba(140,90,60,.5)'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(60, 66); g.lineTo(57, 78); g.quadraticCurveTo(64, 82, 71, 78); g.stroke();
+    g.strokeStyle = 'rgba(40,28,20,.45)'; g.lineWidth = 3; g.beginPath(); g.moveTo(54, 85); g.quadraticCurveTo(64, 82, 74, 85); g.stroke();
+    ell(64, 92, 10, 3.6, '#9a5a4e'); g.strokeStyle = '#6e3a32'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(55, 91.5); g.quadraticCurveTo(64, 93, 73, 91.5); g.stroke();
   } else if (kind === 'umbra') {
     g.strokeStyle = '#15131c'; g.lineWidth = 4;
     g.beginPath(); g.arc(44, 58, 10, 0.25, Math.PI - 0.25); g.stroke(); g.beginPath(); g.arc(84, 58, 10, 0.25, Math.PI - 0.25); g.stroke();
@@ -1272,13 +1274,29 @@ function buildFighter(id) {
     rig.waist.add(part(0.13, 0.11, 0.06, sash, 0.22, 0.04, 0.24));
     const emb = new THREE.Mesh(new THREE.PlaneGeometry(0.32, 0.32), new THREE.MeshBasicMaterial({ map: DUCKTEX, transparent: true })); emb.position.set(0, 0.26, -0.196); emb.rotation.y = Math.PI; emb.userData.outline = true; rig.chest.add(emb);
   } else if (id === 'nang') {
-    rig = makeRig({ skin: 0xe0b593, upper: 0x1b2238, armU: 0x1b2238, armL: 0x1b2238, lower: 0x1b2238, hand: 0x23263a, leg: 0x1b2238, foot: 0x15131c, face: 'nang' });
+    rig = makeRig({ skin: 0xd9a982, upper: 0x1b2238, armU: 0x1b2238, armL: 0x1b2238, lower: 0x1b2238, hand: 0x23263a, leg: 0x1b2238, foot: 0x15131c, face: 'nang' });
     const navy = SM(0x161c2e), red = SM(0xb3262e), gold = SM(0xd9a23a, { emissive: 0x3a2400 }), dark = SM(0x15131c);
-    const hood = new THREE.Mesh(new THREE.CylinderGeometry(0.275, 0.275, 0.46, 20, 1, true, 0.8, PI2 - 1.6), navy.clone()); hood.material.side = THREE.DoubleSide; hood.position.y = 0.25; rig.neck.add(hood);
-    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.278, 20, 10, 0, PI2, 0, Math.PI / 2), navy); cap.scale.y = 0.55; cap.position.y = 0.47; rig.neck.add(cap);
-    const mask = new THREE.Mesh(new THREE.CylinderGeometry(0.265, 0.255, 0.21, 20), navy); mask.position.y = 0.115; rig.neck.add(mask);
-    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.283, 0.283, 0.07, 20), red); band.position.y = 0.4; rig.neck.add(band);
-    rig.neck.add(part(0.16, 0.08, 0.02, gold, 0, 0.4, 0.285));
+    // wavy black hair, swept back
+    const hair = SM(0x15120f), hair2 = SM(0x231d18);
+    const blob = (r, x, y, z, sx, sy, sz, m) => { const b = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 9), m || hair); b.position.set(x, y, z); b.scale.set(sx, sy, sz); rig.neck.add(b); return b; };
+    blob(0.27, 0, 0.47, -0.03, 1.02, 0.62, 1.08);
+    for (let r = 0; r < 5; r++) for (let c = -1; c <= 1; c++) blob(0.1, c * 0.13 + (r % 2 ? 0.05 : -0.03), 0.6 - r * 0.012 - Math.abs(c) * 0.04, 0.2 - r * 0.1, 1.15, 0.55, 1.5, (r + c) % 2 ? hair2 : hair);
+    blob(0.13, 0, 0.55, 0.2, 1.7, 0.6, 0.9); blob(0.08, 0.12, 0.5, 0.23, 1.2, 0.6, 0.8, hair2);
+    for (let i = 0; i < 6; i++) { const a = Math.PI * 0.65 + i / 5 * Math.PI * 0.7; blob(0.1, Math.sin(a) * 0.24, 0.36 - (i % 2) * 0.05, Math.cos(a) * 0.24, 1, 1.3, 1, i % 2 ? hair2 : hair); }
+    for (const sd of [-1, 1]) { blob(0.09, sd * 0.255, 0.44, 0.05, 0.6, 0.9, 1.4); blob(0.08, sd * 0.25, 0.38, -0.08, 0.6, 1, 1.3, hair2); }
+    // big thin-framed glasses
+    const frame = SM(0x2a2622), lensMat = new THREE.MeshBasicMaterial({ color: 0xcfe4ff, transparent: true, opacity: 0.18, depthWrite: false });
+    for (const sd of [-1, 1]) {
+      const cx = sd * 0.075, cy = 0.25, z = 0.272, w = 0.13, h = 0.1, t = 0.012;
+      const fp = (...a) => { const m = part(...a); m.userData.noOutline = true; m.castShadow = false; rig.neck.add(m); };
+      fp(w, t, t, frame, cx, cy + h / 2, z); fp(w * 0.9, t, t, frame, cx, cy - h / 2, z);
+      fp(t, h, t, frame, cx + sd * w / 2, cy, z); fp(t, h * 0.9, t, frame, cx - sd * w / 2 + sd * 0.004, cy, z);
+      const lens = new THREE.Mesh(new THREE.PlaneGeometry(w, h), lensMat); lens.position.set(cx, cy, z - 0.002); lens.userData.noOutline = true; rig.neck.add(lens);
+      fp(t, t, 0.27, frame, sd * 0.262, cy + 0.04, 0.14);
+    }
+    { const br = part(0.04, 0.012, 0.012, frame, 0, 0.292, 0.272); br.userData.noOutline = true; rig.neck.add(br); }
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.283, 0.283, 0.07, 20), red); band.position.y = 0.39; rig.neck.add(band);
+    rig.neck.add(part(0.16, 0.08, 0.02, gold, 0, 0.39, 0.285));
     const t1 = part(0.07, 0.36, 0.02, red, -0.06, 0.24, -0.29); t1.rotation.z = 0.15; t1.rotation.x = 0.3; rig.neck.add(t1);
     const t2 = part(0.07, 0.3, 0.02, red, 0.06, 0.26, -0.29); t2.rotation.z = -0.2; t2.rotation.x = 0.3; rig.neck.add(t2);
     rig.chest.add(part(0.5, 0.34, 0.05, red, 0, 0.27, 0.2));
