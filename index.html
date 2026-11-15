@@ -2481,13 +2481,16 @@ function guardBreak(d) {
 // incoming hit on the player (from attacking dummies)
 function hitPlayer(o, src) {
   const p = player;
-  if (p.dead > 0 || p.hidden || p.iframes > 0) return 'miss';
-  if (p.rag && p.ragGround && !o.otg) return 'miss';
-  if (kit.onPlayerHit) { const r = kit.onPlayerHit(o, src); if (r) return r; }
+  if (p.dead > 0) return 'miss';
+  if (!o.ux) {
+    if (p.hidden || p.iframes > 0) return 'miss';
+    if (p.rag && p.ragGround && !o.otg) return 'miss';
+    if (kit.onPlayerHit) { const r = kit.onPlayerHit(o, src); if (r) return r; }
+  }
   const at = p.pos.clone().add(new THREE.Vector3(0, 1.4, 0));
   const toSrc = src.pos.clone().sub(p.pos).setY(0).normalize();
   const front = toSrc.dot(facingVec()) > -0.2;
-  if (p.blocking && front && (o.type === 'b' || o.type === 'p')) {
+  if (!o.ux && p.blocking && front && (o.type === 'b' || o.type === 'p')) {
     if (clock - p.blockStart < 0.2) {
       floatText('PARRY', at.clone().add(new THREE.Vector3(0, 1, 0)), 'big');
       ring(at, 0xffd76a, 3.5); sparks(at, 12, 0xffd76a, 2); hitStop = 0.12; impactFrame(0.08);
@@ -2602,7 +2605,7 @@ function moveInput() {
 }
 function tryDash() {
   const p = player;
-  if (!started || p.dead > 0 || p.hidden) return;
+  if (!started || p.dead > 0 || p.hidden || p.seized > 0) return;
   if (p.stun > 0) {
     if (p.evasiveCd > 0 || p.guardBreak > 0) return;
     p.stun = 0; p.evasiveCd = 20; p.iframes = 0.35;
@@ -3934,7 +3937,7 @@ function makeMaskKit() {
 const KITS = { juno: makeJunoKit, pip: makePipKit, mask: makeMaskKit };
 const kitCache = {};
 function pressSlot(k) {
-  if (!started || player.dead > 0) return;
+  if (!started || player.dead > 0 || player.seized > 0) return;
   if (k === 'G') { tryAwaken(); return; }
   kit.press(k);
 }
@@ -4007,6 +4010,11 @@ function updatePlayer(dt) {
     } else return;
   }
   if (p.dead > 0) { p.dead -= dt; p.vel.x *= 0.92; p.vel.z *= 0.92; moveBody(p, dt, 1); if (p.dead <= 0) respawn(); return; }
+  if (p.seized > 0) {
+    p.seized -= dt; p.stun = Math.max(p.stun, 0.2); p.blocking = false; p.iframes = 0; p.dashT = 0; p.hidden = false;
+    if (p.move) { if (kit.cancel) kit.cancel(); p.move = null; }
+    if (p.seized <= 0) letterbox(false);
+  }
   if (p.forcedT > 0) { p.forcedT -= dt; p.pos.lerp(p.forcedP, 0.6); p.vel.set(0, 0, 0); p.speedNow = 0; p.stun = Math.max(p.stun, 0.12); p.stun -= dt; return; }
   p.dashCd = Math.max(0, p.dashCd - dt); p.evasiveCd = Math.max(0, p.evasiveCd - dt);
   p.endlag = Math.max(0, p.endlag - dt); p.stun = Math.max(0, p.stun - dt); p.iframes = Math.max(0, p.iframes - dt);
@@ -4452,6 +4460,7 @@ function setupFighter(id) {
   fighterId = id; kit = kitCache[id] || (kitCache[id] = KITS[id]()); kit.reset();
   rig = buildFighter(id); scene.add(rig.root);
   const p = player;
+  if (p.seized > 0) { p.seized = 0; letterbox(false); }
   p.pos.copy(SPAWN); p.vel.set(0, 0, 0); p.hp = p.maxHp; p.move = null; p.anim = null; p.animW = 0; p.stun = 0; p.dead = 0; p.sinkY = 0; p.hidden = false; p.guard = 100; p.dashCd = 0; p.evasiveCd = 0; p.facing = Math.PI;
   p.atk.t = p.atk.dur = 0; p.atk.idx = 0;
   awk = 0; awkAnnounced = false;
@@ -4653,6 +4662,10 @@ function handleMsg(m) {
     if (res === 'hit' && o.down) player.stun = Math.max(player.stun, o.down * 0.7);
     if (res === 'parry') netSend({ t: 'parried', to: m.id });
     if (wasAlive && player.dead > 0) netSend({ t: 'ko', by: m.id });
+  } else if (m.t === 'seize') {
+    const p = player; p.seized = m.dur; p.blocking = false; p.iframes = 0; p.dashT = 0; p.hidden = false;
+    if (p.move) { if (kit.cancel) kit.cancel(); p.move = null; }
+    letterbox(true); callout('MOON SPLITTER', 'There is no escape');
   } else if (m.t === 'pos') {
     player.forcedP = new THREE.Vector3().fromArray(m.p); player.forcedT = 0.25;
   } else if (m.t === 'parried') {
@@ -4888,7 +4901,7 @@ function netHit(d, o) {
   let mul = kit.dmgMul ? kit.dmgMul(o) : 1;
   if (d.marked > 0 && fighterId === 'mask') mul *= 1.25;
   const dmg = Math.max(1, Math.round(o.dmg * mul));
-  netSend({ t: 'hit', to: d.id, ap: player.pos.toArray(), o: { dmg, type: o.type, kb: o.kb ? o.kb.toArray() : null, set: !!o.set, stun: o.stun || 0.5, down: o.down || 0, heavy: !!o.heavy, big: !!o.big } });
+  netSend({ t: 'hit', to: d.id, ap: player.pos.toArray(), o: { dmg, type: o.type, otg: !!o.otg, ux: !!o.ux, kb: o.kb ? o.kb.toArray() : null, set: !!o.set, stun: o.stun || 0.5, down: o.down || 0, heavy: !!o.heavy, big: !!o.big } });
   const hitPos = d.pos.clone().add(new THREE.Vector3(0, 1.5, 0));
   const hdir = (o.kb && o.kb.clone().setY(0).lengthSq() > 0.1 ? o.kb.clone() : d.pos.clone().sub(player.pos)).setY(0).normalize();
   const sc = o.spark || 0xffffff;
@@ -5685,6 +5698,11 @@ function vfxSlashImpact(at, facing) {
   sparks(c.clone().add(new THREE.Vector3(0, 0.6, 0)), 40, NRED, 3.2);
   lightFlash(c.clone().add(new THREE.Vector3(0, 2, 0)), NRED, 22);
 }
+function vfxMoonWarn(at) {
+  const c = at.clone().add(new THREE.Vector3(0, 1.4, 0));
+  flash(c, NRED, 2.2); ring(at.clone(), NRED, 4, true); later(0.2, () => ring(at.clone(), NRED, 5, true));
+  floatText('!', c.clone().add(new THREE.Vector3(0, 1.6, 0)), 'ko');
+}
 function vfxSmokeBomb(at) {
   for (let i = 0; i < 18; i++) P({ tex: 'smoke', add: false, color: i % 3 ? 0x3a3f52 : 0x6a6f82, pos: at.clone().add(new THREE.Vector3(rv(0.6), 0.2 + Math.random() * 1.6, rv(0.6))), vel: new THREE.Vector3(rv(3), 1 + Math.random() * 1.5, rv(3)), life: 0.9, s0: 0.9, s1: 2.6, drag: 3, a: 0.85, fadeIn: 0.05 });
   flash(at.clone().add(new THREE.Vector3(0, 1, 0)), 0xbfc6d8, 1);
@@ -5755,7 +5773,12 @@ function makeNangKit() {
     if (k === '4') { aimFace(5); startMove('rising', 0.5, 'upper', { hit: false }); cd[4] = MAX[4]; }
   };
   K.release = () => {};
-  K.cancel = () => { if (player.move && player.move.name === 'smoke') player.hidden = false; clearClones(); };
+  K.cancel = () => {
+    const mv = player.move;
+    if (mv && mv.name === 'smoke') player.hidden = false;
+    if (mv && mv.name === 'moon' && (mv.phase === 'wind' || mv.phase === 'dash')) { mv.phase = 'miss'; floatText('INTERRUPTED', player.pos.clone().add(new THREE.Vector3(0, 2.6, 0)), 'ko'); toast('Moon Splitter was interrupted. The awakening is over'); later(0.1, endAwaken); }
+    clearClones();
+  };
   // Counter Stance: block the hit and cut back
   K.onPlayerHit = (o, src) => {
     const mv = player.move;
@@ -5787,10 +5810,9 @@ function makeNangKit() {
   function moonSplitter() {
     marks = 0;
     aimFace(10);
-    startMove('moon', 0.5, 'stab', { a: true, lockPos: true, phase: 'dash', t0: 0, d: null, ended: false, slashes: 0 });
-    player.iframes = 0.6;
+    startMove('moon', 5, 'draw', { a: true, lockPos: true, phase: 'wind', t0: 0, d: null, ended: false, slashes: 0 });
     callout('SECRET ART', 'Moon Splitter');
-    vfxSmokeBomb(player.pos.clone());
+    vfxMoonWarn(player.pos.clone()); netOnly('nwarn', [player.pos.clone()]);
   }
   K.moveTick = (mv, dt) => {
     const f = facingVec();
@@ -5894,22 +5916,33 @@ function makeNangKit() {
       }
       if (mv.t >= 2.0 && !mv.ended) { mv.ended = true; letterbox(false); later(0.1, endAwaken); }
     } else if (mv.name === 'moon') {
+      if (mv.phase === 'wind') {
+        // telegraph: he draws back with a red glint, enemies get a moment to get out of the way
+        if (Math.random() < 0.8) P({ tex: 'star', color: NRED, pos: handPos(), life: 0.15, s0: 0.5, s1: 1.4 });
+        if (mv.t >= 0.45) { mv.phase = 'dash'; mv.dir = facingVec(); mv.td = mv.t; playAnim('stab', 1.4); vfxSmokeBomb(player.pos.clone()); }
+        return;
+      }
       if (mv.phase === 'dash') {
-        const step = f.clone().multiplyScalar(30 * dt), to = player.pos.clone().add(step);
+        const D = mv.dir, step = D.clone().multiplyScalar(30 * dt), to = player.pos.clone().add(step);
         if (spotFree(to.x, player.pos.y, to.z)) player.pos.copy(to);
-        if (Math.random() < 0.9) P({ tex: 'streak', color: NRED, pos: player.pos.clone().add(new THREE.Vector3(0, 1.2, 0)), vel: f.clone().multiplyScalar(-8), life: 0.25, s0: 0.8, s1: 0.1, stretch: 1 });
+        if (Math.random() < 0.9) P({ tex: 'streak', color: NRED, pos: player.pos.clone().add(new THREE.Vector3(0, 1.2, 0)), vel: D.clone().multiplyScalar(-8), life: 0.25, s0: 0.8, s1: 0.1, stretch: 1 });
         let grabbed = null;
-        for (const d of aliveDummies()) if (Math.hypot(d.pos.x - player.pos.x, d.pos.z - player.pos.z) < 1.9 && Math.abs(d.pos.y - player.pos.y) < 2.5) { grabbed = d; break; }
+        for (const d of aliveDummies()) {
+          if (d.rag || d.rg || d.rdg) continue;
+          const dx = d.pos.x - player.pos.x, dz = d.pos.z - player.pos.z, dist = Math.hypot(dx, dz);
+          if (dist < 1.35 && Math.abs(d.pos.y - player.pos.y) < 2 && (dist < 0.4 || (dx * D.x + dz * D.z) / dist > 0.3)) { grabbed = d; break; }
+        }
         if (grabbed) {
           // caught: nothing can stop it from here
           const d = grabbed; mv.d = d; mv.phase = 'cut'; mv.t0 = mv.t; mv.dur = mv.t + 3.0;
           mv.base = d.pos.clone(); faceToward(d.pos); mv.f = facingVec();
           d.grabbed = 3.2; d.stun = 3.8; if (d.ai) d.ai.wind = 0; player.iframes = 4;
+          if (d.remote) netSend({ t: 'seize', to: d.id, dur: 3.1 });
           playAnim('grab', 1.3); impactFrame(0.1); sparks(d.pos.clone().add(new THREE.Vector3(0, 1.4, 0)), 12, NRED, 1.6);
           floatText('CAUGHT', d.pos.clone().add(new THREE.Vector3(0, 3, 0)), 'ko');
           startCine({ focus: () => d.pos, dur: 2.9, dist: 10, height: 2.2, yaw: player.facing + 2.4, spin: 0.25 });
           letterbox(true); callout('MOON SPLITTER', 'One breath. One cut.');
-        } else if (mv.t >= 0.4) {
+        } else if (mv.t >= mv.td + 0.28) {
           mv.phase = 'miss'; mv.dur = mv.t;
           floatText('MISSED', player.pos.clone().add(new THREE.Vector3(0, 2.6, 0)), 'ko'); toast('Moon Splitter missed. The awakening is over');
           later(0.15, endAwaken);
@@ -5944,7 +5977,7 @@ function makeNangKit() {
       }
       if (c >= 1.95 && !mv.hit) {
         mv.hit = true; d.grabbed = 0;
-        hitDummy(d, { dmg: 999, type: 'u', otg: true, kb: new THREE.Vector3(F.x * 4, -12, F.z * 4), set: true, down: 2.5, big: true, mats: [fxRed, fxPaper], spark: NRED, ringColor: NRED, label: 'MOON SPLITTER', awk: 0 });
+        hitDummy(d, { dmg: 999, type: 'u', otg: true, ux: true, kb: new THREE.Vector3(F.x * 4, -12, F.z * 4), set: true, down: 2.5, big: true, mats: [fxRed, fxPaper], spark: NRED, ringColor: NRED, label: 'MOON SPLITTER', awk: 0 });
         impactFrame(0.2); addShake(1.6); hitStop = 0.22; vfxSlashImpact(mv.base.clone(), player.facing); netOnly('gimpact', [mv.base.clone(), player.facing]);
         ring(mv.base.clone(), NRED, 8, true); sparks(mv.base.clone().add(new THREE.Vector3(0, 1, 0)), 24, NRED, 3); dust(mv.base.clone().add(new THREE.Vector3(0, 0.2, 0)), 14, 8);
       }
@@ -5970,7 +6003,7 @@ function makeNangKit() {
   K.unawaken = () => { marks = 0; clearClones(); undim(); };
   return K;
 }
-Object.assign(FXF, { moon: vfxMoon, smokeBomb: vfxSmokeBomb, nclone: vfxClone, gslash: vfxGrandSlash, gimpact: vfxSlashImpact });
+Object.assign(FXF, { nwarn: vfxMoonWarn, moon: vfxMoon, smokeBomb: vfxSmokeBomb, nclone: vfxClone, gslash: vfxGrandSlash, gimpact: vfxSlashImpact });
 KITS.nang = makeNangKit;
 
 // ---------- 1v1 duel vs the Sparring Master ----------
