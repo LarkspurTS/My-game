@@ -239,6 +239,12 @@ body.curtains #curL, body.curtains #curR { transform: translateX(0); }
 .namefield { display: flex; align-items: center; gap: 10px; margin-top: 14px; font-weight: 700; font-size: 14px; letter-spacing: 1px; text-transform: uppercase; color: var(--ink); }
 .namefield input { flex: 1; min-width: 0; font: inherit; text-transform: none; letter-spacing: 0; font-size: 16px; padding: 8px 10px; border: 2px solid var(--ink); background: #fff; color: var(--ink); border-radius: 0; }
 .namefield input:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
+#boss { position: absolute; top: calc(84px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); width: min(420px, 70vw); text-align: center; display: none; }
+#boss.show { display: block; }
+#boss .bn { font-family: var(--display); font-size: 15px; color: #fff; -webkit-text-stroke: 1px var(--ink); letter-spacing: 1px; }
+#boss.rage .bn { color: #ff5a5a; }
+#boss .bb { height: 11px; margin-top: 4px; background: rgba(21,19,28,.75); outline: 2px solid rgba(239,233,220,.85); position: relative; }
+#boss .bb i { position: absolute; inset: 0 auto 0 0; width: 100%; background: linear-gradient(90deg, #d8364a, #ff7a5a); transition: width .15s; }
 #err { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; text-align: center; padding: 24px; font-size: 18px; }
 
 @media (max-width: 520px) {
@@ -280,11 +286,14 @@ body.curtains #curL, body.curtains #curR { transform: translateX(0); }
       <button class="mbtn" id="chipDummy" type="button">Dummies: idle</button>
       <button class="mbtn" id="chipShift" type="button">Shift lock: off</button>
       <button class="mbtn" id="chipFighter" type="button">Change fighter</button>
+      <button class="mbtn" id="chipDuel" type="button">1v1 Battle Dummy</button>
+      <button class="mbtn" id="chipGfx" type="button">Graphics: High</button>
       <button class="mbtn only-desk" id="chipHelp" type="button">Controls (H)</button>
     </div>
   </div>
   <div id="cross"></div>
   <div id="zone"><div class="tier" id="zoneTier">Lower Village</div><div class="place" id="zonePlace">Training Courtyard</div></div>
+  <div id="boss"><div class="bn">SPARRING MASTER</div><div class="bb"><i id="bossFill"></i></div></div>
   <div id="combo"><div class="n" id="comboN">0</div><div class="l">HITS</div></div>
   <div id="bar"></div>
   <div id="toast" class="scrap"></div>
@@ -786,7 +795,9 @@ const ZONES = [
   { t: 3, x1: -42, x2: -24, z1: -56, z2: -40, n: 'Practice Corner' },
 ];
 const TIER_NAMES = { 1: 'Lower Village', 2: 'Middle Terrace', 3: 'Upper Shrine' };
+TIER_NAMES[4] = 'Sky Island';
 function zoneAt(p) {
+  if (p.z > 120 && p.y > 40) return { t: 4, n: 'Duel Arena' };
   const t = p.y < 4.5 ? 1 : p.y < 10.5 ? 2 : 3;
   for (const z of ZONES) if (z.t === t && p.x > z.x1 && p.x < z.x2 && p.z > z.z1 && p.z < z.z2) return { t, n: z.n };
   return { t, n: TIER_NAMES[t] };
@@ -944,7 +955,7 @@ const hitLight = new THREE.PointLight(0xffffff, 0, 12, 2); scene.add(hitLight);
 let hitLightT = 0;
 function lightFlash(pos, color, power) { hitLight.position.copy(pos); hitLight.color.setHex(color).convertSRGBToLinear(); hitLight.intensity = power || 6; hitLightT = 0.18; }
 const stageLight = new THREE.SpotLight(0xfff0c8, 0, 26, 0.32, 0.55, 1.2);
-stageLight.castShadow = !isTouch; stageLight.shadow.mapSize.set(512, 512); stageLight.shadow.bias = -0.002;
+stageLight.castShadow = false; stageLight.shadow.mapSize.set(512, 512); stageLight.shadow.bias = -0.002;
 scene.add(stageLight); scene.add(stageLight.target);
 // crisper sun shadows that follow the action
 sc.left = -30; sc.right = 30; sc.top = 30; sc.bottom = -30; sun.shadow.normalBias = 0.03;
@@ -1423,6 +1434,7 @@ function sampleClip(keys, t) {
 }
 function clipLen(name) { const k = CLIPS[name]; return k[k.length - 1][0]; }
 function playAnim(name, speed) { player.anim = { name, t: 0, speed: speed || 1 }; player.animW = Math.max(player.animW, 0.001); }
+const HIP0 = new THREE.Vector3(0, 0.98, 0), QID = new THREE.Quaternion();
 function applyRig(rig, P, dt, crisp) {
   const k = 1 - Math.exp(-(crisp ? 55 : 22) * dt);
   for (const j of JOINTS) {
@@ -1434,6 +1446,7 @@ function applyRig(rig, P, dt, crisp) {
   }
   rig.body.position.y += ((P.lift || 0) - rig.body.position.y) * k;
   rig.body.position.z += ((P.fwd || 0) - rig.body.position.z) * k;
+  const kh = 1 - Math.exp(-9 * dt); rig.hip.position.lerp(HIP0, kh); rig.hip.quaternion.slerp(QID, kh);
 }
 
 // ---------- Dummies ----------
@@ -1997,7 +2010,7 @@ function banner(x, y, z, c1, c2) {
 
 // grass that sways
 {
-  const N = isTouch ? 3500 : 11000;
+  const N = isTouch ? 2200 : 7000;
   const bg = new THREE.PlaneGeometry(0.11, 0.55, 1, 3); bg.translate(0, 0.275, 0);
   const pa = bg.attributes.position; for (let i = 0; i < pa.count; i++) { const y = pa.getY(i); pa.setX(i, pa.getX(i) * (1 - y / 0.6)); }
   const gm = new THREE.MeshLambertMaterial({ color: 0xffffff, side: THREE.DoubleSide }); patchSway(gm, 'grass');
@@ -2016,7 +2029,7 @@ function banner(x, y, z, c1, c2) {
     m4.compose(pv.set(x, ty, z), q, sv.set(s, s * (0.8 + rnd() * 0.6), s)); grass.setMatrixAt(n, m4);
     cc.setHSL(0.24 + rnd() * 0.06, 0.45 + rnd() * 0.15, 0.36 + rnd() * 0.12).convertSRGBToLinear(); grass.setColorAt(n, cc); n++;
   }
-  grass.count = n; gm.userData.lin = true; scene.add(grass);
+  grass.count = n; gm.userData.lin = true; scene.add(grass); window.__grass = grass;
 }
 
 // blowing leaves and petals
@@ -2100,6 +2113,30 @@ function shards(pos, n, color, power) {
 }
 
 STEEL.userData.shared = THREAD.userData.shared = VELVET.userData.shared = BURLAP.userData.shared = true;
+// ---------- Duel arena (floating island) ----------
+const ARENA = new THREE.Vector3(0, 60, 150);
+{
+  const A = ARENA, H = 14;
+  addBox(A.x - H, A.y - 2.5, A.z - H, A.x + H, A.y, A.z + H, TM('tiles', 7, 7, 0xd8d0c2));
+  const rock = new THREE.Mesh(new THREE.ConeGeometry(19, 30, 9), TM('rock', 6, 4, 0xa49d94)); rock.rotation.x = Math.PI; rock.position.set(A.x, A.y - 17.5, A.z); rock.castShadow = true; scene.add(rock);
+  for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2, r = 8 + (i % 2) * 5; const m = new THREE.Mesh(new THREE.ConeGeometry(2.5 + (i % 3), 8, 6), TM('rock', 2, 2, 0xa49d94)); m.rotation.x = Math.PI; m.position.set(A.x + Math.cos(a) * r, A.y - 8 - (i % 3) * 3, A.z + Math.sin(a) * r); scene.add(m); }
+  // edge stones, corner pillars, gates
+  for (const [x1, z1, x2, z2] of [[-H, -H, H, -H + 0.6], [-H, H - 0.6, H, H], [-H, -H, -H + 0.6, H], [H - 0.6, -H, H, H]]) addBox(A.x + x1, A.y, A.z + z1, A.x + x2, A.y + 0.5, A.z + z2, M(C.stoneDark));
+  for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+    addBox(A.x + sx * 12.5 - 0.6, A.y, A.z + sz * 12.5 - 0.6, A.x + sx * 12.5 + 0.6, A.y + 5, A.z + sz * 12.5 + 0.6, M(C.red));
+    deco(new THREE.BoxGeometry(1.8, 0.5, 1.8), M(0x2a2228), A.x + sx * 12.5, A.y + 5.25, A.z + sz * 12.5);
+    stoneLantern(A.x + sx * 9, A.y, A.z + sz * 12.6);
+  }
+  for (const sz of [-1, 1]) {
+    const z = A.z + sz * 13.2;
+    addBox(A.x - 4.2, A.y, z - 0.35, A.x - 3.5, A.y + 6.5, z + 0.35, M(C.red)); addBox(A.x + 3.5, A.y, z - 0.35, A.x + 4.2, A.y + 6.5, z + 0.35, M(C.red));
+    deco(new THREE.BoxGeometry(10.5, 0.5, 0.9), M(0x2a2228), A.x, A.y + 6.8, z); deco(new THREE.BoxGeometry(9.5, 0.4, 0.7), M(C.red), A.x, A.y + 6.3, z); deco(new THREE.BoxGeometry(8.5, 0.3, 0.5), M(C.red), A.x, A.y + 5.2, z);
+  }
+  plane(A.x - 2, A.z - 2, A.x + 2, A.z + 2, A.y + 0.03, M(0xb8352b));
+  // invisible walls keep fighters on the island
+  for (const [x1, z1, x2, z2] of [[-H - 1, -H - 1, H + 1, -H], [-H - 1, H, H + 1, H + 1], [-H - 1, -H, -H, H], [H, -H, H + 1, H]]) colliders.push({ x1: A.x + x1, y1: A.y - 3, z1: A.z + z1, x2: A.x + x2, y2: A.y + 12, z2: A.z + z2 });
+}
+
 // ---------- Ragdoll physics (cannon.js) ----------
 const PHYS = { world: null, rags: [] };
 if (window.CANNON) {
@@ -2155,11 +2192,18 @@ function startRagdoll(R, vel, spin) {
   PHYS.rags.push(rd);
   return rd;
 }
-function endRagdoll(rd) {
+function rebaseHip(R, place) {
+  R.root.updateMatrixWorld(true);
+  const hw = R.hip.matrixWorld.clone();
+  place(); R.root.updateMatrixWorld(true);
+  const m = new THREE.Matrix4().copy(R.body.matrixWorld).invert().multiply(hw);
+  m.decompose(R.hip.position, R.hip.quaternion, new THREE.Vector3());
+}
+function endRagdoll(rd, place) {
   if (!rd || !PHYS.world) return;
   rd.list.forEach((b) => PHYS.world.removeBody(b)); rd.cons.forEach((c) => PHYS.world.removeConstraint(c));
   const i = PHYS.rags.indexOf(rd); if (i >= 0) PHYS.rags.splice(i, 1);
-  rd.R.hip.position.set(0, 0.98, 0);
+  if (place) rebaseHip(rd.R, place); else { rd.R.hip.position.set(0, 0.98, 0); rd.R.hip.quaternion.identity(); }
 }
 function ragKick(rd, v) { if (!rd) return; for (const b of rd.list) { b.velocity.x += v.x; b.velocity.y += v.y; b.velocity.z += v.z; } }
 function segWorld(rd, k, outP, outQ) { const b = rd.segs[k].body; outQ.set(b.quaternion.x, b.quaternion.y, b.quaternion.z, b.quaternion.w); outP.copy(rd.segs[k].c).applyQuaternion(outQ).multiplyScalar(-1).add(_rv.set(b.position.x, b.position.y, b.position.z)); }
@@ -2233,7 +2277,7 @@ function hitDummy(d, o) {
   const hitPos = d.pos.clone().add(new THREE.Vector3(0, 1.5, 0));
   player.lastCombat = clock;
   d.ai.wind = 0;
-  const canBlock = dummyMode === 'block' && d.guardBreak <= 0 && d.down <= 0 && d.stun <= 0.25 && d.blind <= 0;
+  const canBlock = (d.duel ? d.duelBlock > 0 : dummyMode === 'block') && d.guardBreak <= 0 && d.down <= 0 && d.stun <= 0.25 && d.blind <= 0;
   if (canBlock && (o.type === 'b' || o.type === 'p')) {
     d.guard -= o.type === 'p' ? 25 : (o.heavy ? 30 : 18);
     d.hp = Math.max(1, d.hp - Math.max(1, Math.round(o.dmg * 0.2)));
@@ -2328,7 +2372,7 @@ function hitPlayer(o, src) {
 // ---------- Helpers ----------
 function facingVec() { return new THREE.Vector3(Math.sin(player.facing), 0, Math.cos(player.facing)); }
 function camForward() { return new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw)); }
-function aliveDummies() { const a = dummies.filter((d) => !d.dead); for (const r of remotes.values()) if (r.seen && !r.dead && !r.hidden && r.rig) a.push(r); return a; }
+function aliveDummies() { const a = dummies.filter((d) => !d.dead && (!d.duel || d.active)); for (const r of remotes.values()) if (r.seen && !r.dead && !r.hidden && r.rig) a.push(r); return a; }
 function nearestDummy(from, maxDist, frontOf) {
   let best = null, bd = maxDist;
   for (const d of aliveDummies()) {
@@ -3802,11 +3846,12 @@ function updatePlayer(dt) {
     const pel = ragPelvis(p.rag);
     p.pos.set(pel.x, groundY(pel.x, pel.z, pel.y + 0.5), pel.z); p.vel.set(0, 0, 0); p.speedNow = 0; p.ragGround = ragGrounded(p.rag);
     p.iframes = Math.max(0, p.iframes - dt);
-    if (pel.y < -25) { endRagdoll(p.rag); p.rag = null; p.dead = 0; respawn(); return; }
-    if (p.dead > 0) { p.dead -= dt; if (p.dead <= 0) { endRagdoll(p.rag); p.rag = null; respawn(); } return; }
+    if (pel.y < -25) { endRagdoll(p.rag, null); p.rag = null; p.dead = 0; respawn(); return; }
+    if (p.dead > 0) { p.dead -= dt; if (p.dead <= 0) { endRagdoll(p.rag, null); p.rag = null; respawn(); } return; }
     p.ragT -= dt; p.stun = Math.max(p.stun, 0.2);
     if (p.ragT <= 0 && ((p.ragGround && ragSpeed(p.rag) < 2.5) || p.rag.t > 5)) {
-      endRagdoll(p.rag); p.rag = null; p.ragGround = false; p.iframes = 0.75; p.stun = 0; rig.root.rotation.y = p.facing; playAnim('getup', 1.1);
+      endRagdoll(p.rag, () => { rig.root.position.copy(p.pos); rig.root.rotation.set(0, p.facing, 0); rig.body.position.set(0, 0, 0); rig.body.rotation.set(0, 0, 0); });
+      p.rag = null; p.ragGround = false; p.iframes = 0.75; p.stun = 0; playAnim('getup', 1.1);
     } else return;
   }
   if (p.dead > 0) { p.dead -= dt; p.vel.x *= 0.92; p.vel.z *= 0.92; moveBody(p, dt, 1); if (p.dead <= 0) respawn(); return; }
@@ -3880,7 +3925,7 @@ function basePose(p) {
     return { body: [0.05, 0, 0], shL: [-0.4 + w, 0, -0.9], shR: [-0.4 - w, 0, 0.9], elL: [-0.4, 0, 0], elR: [-0.4, 0, 0], hipL: [-0.4, 0, 0], knL: [0.6, 0, 0], hipR: [0.1, 0, 0], knR: [0.3, 0, 0] };
   }
   if (p.blocking) return { shL: [-1.35, 0, 0.55], elL: [-1.9, 0, 0], shR: [-1.35, 0, -0.55], elR: [-1.9, 0, 0], chest: [-0.1, 0, 0], neck: [0.15, 0, 0], knL: [0.4, 0, 0], knR: [0.4, 0, 0], hipL: [-0.25, 0, -0.1], hipR: [-0.25, 0, 0.1], lift: -0.1 };
-  if (p.remote ? p.channel : kit.channeling) return { shL: [-0.5, 0, -1.0], shR: [-0.5, 0, 1.0], elL: [-0.3, 0, 0], elR: [-0.3, 0, 0], chest: [-0.15, 0, 0], neck: [-0.2, 0, 0], knL: [0.5, 0, 0], knR: [0.5, 0, 0], hipL: [-0.35, 0, -0.1], hipR: [-0.35, 0, 0.1], lift: -0.12 + Math.sin(clock * 8) * 0.03 };
+  if (p === player ? kit.channeling : p.channel) return { shL: [-0.5, 0, -1.0], shR: [-0.5, 0, 1.0], elL: [-0.3, 0, 0], elR: [-0.3, 0, 0], chest: [-0.15, 0, 0], neck: [-0.2, 0, 0], knL: [0.5, 0, 0], knR: [0.5, 0, 0], hipL: [-0.35, 0, -0.1], hipR: [-0.35, 0, 0.1], lift: -0.12 + Math.sin(clock * 8) * 0.03 };
   const squash = -p.landT * 1.2;
   if (moving) {
     const ph = p.walkPhase, s = Math.sin(ph), c = Math.cos(ph), amt = Math.min(1, sp / 9);
@@ -3934,7 +3979,8 @@ function animateFighter(dt) {
 }
 function updateDummies(dt) {
   for (const d of dummies) {
-    dummyAI(d, dt);
+    if (d.duel && !d.active) { d.g.visible = false; d.bar.style.display = 'none'; continue; }
+    if (d.duel) duelAI(d, dt); else dummyAI(d, dt);
     d.wake = Math.max(0, (d.wake || 0) - dt);
     if (d.rag) {
       d.rag.t += dt;
@@ -3943,7 +3989,8 @@ function updateDummies(dt) {
       if (!d.dead) { d.down = Math.max(0, d.down - dt); d.stun = Math.max(d.stun, 0.3); }
       const getUp = !d.dead && d.down <= 0 && ((d.ragGround && ragSpeed(d.rag) < 2.5) || d.rag.t > 5);
       if (getUp || (d.dead && d.dead > 1.35) || pel.y < -25) {
-        endRagdoll(d.rag); d.rag = null; d.ragGround = false;
+        endRagdoll(d.rag, () => { d.g.position.copy(d.pos); d.pivot.quaternion.identity(); d.rig.root.position.set(0, 0, 0); d.rig.root.quaternion.identity(); d.rig.body.position.set(0, 0, 0); d.rig.body.rotation.set(0, 0, 0); d.g.updateMatrixWorld(true); });
+        d.rag = null; d.ragGround = false;
         if (getUp) { d.wake = 0.7; d.tilt = 0; d.down = 0; d.stun = 0; d.anim = { name: 'getup', t: 0, speed: 1.1 }; d.animW = 1; }
         if (pel.y < -25) { d.pos.copy(d.home); }
       } else {
@@ -3957,10 +4004,10 @@ function updateDummies(dt) {
     if (d.dead) {
       d.dead += dt;
       if (d.dead > 1.4 && d.g.visible) { burst(d.pos.clone().add(new THREE.Vector3(0, 1, 0)), 14, 7, [fxStraw, fxPaper]); d.g.visible = false; d.bar.style.display = 'none'; }
-      if (d.dead > 4) { d.dead = 0; d.hp = d.max; d.guard = 100; d.stitches = 0; d.marked = 0; d.pos.copy(d.home); d.vel.set(0, 0, 0); d.down = 0; d.tilt = 0; d.g.visible = true; d.g.scale.setScalar(0.01); ring(d.home.clone().add(new THREE.Vector3(0, 0.1, 0)), kit.color, 3, true); }
+      if (d.dead > 4 && !d.duel) { d.dead = 0; d.hp = d.max; d.guard = 100; d.stitches = 0; d.marked = 0; d.pos.copy(d.home); d.vel.set(0, 0, 0); d.down = 0; d.tilt = 0; d.g.visible = true; d.g.scale.setScalar(0.01); ring(d.home.clone().add(new THREE.Vector3(0, 0.1, 0)), kit.color, 3, true); }
       else if (d.dead < 1.4) moveBody(d, dt, 1);
     } else {
-      const k = Math.exp(-(d.grounded ? 7 : 0.6) * dt);
+      const k = d.moving ? 1 : Math.exp(-(d.grounded ? 7 : 0.6) * dt);
       d.vel.x *= k; d.vel.z *= k;
       if (d.rooted > 0) { d.rooted -= dt; d.vel.x = 0; d.vel.z = 0; }
       moveBody(d, dt, d.grabbed > 0 && d.vel.y > 0 ? 0.6 : 1);
@@ -3970,7 +4017,7 @@ function updateDummies(dt) {
       if (d.hp <= 0 && !d.dead) { d.dead = 0.0001; d.down = 99; }
       d.down = Math.max(0, d.down - dt); d.stun = Math.max(0, d.stun - dt); d.blind = Math.max(0, d.blind - dt); d.guardBreak = Math.max(0, d.guardBreak - dt);
       d.guard = Math.min(100, d.guard + dt * (dummyMode === 'block' ? 6 : 20));
-      if (d.down <= 0 && d.grounded && d.grabbed <= 0 && d.rooted <= 0) {
+      if (d.down <= 0 && d.grounded && d.grabbed <= 0 && d.rooted <= 0 && !d.duel) {
         const back = d.home.clone().sub(d.pos); back.y = 0;
         if (back.length() > 0.05) d.pos.addScaledVector(back, Math.min(1, dt * 1.2));
       }
@@ -3982,9 +4029,9 @@ function updateDummies(dt) {
     d.g.position.copy(d.pos);
     if (hitStop > 0 && d.flash > 0) { d.g.position.x += rv(0.2); d.g.position.z += rv(0.2); d.g.position.y += rv(0.08); }
     if (d.g.scale.x < 1) d.g.scale.setScalar(Math.min(1, d.g.scale.x + dt * 3));
-    const blocking = dummyMode === 'block' && !d.dead && d.guardBreak <= 0 && d.down <= 0 && d.blind <= 0;
-    const facingPlayer = blocking || (dummyMode === 'attack' && !d.dead && d.down <= 0);
-    if (facingPlayer) { const tgt = d.face != null && dummyMode === 'attack' ? d.face : Math.atan2(player.pos.x - d.pos.x, player.pos.z - d.pos.z); let df = tgt - d.g.rotation.y; df = Math.atan2(Math.sin(df), Math.cos(df)); d.g.rotation.y += df * (1 - Math.exp(-8 * dt)); }
+    const blocking = (d.duel ? d.duelBlock > 0 : dummyMode === 'block') && !d.dead && d.guardBreak <= 0 && d.down <= 0 && d.blind <= 0;
+    const facingPlayer = blocking || ((dummyMode === 'attack' || d.duel) && !d.dead && d.down <= 0);
+    if (facingPlayer) { const tgt = d.face != null && (dummyMode === 'attack' || d.duel) ? d.face : Math.atan2(player.pos.x - d.pos.x, player.pos.z - d.pos.z); let df = tgt - d.g.rotation.y; df = Math.atan2(Math.sin(df), Math.cos(df)); d.g.rotation.y += df * (1 - Math.exp(-8 * dt)); }
     d.shield.visible = blocking; d.shield.material.opacity = 0.15 + 0.3 * (d.guard / 100);
     // body animation
     let P = dummyPose(d, blocking);
@@ -4004,6 +4051,10 @@ function updateDummies(dt) {
 }
 const AI_CLIP = { jab: ['m1a', 0.035], haymaker: ['haymaker', 0.3], toss: ['throw', 0.05] };
 function dummyPose(d, blocking) {
+  if (d.duel && !d.dead && d.down <= 0 && d.grabbed <= 0 && d.stun <= 0.3 && d.guardBreak <= 0 && d.blind <= 0 && !blocking && !(d.ai.wind > 0)) {
+    const ps = d.pseudo; ps.speedNow = Math.hypot(d.vel.x, d.vel.z); ps.grounded = d.grounded; ps.walkPhase += 0.016 * ps.speedNow * 1.15; ps.lastCombat = clock; ps.dashT = d.ai.dashT > 0 ? 0.1 : 0;
+    return basePose(ps);
+  }
   if (d.dead || d.down > 0) return { shL: [-0.3, 0, -0.9], shR: [-0.3, 0, 0.9], elL: [-0.2, 0, 0], elR: [-0.2, 0, 0], neck: [0.4, 0, 0], knL: [0.2, 0, 0], knR: [0.5, 0, 0] };
   if (d.grabbed > 0) return { shL: [-2.6, 0, -0.5], shR: [-2.4, 0, 0.6], elL: [-0.6, 0, 0], elR: [-0.4, 0, 0], hipL: [-0.6, 0, 0], knL: [1.2, 0, 0], hipR: [0.3, 0, 0], knR: [0.5, 0, 0], neck: [-0.4, 0, Math.sin(clock * 20) * 0.3] };
   if (d.blind > 0) return { shL: [-2.2, 0, 0.6], elL: [-2.0, 0, 0], shR: [-2.2, 0, -0.6], elR: [-2.0, 0, 0], neck: [0.3, 0, 0], body: [0, 0, Math.sin(clock * 6) * 0.08], knL: [0.3, 0, 0], knR: [0.3, 0, 0] };
@@ -4635,7 +4686,7 @@ function updateRemotes(dt) {
     r.marked = Math.max(0, r.marked - dt);
     const R = r.rig;
     if (r.rg) { R.root.visible = !r.hidden; unpackRag(R, r.rg); r.wasRg = true; updateRemoteAnchor(r); const s0 = toScreen(v3.copy(r.pos).add(new THREE.Vector3(0, 1.6, 0))); r.tag.style.display = s0.ok ? 'block' : 'none'; if (s0.ok) { r.tag.style.left = s0.x + 'px'; r.tag.style.top = s0.y + 'px'; r.tagHp.style.width = Math.max(0, r.hp) + '%'; } continue; }
-    if (r.wasRg) { r.wasRg = false; R.hip.position.set(0, 0.98, 0); }
+    if (r.wasRg) { r.wasRg = false; rebaseHip(R, () => { R.root.position.copy(r.pos); R.root.rotation.set(0, r.facing, 0); }); }
     R.root.position.copy(r.pos); R.root.position.y -= r.sinkY; R.root.rotation.y = r.facing; R.root.visible = !r.hidden;
     r.walkPhase += dt * (r.grounded && r.speedNow > 0.5 ? r.speedNow * 1.15 : 0);
     let RP = basePose(r);
@@ -5140,11 +5191,180 @@ function makeChefKit() {
 Object.assign(FXF, { snake: vfxSnake, bear: vfxBear, wolves: vfxWolves, owl: vfxOwl, dragon: vfxDragon, crows: vfxCrows, chefTool: vfxChefTool, flame: vfxFlame, pot: vfxPot, spice: (at) => { for (let i = 0; i < 30; i++) P({ tex: 'smoke', add: false, color: i % 3 ? 0xc0381c : 0x8a5a1a, pos: at.clone().add(new THREE.Vector3(rv(3), 0.4 + Math.random() * 2, rv(3))), vel: randDir(0.5).multiplyScalar(3), life: 1.5, s0: 1, s1: 3, drag: 2, a: 0.75, fadeIn: 0.1 }); } });
 KITS.umbra = makeUmbraKit; KITS.chef = makeChefKit;
 
+// ---------- 1v1 duel vs the Sparring Master ----------
+const duel = { on: false, d: null, state: 'off', t: 0, enraged: false };
+Object.assign(AI_CLIP, { combo: ['m1a', 0.035], spin: ['m1d', 0.08], upper: ['upper', 0.07], slam: ['slam', 0.07], dash: ['haymaker', 0.3], wave: ['cast', 0.06] });
+const DUEL_WIND = { combo: 0.32, spin: 0.55, upper: 0.42, slam: 0.75, dash: 0.45, wave: 0.6 };
+function makeDuelist() {
+  const d = makeDummy(ARENA.x, ARENA.y, ARENA.z - 9);
+  const cols = [0x5a3a2a, 0x4a2e22, 0x3a2418];
+  d.mats.forEach((m, i) => { m.color.setHex(cols[i % 3]).convertSRGBToLinear(); });
+  d.rig.neck.add(part(0.54, 0.1, 0.54, toon(0xc0392b), 0, 0.36, 0));
+  d.rig.neck.add(part(0.08, 0.34, 0.03, toon(0xc0392b), 0.1, 0.22, -0.27));
+  d.rig.neck.add(part(0.08, 0.3, 0.03, toon(0xc0392b), -0.06, 0.2, -0.27));
+  d.duel = true; d.active = false; d.max = 160; d.hp = 160; d.g.visible = false;
+  d.ai = { cd: 1.2, wind: 0, kind: null, act: null, seq: null, dashT: 0, strafe: 1, n: 0 };
+  d.pseudo = { speedNow: 0, grounded: true, walkPhase: 0, dashT: 0, blocking: false, stun: 0, dead: 0, move: null, vel: d.vel, landT: 0, lastCombat: 0, channel: false };
+  dummies.push(d);
+  blobShadow(() => (d.active && d.g.visible && !d.dead ? d.pos : null), 1.25);
+  return d;
+}
+function duelAI(d, dt) {
+  const ai = d.ai, P = player;
+  d.moving = false;
+  if (!duel.on || duel.state !== 'fight' || d.dead) { ai.wind = 0; return; }
+  const toP = P.pos.clone().sub(d.pos); toP.y = 0;
+  const dist = toP.length(), dir = dist > 0.01 ? toP.clone().divideScalar(dist) : new THREE.Vector3(0, 0, 1);
+  d.face = Math.atan2(dir.x, dir.z);
+  const spd = duel.enraged ? 1.3 : 1;
+  ai.cd -= dt; d.duelBlock = Math.max(0, (d.duelBlock || 0) - dt);
+  const canAct = d.down <= 0 && d.stun <= 0 && d.guardBreak <= 0 && d.blind <= 0 && d.grabbed <= 0 && !d.rag && P.dead <= 0;
+  if (!canAct) { ai.wind = 0; ai.act = null; ai.seq = null; return; }
+  if (ai.dashT > 0) { ai.dashT -= dt; d.vel.x = dir.x * 24; d.vel.z = dir.z * 24; d.moving = true; if (ai.dashT <= 0 || dist < 2.2) { ai.dashT = 0; duelHit(d, 'dash', dir, dist); } return; }
+  if (ai.seq) {
+    ai.seq.t += dt;
+    const marks = [0, 0.28, 0.56];
+    while (ai.seq.hits < 3 && ai.seq.t >= marks[ai.seq.hits] / spd) { ai.seq.hits++; duelHit(d, 'combo', dir, dist, ai.seq.hits); }
+    if (ai.seq.hits >= 3) { ai.seq = null; ai.cd = (0.7 + Math.random() * 0.6) / spd; }
+    return;
+  }
+  if (ai.wind > 0) { ai.wind -= dt; if (ai.wind <= 0) duelStrike(d, ai.act, dir, dist); return; }
+  // react to the player's attacks by blocking sometimes
+  const pAtk = P.atk.t < P.atk.dur || !!P.move;
+  if (pAtk && dist < 4.2 && d.duelBlock <= 0 && Math.random() < dt * (duel.enraged ? 4 : 2.8)) d.duelBlock = 0.55 + Math.random() * 0.3;
+  if (d.duelBlock > 0) return;
+  if (ai.cd <= 0) {
+    let kind;
+    if (dist < 3) kind = ['combo', 'combo', 'spin', 'upper', 'slam'][(Math.random() * 5) | 0];
+    else if (dist < 6) kind = Math.random() < 0.5 ? 'slam' : 'dash';
+    else if (dist < 12) kind = Math.random() < 0.7 ? 'dash' : 'wave';
+    else kind = 'wave';
+    ai.act = kind; ai.kind = kind === 'slam' || kind === 'spin' ? 'haymaker' : kind; ai.wind = DUEL_WIND[kind] / spd; ai.windMax = ai.wind;
+    if (kind === 'slam') { const r = new THREE.Mesh(new THREE.RingGeometry(3.6, 4.2, 40), new THREE.MeshBasicMaterial({ color: 0xff3a3a, transparent: true, opacity: 0.7, depthWrite: false })); r.rotation.x = -Math.PI / 2; r.position.copy(d.pos).add(new THREE.Vector3(0, 0.08, 0)); tempMesh(r, ai.wind, (m, k) => { m.material.opacity = 0.3 + Math.abs(Math.sin(k * 20)) * 0.5; }); }
+    return;
+  }
+  // footwork: close in, keep a little distance, circle the player
+  ai.strafeT = (ai.strafeT || 0) - dt; if (ai.strafeT <= 0) { ai.strafe = Math.random() < 0.5 ? -1 : 1; ai.strafeT = 1 + Math.random(); }
+  const side = new THREE.Vector3(dir.z, 0, -dir.x).multiplyScalar(ai.strafe * 0.45);
+  const fwd = dist > 2.6 ? 1 : dist < 1.7 ? -0.6 : 0;
+  const want = dir.clone().multiplyScalar(fwd).add(side).normalize().multiplyScalar(7.5 * spd);
+  const k = 1 - Math.exp(-10 * dt);
+  d.vel.x += (want.x - d.vel.x) * k; d.vel.z += (want.z - d.vel.z) * k; d.moving = true;
+}
+function duelStrike(d, kind, dir, dist) {
+  const ai = d.ai; ai.act = null;
+  const c = AI_CLIP[kind]; d.anim = { name: c[0], t: c[1], speed: 1 }; d.animW = 1;
+  if (kind === 'combo') { ai.seq = { t: 0, hits: 0 }; return; }
+  if (kind === 'dash') { ai.dashT = 0.3; return; }
+  duelHit(d, kind, dir, dist);
+  ai.cd = (0.8 + Math.random() * 0.7) / (duel.enraged ? 1.3 : 1);
+}
+function duelHit(d, kind, dir, dist, n) {
+  const P = player, col = duel.enraged ? 0xff3a3a : 0xffb07a, at = d.pos.clone().add(new THREE.Vector3(0, 1.4, 0)).addScaledVector(dir, 1.1);
+  const near = (r) => dist < r && Math.abs(P.pos.y - d.pos.y) < 2.5;
+  if (kind === 'combo') {
+    d.anim = { name: ['m1a', 'm1b', 'm1c'][n - 1], t: 0.035, speed: 1 }; d.animW = 1;
+    slashArc(col, 1.35, n === 2 ? -0.3 : 0.3, n === 2, 0.9, d.pos, d.face);
+    if (near(2.9)) hitPlayer({ dmg: n === 3 ? 6 : 4, type: 'b', heavy: n === 3, kb: dir.clone().multiplyScalar(n === 3 ? 10 : 4).setY(n === 3 ? 3 : 0) }, d);
+  } else if (kind === 'spin') {
+    slashArc(col, 0.9, 0.1, false, 1.3, d.pos, d.face); sparks(at, 6, col, 1.4);
+    if (near(3.3)) hitPlayer({ dmg: 9, type: 'x', heavy: true, set: true, down: 1.2, kb: dir.clone().multiplyScalar(14).setY(5) }, d);
+  } else if (kind === 'upper') {
+    slashArc(col, 1.6, 1.3, false, 1.1, d.pos, d.face);
+    if (near(2.9)) hitPlayer({ dmg: 7, type: 'b', heavy: true, set: true, down: 1.3, kb: dir.clone().multiplyScalar(2).setY(15) }, d);
+  } else if (kind === 'slam') {
+    ring(d.pos.clone(), col, 5, true); dust(d.pos.clone().add(new THREE.Vector3(0, 0.2, 0)), 10, 6); addShake(0.5);
+    if (near(4.2)) hitPlayer({ dmg: 10, type: 'x', heavy: true, set: true, down: 1.2, kb: dir.clone().multiplyScalar(10).setY(6) }, d);
+  } else if (kind === 'dash') {
+    d.vel.x *= 0.2; d.vel.z *= 0.2; d.anim = { name: 'haymaker', t: 0.3, speed: 1 }; d.animW = 1;
+    slashArc(col, 1.4, 0.1, false, 1.2, d.pos, d.face);
+    if (near(3.3)) hitPlayer({ dmg: 8, type: 'b', heavy: true, set: true, kb: dir.clone().multiplyScalar(14).setY(4) }, d);
+    d.ai.cd = (0.9 + Math.random() * 0.6) / (duel.enraged ? 1.3 : 1);
+  } else if (kind === 'wave') {
+    const geo = new THREE.RingGeometry(0.9, 1.3, 32, 1, -0.9, 1.8); const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: col, transparent: true, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false }));
+    m.rotation.x = -Math.PI / 2; const holder = new THREE.Group(); holder.add(m); m.rotation.z = Math.atan2(dir.z, dir.x) * -1;
+    spawnProj({ owner: 'dummy', mesh: holder, pos: d.pos.clone().add(new THREE.Vector3(0, 0.6, 0)).addScaledVector(dir, 1), vel: dir.clone().multiplyScalar(18), grav: 0, life: 1.3, trailMat: fxRed,
+      onPlayer: () => hitPlayer({ dmg: 6, type: 'p', kb: dir.clone().multiplyScalar(6).setY(3) }, d), onWorld: (p) => sparks(p, 5, col, 1) });
+  }
+}
+function startDuel() {
+  $('menu').classList.remove('show');
+  if (awakened) endAwaken();
+  if (player.rag) { endRagdoll(player.rag, null); player.rag = null; }
+  if (!duel.d) duel.d = makeDuelist();
+  const d = duel.d;
+  Object.assign(d, { active: true, dead: 0, hp: d.max, stun: 0, down: 0, guard: 100, guardBreak: 0, blind: 0, grabbed: 0, stitches: 0, marked: 0, rooted: 0, wake: 0, duelBlock: 0 });
+  if (d.rag) { endRagdoll(d.rag, null); d.rag = null; }
+  d.ai = { cd: 0.8, wind: 0, kind: null, act: null, seq: null, dashT: 0, strafe: 1, n: 0 };
+  d.pos.set(ARENA.x, ARENA.y, ARENA.z - 9); d.vel.set(0, 0, 0); d.g.visible = true; d.g.scale.setScalar(1);
+  player.pos.set(ARENA.x, ARENA.y, ARENA.z + 9); player.vel.set(0, 0, 0); player.hp = player.maxHp; player.dead = 0; player.stun = 0; player.facing = Math.PI; player.move = null;
+  yaw = 0; pitch = 0.25; awk = 0; camTarget.copy(player.pos).add(new THREE.Vector3(0, 1.8, 0));
+  duel.on = true; duel.state = 'count'; duel.t = 3; duel.enraged = false;
+  $('boss').classList.add('show'); $('chipDuel').textContent = 'Leave duel';
+  callout('3'); later(1, () => duel.on && callout('2')); later(2, () => duel.on && callout('1')); later(3, () => { if (duel.on) { duel.state = 'fight'; callout('FIGHT!', 'Sparring Master'); } });
+}
+function endDuel(result) {
+  if (!duel.on) return;
+  duel.on = false; duel.state = 'off'; $('boss').classList.remove('show'); $('chipDuel').textContent = '1v1 Battle Dummy';
+  if (result === 'win') { callout('VICTORY', 'You beat the Sparring Master'); burst(duel.d.pos.clone().add(new THREE.Vector3(0, 2, 0)), 50, 10, [fxConfetti]); }
+  if (result === 'lose') callout('DEFEATED', 'Train up and try again');
+  const d = duel.d;
+  later(result === 'leave' ? 0 : 3, () => {
+    if (d.rag) { endRagdoll(d.rag, null); d.rag = null; }
+    d.active = false; d.g.visible = false; d.bar.style.display = 'none';
+    if (result !== 'lose' && player.pos.z > 120) { player.pos.set(0, T1, 44); player.vel.set(0, 0, 0); player.hp = player.maxHp; camTarget.copy(player.pos).add(new THREE.Vector3(0, 1.8, 0)); }
+  });
+}
+function duelTick(dt) {
+  if (!duel.on) return;
+  const d = duel.d;
+  $('bossFill').style.width = Math.max(0, d.hp / d.max * 100) + '%';
+  if (!duel.enraged && d.hp < d.max / 2 && d.hp > 0) { duel.enraged = true; callout('ENRAGED', 'He hits faster now'); ring(d.pos.clone().add(new THREE.Vector3(0, 1.2, 0)), 0xff3a3a, 5); $('boss').classList.add('rage'); }
+  if (!duel.enraged) $('boss').classList.remove('rage');
+  if (duel.enraged && Math.random() < 0.4 && !d.dead) P({ tex: 'glow', color: 0xff3a3a, pos: d.pos.clone().add(new THREE.Vector3(rv(1), 0.3 + Math.random() * 1.8, rv(1))), vel: new THREE.Vector3(0, 2, 0), life: 0.6, s0: 0.35, s1: 0.05 });
+  if (d.dead) endDuel('win');
+  else if (player.dead > 0) endDuel('lose');
+}
+$('chipDuel').addEventListener('click', (e) => { e.stopPropagation(); if (duel.on) endDuel('leave'); else startDuel(); e.currentTarget.blur(); });
+
+// ---------- Performance: automatic resolution + low graphics ----------
+let frameN = 0;
+const GFX = { low: false };
+try { GFX.low = localStorage.getItem('wsv-gfx') === 'low'; } catch (err) { /* ok */ }
+const PR = { max0: Math.min(window.devicePixelRatio || 1, isTouch ? 1.3 : 1.75), max: 1, cur: 1, min: 0.6, acc: 0, n: 0, low: 0, high: 0, tipped: false };
+PR.max = PR.max0; PR.cur = PR.max;
+function applyPR() {
+  renderer.setPixelRatio(PR.cur);
+  if (composer && composer.setPixelRatio) composer.setPixelRatio(PR.cur);
+  resize(); if (composer) composer.setSize(window.innerWidth, window.innerHeight);
+}
+function perfTick(rawDt) {
+  if (rawDt > 0.5) return;
+  PR.acc += rawDt; PR.n++;
+  if (PR.acc < 1) return;
+  const fps = PR.n / PR.acc; PR.acc = 0; PR.n = 0;
+  if (fps < 45) { PR.low++; PR.high = 0; } else if (fps > 57) { PR.high++; PR.low = 0; } else { PR.low = 0; PR.high = 0; }
+  if (PR.low >= 2 && PR.cur > PR.min) { PR.cur = Math.max(PR.min, +(PR.cur - 0.15).toFixed(2)); applyPR(); PR.low = 0; }
+  if (PR.high >= 4 && PR.cur < PR.max) { PR.cur = Math.min(PR.max, +(PR.cur + 0.1).toFixed(2)); applyPR(); PR.high = 0; }
+  if (fps < 28 && PR.cur <= PR.min && !GFX.low && !PR.tipped && started) { PR.tipped = true; toast('Running slow? Try Menu → Graphics: Low'); }
+}
+function applyGfx() {
+  renderer.shadowMap.enabled = !GFX.low;
+  scene.traverse((o) => { const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : []; ms.forEach((m) => { m.needsUpdate = true; }); });
+  if (window.__grass) window.__grass.visible = !GFX.low;
+  petals.visible = !GFX.low;
+  PR.max = GFX.low ? Math.min(1, PR.max0) : PR.max0; PR.cur = Math.min(PR.cur, PR.max); if (!GFX.low) PR.cur = PR.max; applyPR();
+  $('chipGfx').textContent = 'Graphics: ' + (GFX.low ? 'Low' : 'High'); $('chipGfx').classList.toggle('on', GFX.low);
+}
+$('chipGfx').addEventListener('click', (e) => { e.stopPropagation(); GFX.low = !GFX.low; try { localStorage.setItem('wsv-gfx', GFX.low ? 'low' : 'high'); } catch (err) { /* ok */ } applyGfx(); toast(GFX.low ? 'Graphics: Low. Effects and shadows off for speed' : 'Graphics: High'); e.currentTarget.blur(); });
+applyGfx();
+
 // ---------- Loop ----------
 let last = performance.now();
 function frame(now) {
   requestAnimationFrame(frame);
-  const dt = Math.min(0.033, (now - last) / 1000); last = now;
+  const rawDt = (now - last) / 1000; const dt = Math.min(0.033, rawDt); last = now;
+  perfTick(rawDt);
   clock += dt;
   let gdt = dt;
   if (hitStop > 0) { hitStop -= dt; gdt = 0; }
@@ -5158,17 +5378,18 @@ function frame(now) {
   animateFighter(freezeT > 0 ? dt : (gdt || dt * 0.1));
   updateFX(freezeT > 0 ? dt : (gdt || dt * 0.15));
   auraTick(dt);
+  duelTick(dt);
   updateDrops(gdt || dt * 0.1); updateBlobs();
   hitLightT -= dt; hitLight.intensity = hitLightT > 0 ? hitLight.intensity * Math.exp(-14 * dt) : 0;
   blurStr = Math.max(0, blurStr - dt * 3.5); if (blurPass) { blurPass.enabled = blurStr > 0.02; blurPass.uniforms.uStr.value = blurStr; }
   stageTick(dt);
   NETCAP = false; envTick(dt); NETCAP = true;
   netTick(dt);
-  linearize();
+  if ((frameN = (frameN + 1) % 5) === 0) linearize();
   updateAmbient(dt);
   if (!started) yaw += dt * 0.08;
   updateCamera(dt);
-  if (composer) composer.render(); else renderer.render(scene, camera);
+  if (composer && !GFX.low) composer.render(); else renderer.render(scene, camera);
   updateDOM(dt);
 }
 requestAnimationFrame(frame);
