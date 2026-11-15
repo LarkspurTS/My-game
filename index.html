@@ -949,7 +949,7 @@ function toon(color, extra) {
 const smCache = {};
 function SM(color, extra) {
   const key = color + (extra ? JSON.stringify(extra) : '');
-  if (!smCache[key]) smCache[key] = toon(color, extra);
+  if (!smCache[key]) { smCache[key] = toon(color, extra); smCache[key].userData.shared = true; }
   return smCache[key];
 }
 window.__SM = SM;
@@ -1067,92 +1067,131 @@ function mixPose(a, b, k) {
 }
 const easeOut = (k) => 1 - Math.pow(1 - k, 3);
 const PI2 = Math.PI * 2;
-const GUARD = { shL: [-1.0, 0, 0.25], elL: [-1.8, 0, 0], shR: [-1.0, 0, -0.25], elR: [-1.8, 0, 0], knL: [0.3, 0, 0], knR: [0.3, 0, 0], lift: -0.06 };
+// Pose conventions: arm x<0 raises forward; left arm z<0 / right arm z>0 swings outward.
+// Leg x<0 swings forward, knee x>0 bends. chest/waist y<0 turns the right shoulder forward.
+// 'fwd' slides the body forward (meters), 'lift' raises/lowers it.
+const GUARD = { shL: [-0.95, 0, 0.3], elL: [-1.95, 0, 0], shR: [-0.85, 0, -0.3], elR: [-2.05, 0, 0], chest: [0.06, 0.22, 0], waist: [0, 0.12, 0], neck: [0.05, -0.2, 0], hipL: [-0.2, 0, -0.12], knL: [0.35, 0, 0], hipR: [0.12, 0, 0.12], knR: [0.4, 0, 0], lift: -0.08 };
+const GD = (o) => Object.assign({}, GUARD, o);
 const CLIPS = {
-  m1a: [[0, { waist: [0, -0.25, 0], chest: [0, -0.35, 0], shR: [0.2, 0, -0.2], elR: [-2.0, 0, 0], shL: [-1.0, 0, 0.25], elL: [-1.8, 0, 0], hipL: [-0.3, 0, 0], knL: [0.3, 0, 0], knR: [0.3, 0, 0], lift: -0.06 }],
-    [0.07, { waist: [0, 0.25, 0], chest: [0.1, 0.45, 0], shR: [-1.6, 0, -0.05], elR: [-0.05, 0, 0], shL: [-0.9, 0, 0.3], elL: [-1.9, 0, 0], hipL: [-0.45, 0, 0], knL: [0.35, 0, 0], hipR: [0.2, 0, 0], knR: [0.2, 0, 0], body: [0.12, 0, 0], lift: -0.08 }],
-    [0.26, { waist: [0, 0.1, 0], chest: [0, 0.15, 0], shR: [-1.1, 0, -0.15], elR: [-1.2, 0, 0], shL: [-1.0, 0, 0.25], elL: [-1.8, 0, 0], knL: [0.3, 0, 0], knR: [0.3, 0, 0], lift: -0.06 }]],
-  m1b: [[0, { waist: [0, 0.25, 0], chest: [0, 0.35, 0], shL: [0.2, 0, 0.3], elL: [-1.8, 0, 0], shR: [-1.0, 0, -0.25], elR: [-1.8, 0, 0], lift: -0.06 }],
-    [0.07, { waist: [0, -0.3, 0], chest: [0.1, -0.55, 0], shL: [-1.5, -0.5, 0.9], elL: [-1.2, 0, 0], shR: [-0.9, 0, -0.3], elR: [-1.9, 0, 0], hipR: [-0.4, 0, 0], knR: [0.35, 0, 0], body: [0.1, 0, 0], lift: -0.08 }],
-    [0.26, { chest: [0, -0.15, 0], shL: [-1.1, 0, 0.2], elL: [-1.4, 0, 0], shR: [-1.0, 0, -0.25], elR: [-1.8, 0, 0], knL: [0.3, 0, 0], knR: [0.3, 0, 0], lift: -0.06 }]],
-  m1c: [[0, { chest: [-0.15, 0, 0], hipR: [0.2, 0, 0], shR: [0.3, 0, -0.3], elR: [-1.6, 0, 0], shL: [-1, 0, 0.3], elL: [-1.8, 0, 0], lift: -0.1 }],
-    [0.08, { body: [-0.1, 0, 0], chest: [0.25, 0, 0], hipR: [-1.7, 0, 0], knR: [2.0, 0, 0], knL: [0.15, 0, 0], shR: [-0.4, 0, -0.9], elR: [-2.2, 0, 0], shL: [-0.6, 0, 0.7], elL: [-2.0, 0, 0], lift: 0.12 }],
-    [0.26, { hipR: [-0.4, 0, 0], knR: [0.6, 0, 0], shR: [-1, 0, -0.3], elR: [-1.6, 0, 0], shL: [-1, 0, 0.3], elL: [-1.8, 0, 0], knL: [0.3, 0, 0] }]],
-  m1d: [[0, { body: [0, 0.6, 0], chest: [0, 0.3, 0], shL: [-0.6, 0, 0.6], elL: [-1.5, 0, 0], shR: [-0.6, 0, -0.6], elR: [-1.5, 0, 0], knL: [0.5, 0, 0], knR: [0.5, 0, 0], lift: -0.15 }],
-    [0.15, { body: [0, -1.5, -0.25], chest: [0, -0.2, 0], hipR: [-0.6, 0, 1.45], knR: [0.1, 0, 0], hipL: [0, 0, -0.1], knL: [0.2, 0, 0], shL: [-0.3, 0, -1.0], shR: [0.2, 0, 1.0], elL: [-0.6, 0, 0], elR: [-0.4, 0, 0], lift: 0.05 }],
-    [0.4, Object.assign({}, GUARD, { hipR: [-0.2, 0, 0.2] })]],
-  upper: [[0, { body: [0.25, 0, 0], knL: [1.0, 0, 0], knR: [1.0, 0, 0], hipL: [-0.8, 0, 0], hipR: [-0.6, 0, 0], shR: [0.6, 0, -0.2], elR: [-1.8, 0, 0], shL: [-1, 0, 0.3], elL: [-1.8, 0, 0], lift: -0.35 }],
-    [0.14, { body: [-0.2, 0, 0], chest: [-0.25, 0.3, 0], shR: [-3.0, 0, 0.2], elR: [-0.2, 0, 0], shL: [-0.2, 0, 0.5], elL: [-0.8, 0, 0], hipR: [-0.6, 0, 0], knR: [1.2, 0, 0], lift: 0.25 }],
-    [0.4, { shR: [-2.4, 0, 0], elR: [-0.6, 0, 0], chest: [-0.1, 0, 0] }]],
-  slam: [[0, { body: [-0.2, 0, 0], shL: [-3, 0, 0.2], shR: [-3, 0, -0.2], elL: [-0.3, 0, 0], elR: [-0.3, 0, 0], knL: [0.6, 0, 0], knR: [0.6, 0, 0], hipL: [-0.6, 0, 0], hipR: [-0.6, 0, 0] }],
-    [0.15, { body: [0.55, 0, 0], chest: [0.3, 0, 0], shL: [-0.5, 0, 0.1], shR: [-0.5, 0, -0.1], elL: [-0.2, 0, 0], elR: [-0.2, 0, 0], hipL: [-1.2, 0, 0], hipR: [-1.2, 0, 0], knL: [1.4, 0, 0], knR: [1.4, 0, 0] }],
-    [0.4, { body: [0.2, 0, 0], shL: [-0.3, 0, 0.2], shR: [-0.3, 0, -0.2] }]],
-  throw: [[0, { chest: [-0.1, -0.5, 0], shR: [-2.9, 0, -0.3], elR: [-1.2, 0, 0], shL: [-1.2, 0, 0.3], elL: [-0.5, 0, 0], hipL: [-0.4, 0, 0], knR: [0.3, 0, 0] }],
-    [0.1, { chest: [0.2, 0.45, 0], body: [0.12, 0, 0], shR: [-1.4, 0, -0.1], elR: [-0.05, 0, 0], shL: [0.3, 0, 0.3], elL: [-0.6, 0, 0], hipL: [-0.5, 0, 0], knL: [0.4, 0, 0], hipR: [0.3, 0, 0] }],
-    [0.32, { chest: [0.05, 0.15, 0], shR: [-0.9, 0, -0.1], elR: [-0.5, 0, 0], shL: [-0.2, 0, 0.2] }]],
-  fan: [[0, { chest: [0, 0.8, 0], waist: [0, 0.3, 0], shR: [-1.3, 1.2, -0.2], elR: [-1.0, 0, 0], shL: [-0.8, 0, 0.3], elL: [-1.5, 0, 0] }],
-    [0.1, { chest: [0.1, -0.6, 0], waist: [0, -0.3, 0], shR: [-1.5, -1.0, -0.2], elR: [-0.05, 0, 0], body: [0.1, 0, 0], hipL: [-0.4, 0, 0], knL: [0.4, 0, 0] }],
-    [0.32, { chest: [0, -0.3, 0], shR: [-1.1, -0.6, -0.2], elR: [-0.5, 0, 0] }]],
-  cast: [[0, { chest: [-0.15, 0, 0], shL: [-0.3, 0, 0.6], shR: [-0.3, 0, -0.6], elL: [-1.5, 0, 0], elR: [-1.5, 0, 0], lift: -0.05 }],
-    [0.12, { body: [0.1, 0, 0], shL: [-1.55, 0, 0.1], shR: [-1.55, 0, -0.1], elL: [-0.05, 0, 0], elR: [-0.05, 0, 0], hipL: [-0.4, 0, 0], knL: [0.4, 0, 0], hipR: [0.3, 0, 0] }],
-    [0.4, { shL: [-1.2, 0, 0.2], shR: [-1.2, 0, -0.2], elL: [-0.4, 0, 0], elR: [-0.4, 0, 0] }]],
-  point: [[0, { chest: [0, -0.4, 0], shR: [-0.4, 0, -1.0], elR: [-1.0, 0, 0], shL: [0.2, 0, -0.7], elL: [-1.6, 0, 0] }],
-    [0.12, { chest: [0, 0.35, 0], shR: [-1.6, 0, -0.1], elR: [0, 0, 0], shL: [0.3, 0, -0.6], elL: [-1.8, 0, 0], neck: [0, 0.2, 0], hipL: [-0.3, 0, -0.2], knL: [0.2, 0, 0] }],
-    [0.45, { chest: [0, 0.3, 0], shR: [-1.5, 0, -0.1], elR: [-0.1, 0, 0], shL: [0.3, 0, -0.6], elL: [-1.8, 0, 0], neck: [0, 0.2, 0] }]],
-  draw: [[0, { shR: [-2.5, 0, -0.4], elR: [-0.6, 0, 0], chest: [-0.2, -0.3, 0], shL: [-0.6, 0, 0.4], elL: [-1, 0, 0] }],
-    [0.15, { shR: [-1.6, 0.6, -1.2], elR: [-0.4, 0, 0], chest: [0, 0.3, 0] }],
-    [0.3, { shR: [-2.4, -0.4, -0.3], elR: [-0.5, 0, 0], chest: [-0.1, -0.2, 0] }],
-    [0.45, { shR: [-1.4, 0, -0.6], elR: [-0.6, 0, 0] }]],
-  spin: [[0, { shL: [-0.2, 0, -1.5], shR: [-0.2, 0, 1.5], elL: [-0.2, 0, 0], elR: [-0.2, 0, 0], knL: [0.4, 0, 0], knR: [0.4, 0, 0], lift: -0.1 }],
-    [0.25, { body: [0, Math.PI, 0], shL: [-0.2, 0, -1.5], shR: [-0.2, 0, 1.5], knL: [0.2, 0, 0], knR: [0.2, 0, 0], lift: 0.08 }],
-    [0.5, { body: [0, PI2, 0], shL: [-0.4, 0, -1.2], shR: [-0.4, 0, 1.2], knL: [0.4, 0, 0], knR: [0.4, 0, 0], lift: -0.08 }]],
-  stab: [[0, { shL: [-2.9, 0, 0.2], shR: [-2.9, 0, -0.2], elL: [-0.4, 0, 0], elR: [-0.4, 0, 0], chest: [-0.25, 0, 0], hipL: [-0.3, 0, 0], lift: 0.05 }],
-    [0.14, { body: [0.5, 0, 0], chest: [0.4, 0, 0], shL: [-0.9, 0, 0.1], shR: [-0.9, 0, -0.1], elL: [-0.1, 0, 0], elR: [-0.1, 0, 0], hipL: [-1.3, 0, 0], knL: [1.3, 0, 0], hipR: [0.6, 0, 0], knR: [1.2, 0, 0], lift: -0.4 }],
-    [0.5, { body: [0.25, 0, 0], shL: [-1.0, 0, 0.1], shR: [-1.0, 0, -0.1], hipL: [-0.8, 0, 0], knL: [0.9, 0, 0], knR: [0.6, 0, 0], lift: -0.2 }]],
-  grab: [[0, { body: [0.25, 0, 0], shL: [-1.6, 0, 0.3], shR: [-1.6, 0, -0.3], elL: [-0.1, 0, 0], elR: [-0.1, 0, 0], hipL: [-0.6, 0, 0], knL: [0.5, 0, 0], hipR: [0.4, 0, 0] }],
-    [0.18, { body: [-0.15, 0, 0], shL: [-0.4, 0, 0.2], shR: [-0.4, 0, -0.2], elL: [-1.8, 0, 0], elR: [-1.8, 0, 0], chest: [-0.2, 0, 0] }],
-    [0.5, { shL: [-0.8, 0, 0.2], shR: [-0.8, 0, -0.2], elL: [-1.2, 0, 0], elR: [-1.2, 0, 0] }]],
-  curtain: [[0, { body: [0.15, 0, 0], shL: [-1.5, 0, 0.4], shR: [-1.5, 0, -0.4], elL: [-0.3, 0, 0], elR: [-0.3, 0, 0], hipL: [-0.5, 0, 0], knL: [0.4, 0, 0] }],
-    [0.45, { body: [0, PI2, 0], shL: [-0.6, 0, -1.2], shR: [-0.6, 0, 1.2] }],
-    [0.55, { body: [0.15, PI2, 0], shL: [-1.6, 0, 0.1], shR: [-1.6, 0, -0.1], elL: [0, 0, 0], elR: [0, 0, 0], hipL: [-0.5, 0, 0], knL: [0.4, 0, 0] }],
-    [0.7, { body: [0, PI2, 0], shL: [-1, 0, 0.2], shR: [-1, 0, -0.2] }]],
-  pose: [[0, { body: [0, 0.3, 0], chest: [-0.2, -0.4, 0], neck: [-0.3, 0.3, 0.2], shR: [-2.9, 0, -0.5], elR: [-0.3, 0, 0], shL: [-0.6, 0, -0.3], elL: [-2.0, 0, 0], hipL: [-0.2, 0, -0.25], knL: [0.2, 0, 0], hipR: [0.3, 0, 0.1], knR: [0.3, 0, 0] }],
-    [0.9, { body: [0, 0.3, 0], chest: [-0.25, -0.4, 0], neck: [-0.35, 0.3, 0.25], shR: [-2.95, 0, -0.5], elR: [-0.3, 0, 0], shL: [-0.6, 0, -0.3], elL: [-2.0, 0, 0], hipL: [-0.2, 0, -0.25], knL: [0.2, 0, 0], hipR: [0.3, 0, 0.1], knR: [0.3, 0, 0] }]],
-  slash: [[0, { chest: [0, 0.7, 0], waist: [0, 0.3, 0], shR: [-1.4, 1.0, -0.2], elR: [-1.2, 0, 0], shL: [-0.8, 0, 0.3], elL: [-1.5, 0, 0], lift: -0.05 }],
-    [0.13, { chest: [0.1, -0.8, 0], waist: [0, -0.4, 0], shR: [-1.5, -1.2, -0.4], elR: [-0.1, 0, 0], body: [0.1, 0, 0], hipL: [-0.5, 0, 0], knL: [0.5, 0, 0], hipR: [0.4, 0, 0], lift: -0.15 }],
-    [0.42, { chest: [0, -0.3, 0], shR: [-1.0, -0.6, -0.4], elR: [-0.5, 0, 0] }]],
-  flick: [[0, { shR: [-2.2, 0, -0.3], elR: [-1.4, 0, 0] }], [0.06, { shR: [-1.5, 0, -0.1], elR: [0, 0, 0], chest: [0, 0.3, 0] }], [0.18, { shR: [-1.0, 0, -0.2], elR: [-0.6, 0, 0] }]],
-  crouch: [[0, { knL: [1.3, 0, 0], knR: [1.3, 0, 0], hipL: [-1.1, 0, 0], hipR: [-1.1, 0, 0], lift: -0.35, shL: [-0.5, 0, -0.6], shR: [-0.5, 0, 0.6], body: [0.2, 0, 0] }], [0.4, { knL: [1.3, 0, 0], knR: [1.3, 0, 0], hipL: [-1.1, 0, 0], hipR: [-1.1, 0, 0], lift: -0.35, shL: [-0.5, 0, -0.6], shR: [-0.5, 0, 0.6], body: [0.2, 0, 0] }]],
-  rise: [[0, { knL: [1.0, 0, 0], knR: [1.0, 0, 0], hipL: [-0.8, 0, 0], hipR: [-0.8, 0, 0], lift: -0.3, shR: [0.4, 0, -0.2], elR: [-1.6, 0, 0] }],
-    [0.12, { body: [-0.15, 0, 0], shR: [-3.0, 0, 0.1], elR: [-0.1, 0, 0], shL: [-0.3, 0, 0.5], lift: 0.2, hipR: [-0.7, 0, 0], knR: [1.1, 0, 0] }], [0.32, { shR: [-2.2, 0, 0], elR: [-0.5, 0, 0] }]],
-  tendril: [[0, { shL: [-0.3, 0, 0.4], shR: [-0.3, 0, -0.4], elL: [-1.4, 0, 0], elR: [-1.4, 0, 0], lift: -0.1, knL: [0.5, 0, 0], knR: [0.5, 0, 0] }],
-    [0.15, { shL: [-2.9, 0, 0.3], shR: [-2.9, 0, -0.3], elL: [-0.2, 0, 0], elR: [-0.2, 0, 0], chest: [-0.25, 0, 0], neck: [-0.3, 0, 0], lift: 0.05 }],
-    [0.55, { shL: [-2.9, 0, 0.3], shR: [-2.9, 0, -0.3], chest: [-0.25, 0, 0] }],
-    [0.65, { body: [0.35, 0, 0], shL: [-0.6, 0, 0.2], shR: [-0.6, 0, -0.2], chest: [0.3, 0, 0], knL: [0.8, 0, 0], knR: [0.8, 0, 0], hipL: [-0.7, 0, 0], hipR: [-0.7, 0, 0], lift: -0.25 }],
-    [0.85, { body: [0.15, 0, 0], shL: [-0.6, 0, 0.2], shR: [-0.6, 0, -0.2] }]],
-  haymaker: [[0, { chest: [0, -0.8, 0], waist: [0, -0.4, 0], shR: [0.6, 0, -0.5], elR: [-1.8, 0, 0], shL: [-1.2, 0, 0.4], elL: [-0.6, 0, 0], hipR: [0.3, 0, 0], knL: [0.4, 0, 0], lift: -0.1 }],
-    [0.3, { chest: [-0.1, -0.9, 0], waist: [0, -0.45, 0], shR: [0.7, 0, -0.5], elR: [-1.9, 0, 0], shL: [-1.3, 0, 0.4], elL: [-0.6, 0, 0], hipR: [0.3, 0, 0], knL: [0.5, 0, 0], lift: -0.14 }],
-    [0.38, { chest: [0.15, 0.7, 0], waist: [0, 0.35, 0], shR: [-1.7, 0, 0.1], elR: [0, 0, 0], shL: [0.3, 0, 0.4], elL: [-0.8, 0, 0], body: [0.2, 0, 0], hipL: [-0.6, 0, 0], knL: [0.5, 0, 0], hipR: [0.4, 0, 0], lift: -0.12 }],
-    [0.55, { chest: [0, 0.3, 0], shR: [-1.2, 0, 0], elR: [-0.5, 0, 0] }]],
-  hurt: [[0, { body: [-0.35, 0, 0], chest: [-0.3, 0, 0], neck: [-0.4, 0, 0], shL: [0.5, 0, -0.6], shR: [0.5, 0, 0.6], elL: [-0.6, 0, 0], elR: [-0.6, 0, 0], knL: [0.4, 0, 0], knR: [0.4, 0, 0], lift: -0.05 }], [0.35, { body: [-0.1, 0, 0] }]],
-  swap: [[0, { body: [0, 0, 0], shL: [-2.8, 0, 0.3], shR: [-0.4, 0, -0.3], elL: [-1.5, 0, 0], neck: [0.3, 0, 0] }], [0.15, { shL: [-1.0, 0, 0.8], elL: [-0.4, 0, 0], neck: [-0.2, 0, 0] }], [0.3, { shL: [-0.4, 0, 0.3], elL: [-0.4, 0, 0] }]],
+  // right cross
+  m1a: [[0, GD({ chest: [0.05, 0.4, 0], waist: [0, 0.18, 0], shR: [0.3, 0, 0.12], elR: [-2.25, 0, 0], lift: -0.1 })],
+    [0.03, GD({ chest: [0.02, 0.5, 0], waist: [0, 0.22, 0], shR: [0.42, 0, 0.18], elR: [-2.3, 0, 0], lift: -0.12 }), 'io'],
+    [0.07, { body: [0.16, 0, 0], fwd: 0.28, chest: [0.12, -0.62, 0], waist: [0, -0.28, 0], neck: [0, 0.35, 0], shR: [-1.62, 0.1, -0.1], elR: [-0.04, 0, 0], shL: [-0.7, 0, 0.45], elL: [-2.15, 0, 0], hipL: [-0.6, 0, -0.1], knL: [0.55, 0, 0], hipR: [0.38, 0, 0.12], knR: [0.15, 0, 0], lift: -0.13 }, 'snap'],
+    [0.12, { body: [0.15, 0, 0], fwd: 0.28, chest: [0.12, -0.6, 0], waist: [0, -0.27, 0], neck: [0, 0.33, 0], shR: [-1.6, 0.1, -0.1], elR: [-0.08, 0, 0], shL: [-0.72, 0, 0.45], elL: [-2.1, 0, 0], hipL: [-0.58, 0, -0.1], knL: [0.55, 0, 0], hipR: [0.36, 0, 0.12], knR: [0.15, 0, 0], lift: -0.13 }, 'lin'],
+    [0.26, GD({ fwd: 0.1 }), 'io']],
+  // left hook
+  m1b: [[0, GD({ chest: [0.05, -0.4, 0], waist: [0, -0.18, 0], shL: [0.25, 0, -0.35], elL: [-1.9, 0, 0], lift: -0.1 })],
+    [0.03, GD({ chest: [0.03, -0.52, 0], waist: [0, -0.24, 0], shL: [0.35, 0, -0.45], elL: [-1.95, 0, 0], lift: -0.12 }), 'io'],
+    [0.07, { body: [0.12, 0, -0.06], fwd: 0.22, chest: [0.1, 0.75, 0], waist: [0, 0.32, 0], neck: [0, -0.35, 0], shL: [-1.4, 0, -0.95], elL: [-1.45, 0, 0], shR: [-0.95, 0, -0.35], elR: [-2.05, 0, 0], hipR: [-0.55, 0, 0.1], knR: [0.5, 0, 0], hipL: [0.32, 0, -0.1], knL: [0.2, 0, 0], lift: -0.13 }, 'snap'],
+    [0.12, { body: [0.11, 0, -0.06], fwd: 0.22, chest: [0.1, 0.72, 0], waist: [0, 0.3, 0], neck: [0, -0.33, 0], shL: [-1.38, 0, -0.9], elL: [-1.5, 0, 0], shR: [-0.95, 0, -0.35], elR: [-2.05, 0, 0], hipR: [-0.53, 0, 0.1], knR: [0.5, 0, 0], hipL: [0.3, 0, -0.1], knL: [0.2, 0, 0], lift: -0.13 }, 'lin'],
+    [0.26, GD({ fwd: 0.08 }), 'io']],
+  // clinch + rising knee
+  m1c: [[0, GD({ shL: [-1.5, 0, -0.5], elL: [-0.7, 0, 0], shR: [-1.5, 0, 0.5], elR: [-0.7, 0, 0], hipR: [0.35, 0, 0], knR: [0.5, 0, 0], lift: -0.12 })],
+    [0.035, { shL: [-1.65, 0, 0.15], elL: [-0.6, 0, 0], shR: [-1.65, 0, -0.15], elR: [-0.6, 0, 0], hipR: [0.4, 0, 0], knR: [0.7, 0, 0], knL: [0.3, 0, 0], lift: -0.1, fwd: 0.1 }, 'io'],
+    [0.07, { body: [-0.14, 0, 0], fwd: 0.25, chest: [0.4, 0, 0], neck: [0.25, 0, 0], shL: [-0.85, 0, 0.45], elL: [-1.65, 0, 0], shR: [-0.85, 0, -0.45], elR: [-1.65, 0, 0], hipR: [-1.95, 0, 0], knR: [2.15, 0, 0], hipL: [0.12, 0, 0], knL: [0.1, 0, 0], lift: 0.16 }, 'snap'],
+    [0.12, { body: [-0.13, 0, 0], fwd: 0.25, chest: [0.38, 0, 0], neck: [0.25, 0, 0], shL: [-0.85, 0, 0.45], elL: [-1.65, 0, 0], shR: [-0.85, 0, -0.45], elR: [-1.65, 0, 0], hipR: [-1.9, 0, 0], knR: [2.1, 0, 0], hipL: [0.12, 0, 0], knL: [0.1, 0, 0], lift: 0.15 }, 'lin'],
+    [0.26, GD({}), 'io']],
+  // spinning roundhouse
+  m1d: [[0, GD({ body: [0, 0.45, 0], chest: [0, 0.35, 0], knL: [0.6, 0, 0], knR: [0.6, 0, 0], lift: -0.18 })],
+    [0.08, { body: [0, 1.15, 0.08], chest: [0, 0.55, 0], neck: [0, -0.6, 0], shL: [-0.5, 0, -0.9], elL: [-1.0, 0, 0], shR: [0.2, 0, 0.8], elR: [-0.8, 0, 0], hipR: [-0.35, 0, 0.35], knR: [1.5, 0, 0], knL: [0.45, 0, 0], lift: -0.05 }, 'io'],
+    [0.15, { body: [0, -1.25, 0.4], fwd: 0.3, chest: [0, -0.35, 0], neck: [0, 0.55, 0], shL: [-0.5, 0, -1.25], elL: [-0.5, 0, 0], shR: [0.3, 0, 1.25], elR: [-0.4, 0, 0], hipR: [-0.7, 0, 1.6], knR: [0.06, 0, 0], hipL: [0, 0, -0.18], knL: [0.25, 0, 0], lift: 0.1 }, 'snap'],
+    [0.23, { body: [0, -1.35, 0.38], fwd: 0.3, chest: [0, -0.35, 0], neck: [0, 0.55, 0], shL: [-0.5, 0, -1.2], elL: [-0.5, 0, 0], shR: [0.3, 0, 1.2], elR: [-0.4, 0, 0], hipR: [-0.65, 0, 1.5], knR: [0.15, 0, 0], hipL: [0, 0, -0.18], knL: [0.25, 0, 0], lift: 0.08 }, 'lin'],
+    [0.4, GD({}), 'io']],
+  upper: [[0, GD({ body: [0.25, 0, 0], chest: [0.2, 0.35, 0], knL: [1.1, 0, 0], knR: [1.1, 0, 0], hipL: [-0.9, 0, 0], hipR: [-0.7, 0, 0], shR: [0.6, 0, 0.25], elR: [-1.9, 0, 0], lift: -0.38 })],
+    [0.07, GD({ body: [0.32, 0, 0], chest: [0.25, 0.45, 0], knL: [1.25, 0, 0], knR: [1.25, 0, 0], hipL: [-1.0, 0, 0], hipR: [-0.8, 0, 0], shR: [0.75, 0, 0.3], elR: [-1.95, 0, 0], lift: -0.45 }), 'io'],
+    [0.15, { body: [-0.24, 0, 0], fwd: 0.25, chest: [-0.3, -0.5, 0], neck: [-0.4, 0, 0], shR: [-2.95, 0, -0.15], elR: [-0.3, 0, 0], shL: [-0.2, 0, -0.6], elL: [-0.9, 0, 0], hipL: [0.3, 0, 0], knL: [0.2, 0, 0], hipR: [-0.9, 0, 0], knR: [1.4, 0, 0], lift: 0.32 }, 'snap'],
+    [0.25, { body: [-0.22, 0, 0], fwd: 0.25, chest: [-0.28, -0.48, 0], neck: [-0.38, 0, 0], shR: [-2.9, 0, -0.15], elR: [-0.35, 0, 0], shL: [-0.25, 0, -0.6], elL: [-0.9, 0, 0], hipL: [0.28, 0, 0], knL: [0.2, 0, 0], hipR: [-0.85, 0, 0], knR: [1.35, 0, 0], lift: 0.3 }, 'lin'],
+    [0.4, GD({ shR: [-1.8, 0, 0], elR: [-1.2, 0, 0] }), 'io']],
+  slam: [[0, { body: [-0.25, 0, 0], chest: [-0.3, 0, 0], shL: [-3.0, 0, 0.25], shR: [-3.0, 0, -0.25], elL: [-0.5, 0, 0], elR: [-0.5, 0, 0], hipL: [-0.7, 0, 0], knL: [1.0, 0, 0], hipR: [-0.5, 0, 0], knR: [0.9, 0, 0] }],
+    [0.07, { body: [-0.38, 0, 0], chest: [-0.4, 0, 0], neck: [-0.3, 0, 0], shL: [-3.1, 0, 0.2], shR: [-3.1, 0, -0.2], elL: [-0.7, 0, 0], elR: [-0.7, 0, 0], hipL: [-0.8, 0, 0], knL: [1.2, 0, 0], hipR: [-0.6, 0, 0], knR: [1.1, 0, 0] }, 'io'],
+    [0.15, { body: [0.62, 0, 0], fwd: 0.2, chest: [0.42, 0, 0], neck: [0.2, 0, 0], shL: [-0.45, 0, 0.15], shR: [-0.45, 0, -0.15], elL: [-0.1, 0, 0], elR: [-0.1, 0, 0], hipL: [-1.3, 0, 0], hipR: [-1.3, 0, 0], knL: [1.5, 0, 0], knR: [1.5, 0, 0] }, 'snap'],
+    [0.25, { body: [0.58, 0, 0], fwd: 0.2, chest: [0.4, 0, 0], shL: [-0.5, 0, 0.15], shR: [-0.5, 0, -0.15], elL: [-0.15, 0, 0], elR: [-0.15, 0, 0], hipL: [-1.25, 0, 0], hipR: [-1.25, 0, 0], knL: [1.45, 0, 0], knR: [1.45, 0, 0] }, 'lin'],
+    [0.4, GD({}), 'io']],
+  throw: [[0, GD({ chest: [-0.15, 0.6, 0], waist: [0, 0.25, 0], shR: [-2.9, 0, 0.35], elR: [-1.5, 0, 0], shL: [-1.3, 0, -0.3], elL: [-0.3, 0, 0], hipL: [-0.5, 0, 0] })],
+    [0.06, GD({ chest: [-0.22, 0.72, 0], waist: [0, 0.3, 0], shR: [-3.0, 0, 0.4], elR: [-1.7, 0, 0], shL: [-1.4, 0, -0.35], elL: [-0.2, 0, 0], hipL: [-0.55, 0, 0], lift: -0.1 }), 'io'],
+    [0.1, { body: [0.16, 0, 0], fwd: 0.22, chest: [0.25, -0.6, 0], waist: [0, -0.3, 0], shR: [-1.3, 0, -0.1], elR: [-0.02, 0, 0], shL: [0.4, 0, -0.4], elL: [-0.6, 0, 0], hipL: [-0.6, 0, 0], knL: [0.55, 0, 0], hipR: [0.35, 0, 0], lift: -0.12 }, 'snap'],
+    [0.16, { body: [0.15, 0, 0], fwd: 0.22, chest: [0.24, -0.58, 0], waist: [0, -0.28, 0], shR: [-1.2, 0, -0.1], elR: [-0.1, 0, 0], shL: [0.35, 0, -0.4], elL: [-0.6, 0, 0], hipL: [-0.58, 0, 0], knL: [0.55, 0, 0], hipR: [0.33, 0, 0], lift: -0.12 }, 'lin'],
+    [0.32, GD({}), 'io']],
+  fan: [[0, GD({ chest: [0, 0.75, 0], waist: [0, 0.32, 0], shR: [-1.35, 0, -1.05], elR: [-1.6, 0, 0] })],
+    [0.04, GD({ chest: [0, 0.85, 0], waist: [0, 0.36, 0], shR: [-1.4, 0, -1.15], elR: [-1.7, 0, 0], lift: -0.1 }), 'io'],
+    [0.08, { body: [0.1, 0, 0], fwd: 0.16, chest: [0.1, -0.75, 0], waist: [0, -0.36, 0], shR: [-1.5, 0, 1.15], elR: [-0.05, 0, 0], shL: [-0.6, 0, 0.3], elL: [-1.6, 0, 0], hipL: [-0.45, 0, 0], knL: [0.45, 0, 0], lift: -0.11 }, 'snap'],
+    [0.14, { body: [0.1, 0, 0], fwd: 0.16, chest: [0.1, -0.72, 0], waist: [0, -0.34, 0], shR: [-1.45, 0, 1.15], elR: [-0.1, 0, 0], shL: [-0.6, 0, 0.3], elL: [-1.6, 0, 0], hipL: [-0.43, 0, 0], knL: [0.45, 0, 0], lift: -0.11 }, 'lin'],
+    [0.32, GD({}), 'io']],
+  cast: [[0, GD({ chest: [-0.2, 0, 0], shL: [0.4, 0, -0.2], shR: [0.4, 0, 0.2], elL: [-2.0, 0, 0], elR: [-2.0, 0, 0], hipR: [0.2, 0, 0] })],
+    [0.06, GD({ chest: [-0.28, 0, 0], shL: [0.55, 0, -0.25], shR: [0.55, 0, 0.25], elL: [-2.1, 0, 0], elR: [-2.1, 0, 0], hipR: [0.25, 0, 0], lift: -0.12 }), 'io'],
+    [0.12, { body: [0.15, 0, 0], fwd: 0.26, chest: [0.12, 0, 0], shL: [-1.55, 0, 0.2], shR: [-1.55, 0, -0.2], elL: [-0.02, 0, 0], elR: [-0.02, 0, 0], hipL: [-0.55, 0, 0], knL: [0.5, 0, 0], hipR: [0.35, 0, 0], knR: [0.2, 0, 0], lift: -0.13 }, 'snap'],
+    [0.24, { body: [0.14, 0, 0], fwd: 0.26, chest: [0.1, 0, 0], shL: [-1.5, 0, 0.2], shR: [-1.5, 0, -0.2], elL: [-0.1, 0, 0], elR: [-0.1, 0, 0], hipL: [-0.53, 0, 0], knL: [0.5, 0, 0], hipR: [0.33, 0, 0], knR: [0.2, 0, 0], lift: -0.13 }, 'lin'],
+    [0.4, GD({}), 'io']],
+  point: [[0, { chest: [0, 0.5, 0], shR: [-0.3, 0, 0.9], elR: [-1.2, 0, 0], shL: [0.2, 0, -0.6], elL: [-1.7, 0, 0], neck: [0, -0.3, 0], knL: [0.3, 0, 0], knR: [0.3, 0, 0], lift: -0.06 }],
+    [0.12, { fwd: 0.12, chest: [0.05, -0.48, 0], neck: [0, 0.38, 0], shR: [-1.62, 0, -0.08], elR: [0, 0, 0], shL: [0.25, 0, -0.7], elL: [-1.95, 0, 0], hipL: [-0.32, 0, -0.2], knL: [0.25, 0, 0], hipR: [0.15, 0, 0.15], knR: [0.1, 0, 0] }, 'snap'],
+    [0.45, { fwd: 0.12, chest: [0.04, -0.45, 0], neck: [0, 0.36, 0], shR: [-1.55, 0, -0.08], elR: [-0.05, 0, 0], shL: [0.25, 0, -0.7], elL: [-1.95, 0, 0], hipL: [-0.32, 0, -0.2], knL: [0.25, 0, 0], hipR: [0.15, 0, 0.15], knR: [0.1, 0, 0] }, 'lin']],
+  draw: [[0, { shR: [-2.6, 0, 0.2], elR: [-0.5, 0, 0], chest: [-0.2, 0.3, 0], shL: [-0.6, 0, -0.4], elL: [-1, 0, 0], neck: [-0.2, 0, 0] }],
+    [0.11, { shR: [-1.7, 0, -0.9], elR: [-0.3, 0, 0], chest: [0, -0.3, 0], shL: [-0.6, 0, -0.4], elL: [-1, 0, 0] }, 'io'],
+    [0.22, { shR: [-2.4, 0, 0.6], elR: [-0.6, 0, 0], chest: [-0.12, 0.3, 0], shL: [-0.6, 0, -0.4], elL: [-1, 0, 0] }, 'io'],
+    [0.33, { shR: [-1.4, 0, -0.5], elR: [-0.2, 0, 0], chest: [0, -0.25, 0], shL: [-0.6, 0, -0.4], elL: [-1, 0, 0] }, 'io'],
+    [0.45, { shR: [-1.6, 0, 0.1], elR: [-0.1, 0, 0], chest: [0.05, -0.1, 0], fwd: 0.1 }, 'snap']],
+  spin: [[0, { shL: [-0.3, 0, -1.45], shR: [-0.3, 0, 1.45], elL: [-0.2, 0, 0], elR: [-0.2, 0, 0], knL: [0.55, 0, 0], knR: [0.55, 0, 0], lift: -0.18 }],
+    [0.06, { body: [0.1, 0.4, 0], shL: [-0.3, 0, -1.5], shR: [-0.3, 0, 1.5], knL: [0.6, 0, 0], knR: [0.6, 0, 0], lift: -0.2 }, 'io'],
+    [0.28, { body: [0.1, Math.PI + 0.4, 0], shL: [-0.2, 0, -1.55], shR: [-0.2, 0, 1.55], knL: [0.3, 0, 0], knR: [0.3, 0, 0], lift: 0.08 }, 'lin'],
+    [0.5, { body: [0, PI2, 0], shL: [-0.5, 0, -1.2], shR: [-0.5, 0, 1.2], knL: [0.45, 0, 0], knR: [0.45, 0, 0], lift: -0.1 }, 'out']],
+  stab: [[0, { body: [-0.2, 0, 0], shL: [-3.0, 0, 0.2], shR: [-3.0, 0, -0.2], elL: [-0.5, 0, 0], elR: [-0.5, 0, 0], chest: [-0.25, 0, 0], hipL: [-0.5, 0, 0], knL: [0.6, 0, 0], lift: 0.08 }],
+    [0.07, { body: [-0.32, 0, 0], shL: [-3.1, 0, 0.2], shR: [-3.1, 0, -0.2], elL: [-0.6, 0, 0], elR: [-0.6, 0, 0], chest: [-0.35, 0, 0], neck: [-0.3, 0, 0], hipL: [-0.6, 0, 0], knL: [0.7, 0, 0], lift: 0.16 }, 'io'],
+    [0.14, { body: [0.58, 0, 0], fwd: 0.38, chest: [0.42, 0, 0], neck: [0.2, 0, 0], shL: [-0.85, 0, 0.15], shR: [-0.85, 0, -0.15], elL: [-0.05, 0, 0], elR: [-0.05, 0, 0], hipL: [-1.35, 0, 0], knL: [1.4, 0, 0], hipR: [0.65, 0, 0], knR: [1.25, 0, 0], lift: -0.48 }, 'snap'],
+    [0.32, { body: [0.55, 0, 0], fwd: 0.38, chest: [0.4, 0, 0], shL: [-0.85, 0, 0.15], shR: [-0.85, 0, -0.15], elL: [-0.05, 0, 0], elR: [-0.05, 0, 0], hipL: [-1.3, 0, 0], knL: [1.4, 0, 0], hipR: [0.62, 0, 0], knR: [1.2, 0, 0], lift: -0.46 }, 'lin'],
+    [0.5, GD({ fwd: 0.2 }), 'io']],
+  grab: [[0, GD({ body: [0.05, 0, 0], shL: [0.3, 0, -0.4], shR: [0.3, 0, 0.4], elL: [-1.4, 0, 0], elR: [-1.4, 0, 0] })],
+    [0.1, { body: [0.32, 0, 0], fwd: 0.38, shL: [-1.65, 0, 0.35], shR: [-1.65, 0, -0.35], elL: [-0.05, 0, 0], elR: [-0.05, 0, 0], hipL: [-0.7, 0, 0], knL: [0.6, 0, 0], hipR: [0.45, 0, 0], lift: -0.13 }, 'snap'],
+    [0.22, { body: [-0.18, 0, 0], fwd: -0.1, chest: [-0.22, 0, 0], shL: [-0.45, 0, 0.3], shR: [-0.45, 0, -0.3], elL: [-1.95, 0, 0], elR: [-1.95, 0, 0], hipR: [-0.3, 0, 0], knR: [0.4, 0, 0], knL: [0.3, 0, 0] }, 'snap'],
+    [0.5, GD({}), 'io']],
+  curtain: [[0, { body: [0.22, 0, 0], fwd: 0.2, shL: [-1.55, 0, 0.3], shR: [-1.55, 0, -0.3], elL: [-0.2, 0, 0], elR: [-0.2, 0, 0], hipL: [-0.5, 0, 0], knL: [0.4, 0, 0] }],
+    [0.45, { body: [0, PI2, 0], shL: [-0.5, 0, -1.2], shR: [-0.5, 0, 1.2], elL: [-0.3, 0, 0], elR: [-0.3, 0, 0], knL: [0.3, 0, 0], knR: [0.3, 0, 0], lift: 0.06 }, 'io'],
+    [0.55, { body: [0.28, PI2, 0], fwd: 0.32, chest: [0.2, 0, 0], shL: [-1.7, 0, 0.1], shR: [-1.7, 0, -0.1], elL: [0, 0, 0], elR: [0, 0, 0], hipL: [-0.6, 0, 0], knL: [0.5, 0, 0], hipR: [0.4, 0, 0] }, 'snap'],
+    [0.7, GD({ body: [0, PI2, 0] }), 'io']],
+  pose: [[0, { body: [0, 0.3, 0], chest: [-0.2, -0.4, 0], neck: [-0.35, 0.3, 0.2], shR: [-2.95, 0, 0.5], elR: [-0.25, 0, 0], shL: [-0.6, 0, 0.35], elL: [-2.0, 0, 0], hipL: [-0.2, 0, -0.25], knL: [0.2, 0, 0], hipR: [0.3, 0, 0.1], knR: [0.3, 0, 0] }],
+    [0.9, { body: [0, 0.3, 0], chest: [-0.25, -0.4, 0], neck: [-0.4, 0.3, 0.25], shR: [-3.0, 0, 0.5], elR: [-0.25, 0, 0], shL: [-0.6, 0, 0.35], elL: [-2.0, 0, 0], hipL: [-0.2, 0, -0.25], knL: [0.2, 0, 0], hipR: [0.3, 0, 0.1], knR: [0.3, 0, 0] }, 'lin']],
+  slash: [[0, GD({ chest: [0, 0.8, 0], waist: [0, 0.35, 0], shR: [-1.3, 0, -1.2], elR: [-1.6, 0, 0], shL: [-0.7, 0, -0.5], elL: [-1.2, 0, 0] })],
+    [0.06, GD({ chest: [0, 0.95, 0], waist: [0, 0.42, 0], shR: [-1.35, 0, -1.3], elR: [-1.7, 0, 0], shL: [-0.7, 0, -0.5], elL: [-1.2, 0, 0], lift: -0.12 }), 'io'],
+    [0.13, { body: [0.12, 0, 0], fwd: 0.32, chest: [0.1, -0.92, 0], waist: [0, -0.45, 0], neck: [0, 0.4, 0], shR: [-1.5, 0, 1.35], elR: [-0.05, 0, 0], shL: [-0.5, 0, -0.6], elL: [-1.4, 0, 0], hipL: [-0.55, 0, 0], knL: [0.55, 0, 0], hipR: [0.45, 0, 0], lift: -0.16 }, 'snap'],
+    [0.22, { body: [0.12, 0, 0], fwd: 0.32, chest: [0.1, -0.9, 0], waist: [0, -0.44, 0], neck: [0, 0.38, 0], shR: [-1.45, 0, 1.35], elR: [-0.1, 0, 0], shL: [-0.5, 0, -0.6], elL: [-1.4, 0, 0], hipL: [-0.53, 0, 0], knL: [0.55, 0, 0], hipR: [0.43, 0, 0], lift: -0.16 }, 'lin'],
+    [0.42, GD({ fwd: 0.1 }), 'io']],
+  flick: [[0, GD({ shR: [-2.2, 0, 0.3], elR: [-1.6, 0, 0], chest: [0, 0.3, 0] })], [0.06, GD({ fwd: 0.12, shR: [-1.55, 0, -0.05], elR: [0, 0, 0], chest: [0, -0.35, 0] }), 'snap'], [0.18, GD({}), 'io']],
+  crouch: [[0, { knL: [1.3, 0, 0], knR: [1.3, 0, 0], hipL: [-1.1, 0, 0], hipR: [-1.1, 0, 0], lift: -0.38, shL: [-0.5, 0, -0.6], shR: [-0.5, 0, 0.6], body: [0.25, 0, 0] }], [0.4, { knL: [1.35, 0, 0], knR: [1.35, 0, 0], hipL: [-1.15, 0, 0], hipR: [-1.15, 0, 0], lift: -0.4, shL: [-0.5, 0, -0.6], shR: [-0.5, 0, 0.6], body: [0.28, 0, 0] }, 'lin']],
+  rise: [[0, { knL: [1.0, 0, 0], knR: [1.0, 0, 0], hipL: [-0.8, 0, 0], hipR: [-0.8, 0, 0], lift: -0.3, shR: [0.5, 0, 0.2], elR: [-1.8, 0, 0] }],
+    [0.1, { body: [-0.2, 0, 0], chest: [-0.25, -0.4, 0], shR: [-3.0, 0, -0.1], elR: [-0.1, 0, 0], shL: [-0.3, 0, -0.5], lift: 0.25, hipR: [-0.7, 0, 0], knR: [1.1, 0, 0] }, 'snap'],
+    [0.32, GD({ shR: [-2.0, 0, 0], elR: [-1.0, 0, 0] }), 'io']],
+  tendril: [[0, { shL: [-0.3, 0, -0.4], shR: [-0.3, 0, 0.4], elL: [-1.4, 0, 0], elR: [-1.4, 0, 0], lift: -0.12, knL: [0.55, 0, 0], knR: [0.55, 0, 0] }],
+    [0.15, { shL: [-2.95, 0, -0.3], shR: [-2.95, 0, 0.3], elL: [-0.15, 0, 0], elR: [-0.15, 0, 0], chest: [-0.3, 0, 0], neck: [-0.35, 0, 0], lift: 0.06 }, 'snap'],
+    [0.55, { shL: [-3.0, 0, -0.35], shR: [-3.0, 0, 0.35], elL: [-0.2, 0, 0], elR: [-0.2, 0, 0], chest: [-0.32, 0, 0], neck: [-0.38, 0, 0], lift: 0.08 }, 'lin'],
+    [0.62, { body: [0.38, 0, 0], fwd: 0.2, shL: [-0.6, 0, 0.2], shR: [-0.6, 0, -0.2], chest: [0.32, 0, 0], knL: [0.85, 0, 0], knR: [0.85, 0, 0], hipL: [-0.75, 0, 0], hipR: [-0.75, 0, 0], lift: -0.28 }, 'snap'],
+    [0.85, GD({}), 'io']],
+  haymaker: [[0, GD({ chest: [-0.1, 0.9, 0], waist: [0, 0.45, 0], shR: [0.7, 0, 0.5], elR: [-1.9, 0, 0], shL: [-1.3, 0, -0.2], elL: [-0.5, 0, 0], hipR: [0.35, 0, 0], knL: [0.5, 0, 0], lift: -0.12 })],
+    [0.3, GD({ chest: [-0.15, 1.0, 0], waist: [0, 0.5, 0], shR: [0.85, 0, 0.55], elR: [-2.0, 0, 0], shL: [-1.4, 0, -0.2], elL: [-0.5, 0, 0], hipR: [0.4, 0, 0], knL: [0.6, 0, 0], lift: -0.16 }), 'io'],
+    [0.38, { body: [0.22, 0, 0], fwd: 0.38, chest: [0.15, -0.75, 0], waist: [0, -0.4, 0], neck: [0, 0.3, 0], shR: [-1.65, 0, -0.1], elR: [0, 0, 0], shL: [0.4, 0, -0.4], elL: [-0.8, 0, 0], hipL: [-0.65, 0, 0], knL: [0.55, 0, 0], hipR: [0.45, 0, 0], knR: [0.2, 0, 0], lift: -0.14 }, 'snap'],
+    [0.45, { body: [0.21, 0, 0], fwd: 0.38, chest: [0.14, -0.72, 0], waist: [0, -0.38, 0], shR: [-1.6, 0, -0.1], elR: [-0.05, 0, 0], shL: [0.38, 0, -0.4], elL: [-0.8, 0, 0], hipL: [-0.63, 0, 0], knL: [0.55, 0, 0], hipR: [0.43, 0, 0], knR: [0.2, 0, 0], lift: -0.14 }, 'lin'],
+    [0.55, GD({}), 'io']],
+  hurt: [[0, { body: [-0.42, 0, 0.12], fwd: -0.25, chest: [-0.35, 0.2, 0], neck: [-0.5, 0, 0.2], shL: [0.4, 0, -0.75], shR: [0.4, 0, 0.75], elL: [-0.6, 0, 0], elR: [-0.6, 0, 0], knL: [0.4, 0, 0], knR: [0.45, 0, 0], lift: -0.06 }],
+    [0.07, { body: [-0.45, 0, 0.12], fwd: -0.3, chest: [-0.38, 0.2, 0], neck: [-0.55, 0, 0.2], shL: [0.45, 0, -0.8], shR: [0.45, 0, 0.8], elL: [-0.5, 0, 0], elR: [-0.5, 0, 0], knL: [0.45, 0, 0], knR: [0.5, 0, 0], lift: -0.08 }, 'lin'],
+    [0.35, { body: [-0.1, 0, 0], chest: [-0.05, 0, 0], shL: [0.1, 0, -0.3], shR: [0.1, 0, 0.3], elL: [-0.6, 0, 0], elR: [-0.6, 0, 0], knL: [0.35, 0, 0], knR: [0.35, 0, 0], lift: -0.06 }, 'io']],
+  swap: [[0, GD({ shL: [-2.8, 0, 0.35], elL: [-1.6, 0, 0], neck: [0.35, 0, 0] })], [0.1, { shL: [-1.0, 0, -0.9], elL: [-0.3, 0, 0], neck: [-0.25, 0, 0], chest: [-0.15, 0.3, 0], shR: [-0.3, 0, 0.5] }, 'snap'], [0.3, GD({}), 'io']],
 };
 CLIPS.awaken = [[0, { knL: [1.0, 0, 0], knR: [1.0, 0, 0], hipL: [-0.8, 0, 0], hipR: [-0.8, 0, 0], lift: -0.3, shL: [-1.3, 0, 0.9], elL: [-2.2, 0, 0], shR: [-1.3, 0, -0.9], elR: [-2.2, 0, 0], chest: [0.35, 0, 0], neck: [0.45, 0, 0] }],
-  [0.65, { knL: [1.1, 0, 0], knR: [1.1, 0, 0], hipL: [-0.9, 0, 0], hipR: [-0.9, 0, 0], lift: -0.34, shL: [-1.35, 0, 1.0], elL: [-2.3, 0, 0], shR: [-1.35, 0, -1.0], elR: [-2.3, 0, 0], chest: [0.45, 0, 0], neck: [0.5, 0, 0] }],
-  [0.82, { body: [-0.15, 0, 0], chest: [-0.35, 0, 0], neck: [-0.4, 0, 0], shL: [-2.6, 0, -0.9], elL: [-0.2, 0, 0], shR: [-2.6, 0, 0.9], elR: [-0.2, 0, 0], hipL: [-0.1, 0, -0.2], hipR: [-0.1, 0, 0.2], lift: 0.05 }],
-  [1.5, { body: [-0.1, 0, 0], chest: [-0.3, 0, 0], neck: [-0.3, 0, 0], shL: [-2.5, 0, -0.95], elL: [-0.25, 0, 0], shR: [-2.5, 0, 0.95], elR: [-0.25, 0, 0], hipL: [-0.1, 0, -0.2], hipR: [-0.1, 0, 0.2], lift: 0.05 }]];
+  [0.7, { knL: [1.15, 0, 0], knR: [1.15, 0, 0], hipL: [-0.95, 0, 0], hipR: [-0.95, 0, 0], lift: -0.36, shL: [-1.35, 0, 1.0], elL: [-2.3, 0, 0], shR: [-1.35, 0, -1.0], elR: [-2.3, 0, 0], chest: [0.45, 0, 0], neck: [0.55, 0, 0] }, 'in'],
+  [0.82, { body: [-0.18, 0, 0], chest: [-0.4, 0, 0], neck: [-0.45, 0, 0], shL: [-2.6, 0, -0.95], elL: [-0.15, 0, 0], shR: [-2.6, 0, 0.95], elR: [-0.15, 0, 0], hipL: [-0.1, 0, -0.22], hipR: [-0.1, 0, 0.22], lift: 0.06 }, 'snap'],
+  [1.5, { body: [-0.12, 0, 0], chest: [-0.32, 0, 0], neck: [-0.35, 0, 0], shL: [-2.5, 0, -0.95], elL: [-0.25, 0, 0], shR: [-2.5, 0, 0.95], elR: [-0.25, 0, 0], hipL: [-0.1, 0, -0.2], hipR: [-0.1, 0, 0.2], lift: 0.05 }, 'lin']];
 const ATTACK_CLIPS = new Set(['m1a', 'm1b', 'm1c', 'm1d', 'upper', 'slam', 'throw', 'fan', 'slash', 'haymaker', 'cast', 'grab', 'spin', 'stab', 'curtain', 'rise', 'flick', 'tendril']);
+const EASE = { lin: (k) => k, in: (k) => k * k * k, out: easeOut, io: (k) => (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2), snap: (k) => (k >= 1 ? 1 : 1 - Math.pow(2, -11 * k)) };
+function mixPoseF(a, b, k) { const o = mixPose(a, b, k); o.fwd = (a.fwd || 0) + ((b.fwd || 0) - (a.fwd || 0)) * k; return o; }
 function sampleClip(keys, t) {
   if (t <= keys[0][0]) return keys[0][1];
   for (let i = 0; i < keys.length - 1; i++) {
-    if (t < keys[i + 1][0]) return mixPose(keys[i][1], keys[i + 1][1], easeOut((t - keys[i][0]) / (keys[i + 1][0] - keys[i][0])));
+    if (t < keys[i + 1][0]) { const e = EASE[keys[i + 1][2] || 'out'] || easeOut; return mixPoseF(keys[i][1], keys[i + 1][1], e((t - keys[i][0]) / (keys[i + 1][0] - keys[i][0]))); }
   }
   return keys[keys.length - 1][1];
 }
 function clipLen(name) { const k = CLIPS[name]; return k[k.length - 1][0]; }
 function playAnim(name, speed) { player.anim = { name, t: 0, speed: speed || 1 }; player.animW = Math.max(player.animW, 0.001); }
-function applyRig(rig, P, dt) {
-  const k = 1 - Math.exp(-30 * dt);
+function applyRig(rig, P, dt, crisp) {
+  const k = 1 - Math.exp(-(crisp ? 55 : 22) * dt);
   for (const j of JOINTS) {
     const o = j === 'body' ? rig.body : rig.j[j], t = ch(P, j);
     o.rotation.x += (t[0] - o.rotation.x) * k;
@@ -1161,6 +1200,7 @@ function applyRig(rig, P, dt) {
     o.rotation.z += (t[2] - o.rotation.z) * k;
   }
   rig.body.position.y += ((P.lift || 0) - rig.body.position.y) * k;
+  rig.body.position.z += ((P.fwd || 0) - rig.body.position.z) * k;
 }
 
 // ---------- Dummies ----------
@@ -1352,57 +1392,213 @@ let impactT = 0, hurtT = 0, fovKick = 0;
 // ---------- FX ----------
 const FX = [];
 const fxGeo = new THREE.IcosahedronGeometry(0.13, 0);
-const fxInk = new THREE.MeshBasicMaterial({ color: 0x0d0c12 });
-const fxWet = new THREE.MeshBasicMaterial({ color: 0x7a60ff });
-const fxStraw = new THREE.MeshBasicMaterial({ color: 0xd8b878 });
-const fxPaper = new THREE.MeshBasicMaterial({ color: 0xffffff });
-const fxBlue = new THREE.MeshBasicMaterial({ color: 0x9cc8ff });
-const fxRed = new THREE.MeshBasicMaterial({ color: 0xff5a5a });
-const fxGold = new THREE.MeshBasicMaterial({ color: 0xffd76a });
-const fxThread = new THREE.MeshBasicMaterial({ color: 0xff7a3d });
+function kindMat(kind, color) { const m = new THREE.MeshBasicMaterial({ color }); m.userData.kind = kind; return m; }
+const fxInk = kindMat('ink', 0x0d0c12), fxWet = kindMat('wet', 0x8a70ff), fxStraw = kindMat('straw', 0xd8b878), fxPaper = kindMat('paper', 0xffffff);
+const fxBlue = kindMat('blue', 0x9cc8ff), fxRed = kindMat('red', 0xff5a5a), fxGold = kindMat('gold', 0xffd76a), fxThread = kindMat('thread', 0xff7a3d);
+const fxShred = kindMat('shred', 0xffffff), fxFluff = kindMat('fluff', 0xffffff), fxConfetti = kindMat('confetti', 0xffffff);
+
+// painted sprite textures
+const PT = {};
+function ctex(name, draw, size) {
+  const S = size || 128, cv = document.createElement('canvas'); cv.width = cv.height = S;
+  const g = cv.getContext('2d'); draw(g, S);
+  const t = new THREE.CanvasTexture(cv); PT[name] = t; return t;
+}
+ctex('glow', (g, S) => { const r = g.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2); r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(0.25, 'rgba(255,255,255,.75)'); r.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = r; g.fillRect(0, 0, S, S); });
+ctex('star', (g, S) => {
+  const c = S / 2; g.translate(c, c);
+  for (let i = 0; i < 4; i++) {
+    g.rotate(Math.PI / 4 * (i % 2 ? 1 : 3));
+    const lg = g.createLinearGradient(-c, 0, c, 0); lg.addColorStop(0, 'rgba(255,255,255,0)'); lg.addColorStop(0.5, 'rgba(255,255,255,1)'); lg.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = lg; g.beginPath(); g.moveTo(-c, 0); g.lineTo(0, i < 2 ? -6 : -3); g.lineTo(c, 0); g.lineTo(0, i < 2 ? 6 : 3); g.closePath(); g.fill();
+  }
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  const r = g.createRadialGradient(c, c, 0, c, c, c * 0.45); r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = r; g.fillRect(0, 0, S, S);
+});
+ctex('streak', (g, S) => { const r = g.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2); r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(0.4, 'rgba(255,255,255,.6)'); r.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = r; g.save(); g.translate(S / 2, S / 2); g.scale(1, 0.18); g.translate(-S / 2, -S / 2); g.fillRect(0, 0, S, S); g.restore(); });
+ctex('smoke', (g, S) => {
+  let sd = 3; const r = () => { sd = (sd * 16807) % 2147483647; return (sd - 1) / 2147483646; };
+  for (let i = 0; i < 9; i++) { const x = S * (0.3 + r() * 0.4), y = S * (0.3 + r() * 0.4), rad = S * (0.18 + r() * 0.2); const gr = g.createRadialGradient(x, y, 0, x, y, rad); gr.addColorStop(0, 'rgba(255,255,255,.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, S, S); }
+});
+ctex('ink', (g, S) => {
+  let sd = 7; const r = () => { sd = (sd * 16807) % 2147483647; return (sd - 1) / 2147483646; };
+  g.fillStyle = '#fff'; g.beginPath(); g.arc(S / 2, S / 2, S * 0.26, 0, 7); g.fill();
+  for (let i = 0; i < 9; i++) { const a = r() * 6.28, d = S * (0.18 + r() * 0.12), rad = S * (0.06 + r() * 0.08); g.beginPath(); g.arc(S / 2 + Math.cos(a) * d, S / 2 + Math.sin(a) * d, rad, 0, 7); g.fill(); }
+  for (let i = 0; i < 10; i++) { const a = r() * 6.28, d = S * (0.34 + r() * 0.12), rad = S * (0.015 + r() * 0.03); g.beginPath(); g.arc(S / 2 + Math.cos(a) * d, S / 2 + Math.sin(a) * d, rad, 0, 7); g.fill(); }
+}, 128);
+ctex('ring', (g, S) => { const r = g.createRadialGradient(S / 2, S / 2, S * 0.3, S / 2, S / 2, S / 2); r.addColorStop(0, 'rgba(255,255,255,0)'); r.addColorStop(0.55, 'rgba(255,255,255,.25)'); r.addColorStop(0.82, 'rgba(255,255,255,1)'); r.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = r; g.fillRect(0, 0, S, S); }, 256);
+ctex('crescent', (g, S) => {
+  const c = S / 2, R = S * 0.4;
+  for (let i = 0; i <= 60; i++) {
+    const k = i / 60, a = -1.15 + k * 2.3, w = Math.sin(k * Math.PI) * S * 0.09 + 1;
+    g.strokeStyle = `rgba(255,255,255,${0.15 + 0.85 * Math.pow(k, 1.6)})`; g.lineWidth = w; g.lineCap = 'round';
+    g.beginPath(); g.arc(c, c, R, a, a + 2.3 / 60 + 0.01); g.stroke();
+  }
+  g.globalCompositeOperation = 'lighter';
+  const r = g.createRadialGradient(c, c, R * 0.85, c, c, R * 1.1); r.addColorStop(0, 'rgba(255,255,255,0)'); r.addColorStop(0.5, 'rgba(255,255,255,.18)'); r.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = r; g.beginPath(); g.moveTo(c, c); g.arc(c, c, R * 1.15, -1.15, 1.15); g.fill();
+}, 256);
+ctex('crack', (g, S) => {
+  let sd = 5; const r = () => { sd = (sd * 16807) % 2147483647; return (sd - 1) / 2147483646; };
+  g.strokeStyle = 'rgba(30,24,20,.9)'; g.lineCap = 'round';
+  for (let i = 0; i < 9; i++) {
+    let x = S / 2, y = S / 2, a = i / 9 * 6.28 + r() * 0.4; g.lineWidth = 5;
+    g.beginPath(); g.moveTo(x, y);
+    for (let k = 0; k < 6; k++) { a += (r() - 0.5) * 0.7; const L = S * (0.04 + r() * 0.05); x += Math.cos(a) * L; y += Math.sin(a) * L; g.lineTo(x, y); g.lineWidth = 5 - k * 0.7; }
+    g.stroke();
+  }
+  const rg = g.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S * 0.2); rg.addColorStop(0, 'rgba(30,24,20,.6)'); rg.addColorStop(1, 'rgba(30,24,20,0)'); g.fillStyle = rg; g.fillRect(0, 0, S, S);
+}, 256);
+ctex('square', (g, S) => { g.fillStyle = '#fff'; g.fillRect(S * 0.2, S * 0.28, S * 0.6, S * 0.44); });
+Object.values(PT).forEach((t) => { t.encoding = THREE.sRGBEncoding; });
+
+// pooled sprite particles
+const parts = [], poolAdd = [], poolNorm = [];
+const _a = new THREE.Vector3(), _b = new THREE.Vector3();
+function P(o) {
+  const add = o.add !== false, pool = add ? poolAdd : poolNorm;
+  let s = pool.pop();
+  if (!s) {
+    s = new THREE.Sprite(new THREE.SpriteMaterial({ transparent: true, depthWrite: false, blending: add ? THREE.AdditiveBlending : THREE.NormalBlending, fog: !add }));
+    s.material.userData.lin = true; s.userData.add = add;
+  }
+  const m = s.material; m.map = PT[o.tex || 'glow'];
+  m.color.setHex(o.color != null ? o.color : 0xffffff).convertSRGBToLinear();
+  m.rotation = o.rot != null ? o.rot : Math.random() * 6.28; m.opacity = 0;
+  s.position.copy(o.pos); s.scale.setScalar(0.001); s.renderOrder = add ? 3 : 2;
+  scene.add(s);
+  parts.push({ s, v: o.vel ? o.vel.clone() : new THREE.Vector3(), life: o.life || 0.4, t: 0, s0: o.s0 || 0.3, s1: o.s1 != null ? o.s1 : (o.s0 || 0.3), a0: o.a != null ? o.a : 1,
+    grav: o.grav || 0, drag: o.drag || 0, spin: o.spin || 0, stretch: o.stretch || 0, fadeIn: o.fadeIn || 0, floor: o.floor });
+}
+function updateParticles(dt) {
+  const W = window.innerWidth, H = window.innerHeight;
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const p = parts[i]; p.t += dt; const k = Math.min(1, p.t / p.life);
+    p.v.y -= p.grav * dt; if (p.drag) p.v.multiplyScalar(Math.max(0, 1 - p.drag * dt));
+    p.s.position.addScaledVector(p.v, dt);
+    if (p.floor != null && p.s.position.y < p.floor) { p.s.position.y = p.floor; p.v.y *= -0.3; p.v.x *= 0.6; p.v.z *= 0.6; }
+    const size = p.s0 + (p.s1 - p.s0) * easeOut(k);
+    const m = p.s.material;
+    m.opacity = p.a0 * (p.fadeIn && k < p.fadeIn ? k / p.fadeIn : 1) * (1 - k * k);
+    if (p.stretch) {
+      _a.copy(p.s.position).project(camera); _b.copy(p.s.position).addScaledVector(p.v, 0.03).project(camera);
+      const dx = (_b.x - _a.x) * W, dy = (_b.y - _a.y) * H, sp = Math.hypot(dx, dy);
+      m.rotation = Math.atan2(dy, dx);
+      p.s.scale.set(size * (1 + Math.min(6, sp * p.stretch * 0.08)), size * 0.9, 1);
+    } else { p.s.scale.set(size, size, 1); m.rotation += p.spin * dt; }
+    if (k >= 1) { scene.remove(p.s); (p.s.userData.add ? poolAdd : poolNorm).push(p.s); parts.splice(i, 1); }
+  }
+}
+const rv = (s) => (Math.random() - 0.5) * s;
+function randDir(up) { return new THREE.Vector3(rv(2), Math.random() * (up || 1) + 0.15, rv(2)).normalize(); }
+
+// themed particle bursts (callers pass the old material tags)
 function burst(pos, n, power, mats) {
   for (let i = 0; i < n; i++) {
-    const m = new THREE.Mesh(fxGeo, mats[i % mats.length]);
-    m.position.copy(pos); scene.add(m);
-    const v = new THREE.Vector3(Math.random() - 0.5, Math.random() * 0.9 + 0.2, Math.random() - 0.5).normalize().multiplyScalar(power * (0.5 + Math.random()));
-    FX.push({ m, v, life: 0.5 + Math.random() * 0.4, t: 0, type: 'p', s: 0.7 + Math.random() });
+    const kind = (mats[i % mats.length].userData && mats[i % mats.length].userData.kind) || 'paper';
+    const v = randDir(0.9).multiplyScalar(power * (0.5 + Math.random()));
+    if (kind === 'ink') P({ tex: 'ink', add: false, color: 0x120f1a, pos, vel: v, life: 0.5 + Math.random() * 0.35, s0: 0.22 + Math.random() * 0.3, s1: 0.12, grav: 20, drag: 1.5 });
+    else if (kind === 'straw') P({ tex: 'streak', add: false, color: 0xd9b56a, pos, vel: v, life: 0.55, s0: 0.35, grav: 16, drag: 2, stretch: 1 });
+    else if (kind === 'shred') P({ tex: 'square', add: false, color: 0xf6f2e8, pos, vel: v, life: 0.9, s0: 0.22, grav: 5, drag: 3, spin: rv(20) });
+    else if (kind === 'fluff') P({ tex: 'smoke', add: false, color: 0xfff8ee, pos, vel: v.multiplyScalar(0.6), life: 0.7, s0: 0.5, s1: 1.4, drag: 4, a: 0.9 });
+    else if (kind === 'confetti') P({ tex: 'square', add: false, color: [0xff5a6e, 0xffd76a, 0x6fb3ff, 0x7ee08a, 0xc58bff][i % 5], pos, vel: v, life: 1.1, s0: 0.18, grav: 6, drag: 2.5, spin: rv(24) });
+    else {
+      const col = { wet: 0x8a70ff, paper: 0xffffff, blue: 0x9cc8ff, red: 0xff5a5a, gold: 0xffd76a, thread: 0xff7a3d }[kind] || 0xffffff;
+      P({ tex: 'glow', color: col, pos, vel: v, life: 0.3 + Math.random() * 0.25, s0: 0.35 + Math.random() * 0.25, s1: 0.05, grav: 8, drag: 3 });
+    }
   }
 }
-const sparkGeo = new THREE.BoxGeometry(0.06, 0.06, 1); sparkGeo.translate(0, 0, 0.5);
-function sparks(pos, n, color, len) {
+function flash(pos, color, size) {
+  P({ tex: 'star', color: 0xffffff, pos, life: 0.13, s0: size * 0.6, s1: size * 2.0, rot: Math.random() * 0.8 });
+  P({ tex: 'glow', color, pos, life: 0.2, s0: size * 1.2, s1: size * 0.3, a: 0.9 });
+}
+function sparks(pos, n, color, len, dir) {
+  len = len || 1.4;
   for (let i = 0; i < n; i++) {
-    const m = new THREE.Mesh(sparkGeo, new THREE.MeshBasicMaterial({ color, transparent: true }));
-    m.position.copy(pos);
-    m.lookAt(pos.clone().add(new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.3, Math.random() - 0.5)));
-    const L = (len || 1.4) * (0.5 + Math.random());
-    tempMesh(m, 0.16, (mm, k) => { mm.scale.set(1, 1, L * (0.3 + k)); mm.translateZ(0.08); mm.material.opacity = 1 - k; });
+    let v = randDir(0.8);
+    if (dir) v = dir.clone().multiplyScalar(1.4).add(new THREE.Vector3(rv(1.4), rv(1) + 0.3, rv(1.4))).normalize();
+    P({ tex: 'streak', color, pos, vel: v.multiplyScalar((12 + Math.random() * 14) * len / 1.4), life: 0.16 + Math.random() * 0.14, s0: 0.42 * len, s1: 0.1, drag: 7, stretch: 1.2 });
   }
 }
-const ringGeo = new THREE.RingGeometry(0.55, 0.8, 32);
 function ring(pos, color, size, flat) {
-  const m = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color, transparent: true, side: THREE.DoubleSide, depthWrite: false }));
-  m.position.copy(pos); if (flat) m.rotation.x = -Math.PI / 2; scene.add(m);
-  FX.push({ m, life: 0.3, t: 0, type: 'r', size, flat });
+  if (flat) {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.MeshBasicMaterial({ map: PT.ring, color, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+    m.material.color.convertSRGBToLinear(); m.material.userData.lin = true;
+    m.rotation.x = -Math.PI / 2; m.position.copy(pos); m.position.y += 0.06;
+    tempMesh(m, 0.4, (mm, k) => { mm.scale.setScalar(0.3 + easeOut(k) * size * 0.75); mm.material.opacity = (1 - k); });
+    if (size >= 4) { crack(pos, size * 0.45); debris(pos, Math.round(size), 0x8a8378); }
+  } else P({ tex: 'ring', color, pos, life: 0.3, s0: 0.4, s1: size * 1.3, a: 0.95 });
 }
-const puffGeo = new THREE.SphereGeometry(0.4, 8, 6);
 function dust(pos, n, spread) {
   for (let i = 0; i < n; i++) {
-    const m = new THREE.Mesh(puffGeo, new THREE.MeshBasicMaterial({ color: 0xd9d2c3, transparent: true, opacity: 0.6, depthWrite: false }));
-    const a = Math.random() * PI2, v = new THREE.Vector3(Math.cos(a), 0.15, Math.sin(a)).multiplyScalar(spread || 3);
-    m.position.copy(pos);
-    tempMesh(m, 0.5, (mm, k, dt) => { mm.position.addScaledVector(v, dt * (1 - k)); mm.scale.setScalar(0.5 + k * 1.4); mm.material.opacity = 0.6 * (1 - k); });
+    const a = Math.random() * PI2, v = new THREE.Vector3(Math.cos(a), 0.12 + Math.random() * 0.25, Math.sin(a)).multiplyScalar((spread || 3) * (0.6 + Math.random() * 0.6));
+    P({ tex: 'smoke', add: false, color: 0xd7cdb9, pos: pos.clone().add(new THREE.Vector3(rv(0.4), 0, rv(0.4))), vel: v, life: 0.6 + Math.random() * 0.4, s0: 0.7, s1: 2.2 + Math.random(), drag: 3.2, a: 0.55, fadeIn: 0.1 });
   }
 }
-// curved slash trail around the fighter
-function slashArc(color, yOff, tilt, flip, size) {
-  const geo = new THREE.RingGeometry(1.3 * (size || 1), 1.75 * (size || 1), 24, 1, -0.9, 1.9);
-  const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color, transparent: true, side: THREE.DoubleSide, depthWrite: false }));
-  const f = player.facing;
-  tempMesh(m, 0.16, (mm, k) => {
-    mm.position.set(player.pos.x, player.pos.y + (yOff || 1.3), player.pos.z);
-    mm.rotation.set(-Math.PI / 2 + (tilt || 0), 0, 0); mm.rotateOnWorldAxis(new THREE.Vector3(0, 1, 0), f + Math.PI / 2 + (flip ? Math.PI : 0));
-    mm.scale.setScalar(0.85 + k * 0.3); mm.material.opacity = 0.9 * (1 - k);
+const debrisGeo = new THREE.BoxGeometry(0.16, 0.12, 0.14);
+function debris(pos, n, color) {
+  for (let i = 0; i < n; i++) {
+    const m = new THREE.Mesh(debrisGeo, SM(color)); m.position.copy(pos); m.castShadow = false;
+    const v = randDir(1.4).multiplyScalar(5 + Math.random() * 5), spin = new THREE.Vector3(rv(16), rv(16), rv(16)), floor = pos.y;
+    tempMesh(m, 0.9, (mm, k, dt) => { v.y -= 24 * dt; mm.position.addScaledVector(v, dt); if (mm.position.y < floor) { mm.position.y = floor; v.multiplyScalar(0.4); v.y = Math.abs(v.y); } mm.rotation.x += spin.x * dt; mm.rotation.y += spin.y * dt; if (k > 0.7) mm.scale.setScalar((1 - k) / 0.3); });
+    FX[FX.length - 1].keepMat = true; FX[FX.length - 1].keepGeo = true;
+  }
+}
+function crack(pos, size) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.MeshBasicMaterial({ map: PT.crack, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
+  m.material.userData.lin = true;
+  m.rotation.x = -Math.PI / 2; m.rotation.z = Math.random() * 6; m.position.copy(pos); m.position.y = pos.y + 0.05; m.scale.setScalar(size);
+  tempMesh(m, 2.2, (mm, k) => { mm.material.opacity = k > 0.7 ? (1 - k) / 0.3 : 1; });
+}
+// crescent slash that sweeps around the fighter
+function slashArc(color, yOff, tilt, flip, size, at, facing) {
+  const G = new THREE.Group(), T = new THREE.Group(), S = new THREE.Group(); G.add(T); T.add(S);
+  const sz = 3.4 * (size || 1);
+  const mk = (c, sc, op) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(sz * sc, sz * sc), new THREE.MeshBasicMaterial({ map: PT.crescent, color: c, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })); m.material.color.convertSRGBToLinear(); m.material.userData.lin = true; m.rotation.x = -Math.PI / 2; m.userData.op = op; S.add(m); return m; };
+  mk(color, 1, 1); mk(0xffffff, 0.92, 0.85);
+  const base = at || player.pos, f = facing != null ? facing : player.facing;
+  T.rotation.x = tilt || 0;
+  const s0 = flip ? -0.9 : 0.9;
+  tempMesh(G, 0.17, (g, k) => {
+    g.position.set(base.x, base.y + (yOff || 1.3), base.z); g.rotation.set(0, f - Math.PI / 2, 0);
+    S.rotation.y = s0 * (1 - easeOut(k) * 2); S.scale.setScalar(0.85 + k * 0.25);
+    S.children.forEach((c) => { c.material.opacity = c.userData.op * (k < 0.2 ? k / 0.2 : 1 - (k - 0.2) / 0.8); });
   });
+}
+// a glowing straight beam between two points (threads, spotlight)
+function makeBeam(color, thick) {
+  const geo = new THREE.BoxGeometry(1, 1, 1); geo.translate(0, 0, 0.5);
+  const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+  m.material.color.convertSRGBToLinear(); m.material.userData.lin = true;
+  const core = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false })); core.material.userData.lin = true;
+  core.scale.set(0.4, 0.4, 1); m.add(core);
+  m.setEnds = (a, b) => { m.position.copy(a); m.lookAt(b); m.scale.set(thick, thick, Math.max(0.01, a.distanceTo(b))); };
+  m.frustumCulled = false; core.frustumCulled = false;
+  return m;
+}
+// tapered curved tube (tentacles, tendrils)
+function taperTube(points, r0, r1, seg, radial) {
+  seg = seg || 22; radial = radial || 7;
+  const curve = new THREE.CatmullRomCurve3(points);
+  const geo = new THREE.TubeGeometry(curve, seg, 1, radial, false);
+  const pos = geo.attributes.position, c = new THREE.Vector3(), v = new THREE.Vector3();
+  for (let i = 0; i <= seg; i++) {
+    curve.getPointAt(i / seg, c); const r = r0 + (r1 - r0) * (i / seg);
+    for (let j = 0; j <= radial; j++) { const idx = i * (radial + 1) + j; v.fromBufferAttribute(pos, idx).sub(c).multiplyScalar(r).add(c); pos.setXYZ(idx, v.x, v.y, v.z); }
+  }
+  pos.needsUpdate = true; geo.computeVertexNormals();
+  return geo;
+}
+const inkTubeMat = toon(0x17131f, { emissive: 0x150a33 });
+function liveTube(life, build, mat) {
+  const m = new THREE.Mesh(new THREE.BufferGeometry(), mat || inkTubeMat); m.castShadow = true; m.frustumCulled = false;
+  tempMesh(m, life, (mm, k, dt) => { const pts = build(k); if (mm.geometry) mm.geometry.dispose(); mm.geometry = pts ? taperTube(pts.p, pts.r0, pts.r1) : new THREE.BufferGeometry(); });
+  FX[FX.length - 1].keepMat = true;
+  return m;
+}
+function inkSplash(pos, n, power) {
+  burst(pos, n, power, [fxInk, fxInk, fxWet]);
+  P({ tex: 'ink', add: false, color: 0x120f1a, pos, life: 0.25, s0: 0.6, s1: 2.2, a: 0.9 });
 }
 // swing trails that follow the hands and foot during attacks
 function makeTrail() {
@@ -1426,31 +1622,28 @@ function updateTrail(tr, a, b, active, color) {
     for (let s = 0; s < 2; s++) {
       const o = (i * 2 + s) * 3, v = p ? p[s] : a;
       tr.pos[o] = v.x; tr.pos[o + 1] = v.y; tr.pos[o + 2] = v.z;
-      const k = f * f * (s ? 1 : 0.35);
+      const k = f * f * (s ? 1.2 : 0.2);
       tr.col[o] = trailCol.r * k; tr.col[o + 1] = trailCol.g * k; tr.col[o + 2] = trailCol.b * k;
     }
   }
   tr.mesh.geometry.attributes.position.needsUpdate = true; tr.mesh.geometry.attributes.color.needsUpdate = true;
   tr.mesh.visible = n > 1;
 }
-const splatGeo = new THREE.CircleGeometry(0.5, 9);
 function splat(x, y, z, s) {
-  const m = new THREE.Mesh(splatGeo, new THREE.MeshBasicMaterial({ color: 0x0d0c12, transparent: true, opacity: 0.75, depthWrite: false }));
-  m.rotation.x = -Math.PI / 2; m.rotation.z = Math.random() * 6; m.position.set(x, y + 0.03, z); m.scale.setScalar(s); scene.add(m);
-  FX.push({ m, life: 3, t: 0, type: 's' });
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 1.4), new THREE.MeshBasicMaterial({ map: PT.ink, color: 0x120f1a, transparent: true, opacity: 0.9, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1 }));
+  m.material.userData.lin = true;
+  m.rotation.x = -Math.PI / 2; m.rotation.z = Math.random() * 6; m.position.set(x, y + 0.03, z); m.scale.setScalar(s * (0.9 + Math.random() * 0.4));
+  tempMesh(m, 3, (mm, k) => { mm.material.opacity = 0.9 * Math.min(1, (1 - k) * 3); });
 }
 function tempMesh(m, life, fn) { scene.add(m); FX.push({ m, life, t: 0, type: 'c', fn }); }
 function updateFX(dt) {
+  updateParticles(dt);
   for (let i = FX.length - 1; i >= 0; i--) {
     const f = FX[i]; f.t += dt; const k = Math.min(1, f.t / f.life);
-    if (f.type === 'p') { f.v.y -= 22 * dt; f.m.position.addScaledVector(f.v, dt); f.m.scale.setScalar(f.s * (1 - k)); }
-    else if (f.type === 'r') { f.m.scale.setScalar(0.5 + k * f.size); f.m.material.opacity = 1 - k; if (!f.flat) f.m.lookAt(camera.position); }
-    else if (f.type === 's') { f.m.material.opacity = 0.75 * Math.min(1, (1 - k) * 3); }
-    else if (f.type === 'c' && f.fn) f.fn(f.m, k, dt);
+    if (f.fn) f.fn(f.m, k, dt);
     if (f.t >= f.life) {
       scene.remove(f.m);
-      if (f.type !== 'p' && f.m.material && f.m.material.dispose && !f.keepMat) f.m.material.dispose();
-      if (f.type === 'c' && f.m.geometry && f.m.geometry !== sparkGeo && f.m.geometry !== puffGeo) f.m.geometry.dispose();
+      f.m.traverse((o) => { if (o.isMesh || o.isLine) { if (!f.keepMat && o.material && o.material.dispose && o.material !== inkTubeMat && o.material !== OUTLINE && !o.material.userData.shared) o.material.dispose(); if (!f.keepGeo && o.geometry && o.geometry !== debrisGeo && o.geometry !== fxGeo) o.geometry.dispose(); } });
       FX.splice(i, 1);
     }
   }
@@ -1523,9 +1716,14 @@ function hitDummy(d, o) {
   else { d.wobble = 1; d.anim = { name: 'hurt', t: 0, speed: 1.3 }; d.animW = 0.001; }
   if (o.slam) d.slammed = true;
   hitStop = Math.max(hitStop, o.big ? 0.13 : 0.055); addShake(o.big ? 0.5 : 0.13);
-  burst(hitPos, o.big ? 14 : 5, o.big ? 10 : 6, o.mats || [fxPaper, fxStraw]);
-  sparks(hitPos, o.big ? 10 : 5, o.spark || 0xffffff, o.big ? 2.2 : 1.3);
-  ring(hitPos, o.big ? (o.ringColor || 0xffffff) : 0xffffff, o.big ? 3.4 : 1.6);
+  const hdir = (o.kb && o.kb.clone().setY(0).lengthSq() > 0.1 ? o.kb.clone() : d.pos.clone().sub(player.pos)).setY(0);
+  if (hdir.lengthSq() < 0.01) hdir.copy(facingVec()); hdir.normalize();
+  const sc = o.spark || 0xffffff;
+  burst(hitPos, o.big ? 12 : 4, o.big ? 9 : 5, o.mats || [fxPaper, fxStraw]);
+  sparks(hitPos, o.big ? 16 : 7, sc, o.big ? 2.1 : 1.3, hdir);
+  flash(hitPos.clone().addScaledVector(hdir, -0.35), sc, o.big ? 2.4 : 1.3);
+  ring(hitPos, o.big ? (o.ringColor || sc) : 0xffffff, o.big ? 3.8 : 1.5);
+  if (o.big) P({ tex: 'streak', color: sc, pos: hitPos, life: 0.12, s0: 6, s1: 9, rot: Math.random() * 3, a: 0.7 });
   if (o.big) impactFrame(0.07);
   floatText(String(dmg), hitPos.clone().add(new THREE.Vector3(0, 0.6, 0)), o.big ? 'big' : '');
   if (o.label) floatText(o.label, hitPos.clone().add(new THREE.Vector3(0, 1.4, 0)), 'ink');
@@ -1675,6 +1873,7 @@ function tryDash() {
   if (!shiftLock) p.facing = Math.atan2(dir.x, dir.z);
   p.atk.t = p.atk.dur;
   dust(p.pos.clone().add(new THREE.Vector3(0, 0.2, 0)), 5, 4);
+  for (let i = 0; i < 8; i++) P({ tex: 'streak', color: kit.color, pos: p.pos.clone().add(new THREE.Vector3(rv(0.8), 0.4 + Math.random() * 1.4, rv(0.8))), vel: dir.clone().multiplyScalar(-14 - Math.random() * 8), life: 0.22, s0: 0.6, s1: 0.2, stretch: 1.4, a: 0.8 });
   if (kit.onDash) kit.onDash();
   fovKick = Math.max(fovKick, 8);
 }
@@ -1752,7 +1951,13 @@ function makeJunoKit() {
     if (k === '3' && k3Held) { k3Held = false; if (!k3Fired && octo && octo.state === 'ready') octoWhip(); }
   };
   function inkBall(dir, size, speed, onHit, onWorld) {
-    spawnProj({ mesh: new THREE.Mesh(new THREE.IcosahedronGeometry(size, 1), SM(0x0d0c12, { roughness: 0.15 })), pos: handPos().addScaledVector(dir, 0.4), vel: launchVel(dir, speed), life: 1.1, trailMat: fxInk, onHit, onWorld });
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(size, 16, 12), SM(0x110e18, { emissive: 0x120a2a }));
+    outlineAll(ball, 0.04);
+    const gl = new THREE.Sprite(new THREE.SpriteMaterial({ map: PT.glow, color: 0x7a60ff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false })); gl.material.color.convertSRGBToLinear(); gl.material.userData.lin = true; gl.scale.setScalar(size * 4.5); ball.add(gl);
+    const hl = new THREE.Mesh(new THREE.SphereGeometry(size * 0.25, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffffff })); hl.position.set(-size * 0.4, size * 0.45, size * 0.5); ball.add(hl);
+    spawnProj({ mesh: ball, pos: handPos().addScaledVector(dir, 0.4), vel: launchVel(dir, speed), life: 1.1, trailMat: fxInk,
+      onHit: (d) => { inkSplash(d.pos.clone().add(new THREE.Vector3(0, 1.4, 0)), 14, 8); onHit(d); }, onWorld: (p, v) => { inkSplash(p, 10, 6); onWorld(p, v); } });
+    flash(handPos(), 0x7a60ff, 1.2);
   }
   function fireSplatter(dir) {
     inkBall(dir, 0.38, 36, (d) => {
@@ -1768,18 +1973,20 @@ function makeJunoKit() {
     faceToward(d.pos);
     startMove('tendril', 0.85, 'tendril', { d, lifted: false, slammed: false });
     d.grabbed = 0.85; d.stun = 1.2;
-    for (let i = 0; i < 5; i++) {
-      const a = (i / 5) * PI2;
-      const geo = new THREE.CylinderGeometry(0.08, 0.22, 1, 6); geo.translate(0, 0.5, 0);
-      const t = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: i % 2 ? 0x0d0c12 : 0x2a1f5c, transparent: true }));
-      const ox = Math.cos(a) * 0.9, oz = Math.sin(a) * 0.9;
-      t.rotation.z = Math.cos(a) * -0.3; t.rotation.x = Math.sin(a) * 0.3;
-      tempMesh(t, 0.85, (m, k) => {
-        m.position.set(d.pos.x + ox, groundY(d.pos.x, d.pos.z, d.pos.y + 0.5), d.pos.z + oz);
-        m.scale.set(1, Math.min(1, k * 4) * (d.pos.y - m.position.y + 2.6), 1);
-        m.material.opacity = k > 0.8 ? (1 - k) * 5 : 1;
+    const gy0 = groundY(d.pos.x, d.pos.z, d.pos.y + 0.5);
+    for (let i = 0; i < 6; i++) {
+      const a0 = (i / 6) * PI2, R0 = 1.4 + (i % 2) * 0.4;
+      liveTube(0.85, (k) => {
+        const grow = Math.min(1, k * 3.2), pts = [], top = d.pos.y + 1.3 - gy0;
+        for (let s = 0; s <= 5; s++) {
+          const u = s / 5 * grow, a = a0 + u * 2.6 + k * 2, r = R0 * (1 - u * 0.62);
+          pts.push(new THREE.Vector3(d.pos.x + Math.cos(a) * r, gy0 + u * (top + 0.6) + Math.sin(k * 20 + i) * 0.08 * u, d.pos.z + Math.sin(a) * r));
+        }
+        if (k > 0.82) return null;
+        return { p: pts, r0: 0.24, r1: 0.05 };
       });
     }
+    inkSplash(new THREE.Vector3(d.pos.x, gy0 + 0.2, d.pos.z), 16, 6);
     addPuddle(d.pos.x, groundY(d.pos.x, d.pos.z, d.pos.y + 0.5), d.pos.z, 1.9);
   }
   function startSink() {
@@ -1861,14 +2068,16 @@ function makeJunoKit() {
     const from = octo.g.position.clone().add(new THREE.Vector3(0, 1.6, 0));
     const t = nearestDummy(octo.g.position, 11);
     const to = t ? t.pos.clone().add(new THREE.Vector3(0, 1.3, 0)) : from.clone().addScaledVector(shiftLock ? camForward() : facingVec(), 8);
-    const geo = new THREE.BoxGeometry(0.45, 0.45, 1); geo.translate(0, 0, 0.5);
-    const len = from.distanceTo(to);
-    const whip = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0x14121c, roughness: 0.2, transparent: true }));
-    whip.position.copy(from); whip.lookAt(to); whip.castShadow = true;
+    const dirV = to.clone().sub(from), side = new THREE.Vector3(dirV.z, 0, -dirV.x).normalize();
     let hit = false;
-    tempMesh(whip, 0.45, (m, k) => {
-      const ext = k < 0.3 ? k / 0.3 : k < 0.55 ? 1 : 1 - (k - 0.55) / 0.45;
-      m.scale.set(1, 1, Math.max(0.01, ext * len));
+    liveTube(0.5, (k) => {
+      const ext = k < 0.3 ? easeOut(k / 0.3) : k < 0.55 ? 1 : 1 - (k - 0.55) / 0.45;
+      if (ext < 0.03) return null;
+      const pts = [];
+      for (let s = 0; s <= 6; s++) { const u = s / 6 * ext; pts.push(from.clone().addScaledVector(dirV, u).add(new THREE.Vector3(0, Math.sin(u * Math.PI) * 2.2 * (1 - ext * 0.6), 0)).addScaledVector(side, Math.sin(u * 7 - k * 14) * 0.35 * u)); }
+      return { p: pts, r0: 0.42, r1: 0.1 };
+    });
+    tempMesh(new THREE.Object3D(), 0.45, (m, k) => {
       if (!hit && k >= 0.3) {
         hit = true;
         if (t) { const dir = to.clone().sub(from).setY(0).normalize(); hitDummy(t, { dmg: 10, type: 'b', heavy: true, kb: new THREE.Vector3(dir.x * 15, 6, dir.z * 15), set: true, down: 1.3, big: true, mats: [fxInk, fxWet], spark: 0x7a60ff, ringColor: 0x7a60ff, label: 'WHIP', ink: 10, awk: 5 }); }
@@ -1880,11 +2089,8 @@ function makeJunoKit() {
   function octoCloud() {
     const t = nearestDummy(octo.g.position, 14);
     const at = t ? t.pos.clone() : octo.g.position.clone().addScaledVector(shiftLock ? camForward() : facingVec(), 6);
-    for (let i = 0; i < 7; i++) {
-      const s = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 8), new THREE.MeshBasicMaterial({ color: 0x0d0c12, transparent: true, opacity: 0, depthWrite: false }));
-      const off = new THREE.Vector3((Math.random() - 0.5) * 3, 0.8 + Math.random() * 1.8, (Math.random() - 0.5) * 3);
-      tempMesh(s, 1.8, (m, k) => { m.position.copy(at).add(off); m.scale.setScalar(0.6 + k * 1.8); m.material.opacity = 0.75 * Math.min(1, k * 5) * (1 - k); });
-    }
+    for (let i = 0; i < 26; i++) P({ tex: 'smoke', add: false, color: i % 4 ? 0x15121c : 0x2a1f5c, pos: at.clone().add(new THREE.Vector3(rv(2.4), 0.4 + Math.random() * 2.2, rv(2.4))), vel: randDir(0.6).multiplyScalar(2 + Math.random() * 2), life: 1.4 + Math.random() * 0.6, s0: 1.2, s1: 3.6, drag: 2, a: 0.85, fadeIn: 0.1 });
+    flash(at.clone().add(new THREE.Vector3(0, 1.4, 0)), 0x7a60ff, 2);
     for (const d of aliveDummies()) if (d.pos.distanceTo(at) < 3.8) { hitDummy(d, { dmg: 5, type: 'u', stun: 1.8, mats: [fxInk], label: 'BLINDED', ink: 10, awk: 4 }); d.blind = 1.8; }
     addPuddle(at.x, groundY(at.x, at.z, at.y + 0.5), at.z, 2.4);
     octo.lunge = 0.3; octo.state = 'leaving'; octo.t = 0;
@@ -1930,6 +2136,8 @@ function makeJunoKit() {
           mv.phase = 'up'; mv.t = 0; player.hidden = false; player.vel.set(0, 0, 0);
           addPuddle(mv.dest.x, mv.dest.y, mv.dest.z, 1.6);
           burst(mv.dest.clone().add(new THREE.Vector3(0, 0.3, 0)), 14, 9, [fxInk, fxWet]);
+          for (let g = 0; g < 18; g++) P({ tex: 'ink', add: false, color: 0x120f1a, pos: mv.dest.clone().add(new THREE.Vector3(rv(0.8), 0.2, rv(0.8))), vel: new THREE.Vector3(rv(3), 9 + Math.random() * 9, rv(3)), life: 0.7, s0: 0.5 + Math.random() * 0.4, s1: 0.2, grav: 26 });
+          ring(mv.dest.clone(), 0x7a60ff, 3.5, true);
           playAnim('rise');
           const t = mv.target && !mv.target.dead && mv.target.pos.distanceTo(mv.dest) < 3.2 ? mv.target : nearestDummy(mv.dest, 2.8);
           if (t) { faceToward(t.pos); hitDummy(t, { dmg: 9, type: 'b', heavy: true, kb: new THREE.Vector3(0, 15, 0), set: true, down: 1.5, big: true, mats: [fxInk, fxWet], spark: 0x7a60ff, ringColor: 0x7a60ff, label: 'SINK', ink: 12, awk: 5 }); }
@@ -1943,6 +2151,7 @@ function makeJunoKit() {
         mv.hit = true; const f = facingVec();
         slashArc(0xffffff, 1.3, 0.2, false, 1.3);
         for (const d of meleeTargets(3.8, 0.1)) hitDummy(d, { dmg: 9, type: 'x', kb: new THREE.Vector3(f.x * 11, 3, f.z * 11), set: true, down: 1.1, big: true, mats: [fxPaper, fxInk], label: 'PAPER CUT', ink: 12, awk: 5 });
+        burst(player.pos.clone().add(facingVec().multiplyScalar(1.6)).add(new THREE.Vector3(0, 1.3, 0)), 14, 7, [fxShred]);
       }
     }
   };
@@ -2147,6 +2356,20 @@ function makeJunoKit() {
         const sl = kraken.slam;
         g.position.lerp(sl.at.clone().addScaledVector(g.position.clone().sub(sl.at).setY(0).normalize(), 3.2), Math.min(1, kraken.t * 3));
         kraken.tentacles.forEach((t) => { t.rotation.z = kraken.t < 0.25 ? 0.2 : 1.6; });
+        if (!sl.tubes) {
+          sl.tubes = true;
+          for (let i = 0; i < 4; i++) {
+            const off = (i - 1.5) * 1.1;
+            liveTube(0.75, (k) => {
+              const from = kraken.g.position.clone().add(new THREE.Vector3(0, 3, 0));
+              const tgt = sl.at.clone().add(new THREE.Vector3(off, 0.2, off * 0.5));
+              const lift = k < 0.4 ? easeOut(k / 0.4) : 1, slam = k < 0.4 ? 0 : easeOut(Math.min(1, (k - 0.4) / 0.12));
+              const pts = []; for (let s = 0; s <= 6; s++) { const u = s / 6; const p2 = from.clone().lerp(tgt, u); p2.y += Math.sin(u * Math.PI) * (7 * lift * (1 - slam) + 1.2) + (1 - u) * 0.5; pts.push(p2); }
+              if (k > 0.95) return null;
+              return { p: pts, r0: 0.7, r1: 0.14 };
+            });
+          }
+        }
         if (!sl.done && kraken.t >= 0.3) {
           sl.done = true; addShake(0.8); impactFrame(0.08);
           dust(sl.at.clone().add(new THREE.Vector3(0, 0.2, 0)), 10, 8); ring(sl.at.clone().add(new THREE.Vector3(0, 0.1, 0)), 0x9a85ff, 7, true);
@@ -2225,10 +2448,8 @@ function makePipKit() {
     const end = player.pos.clone().addScaledVector(f, 1.7); end.y = Math.max(player.pos.y, groundY(end.x, end.z, player.pos.y + 1));
     startMove('reel', 0.5, 'grab', { d, start: d.pos.clone(), end, hit: false });
     d.grabbed = 0.5; d.stun = 1;
-    const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
-    const line = new THREE.Line(geo, threadMat);
-    tempMesh(line, 0.35, (m) => { const a = handPos(), b = d.pos.clone().add(new THREE.Vector3(0, 1.4, 0)); m.geometry.setFromPoints([a, b]); });
-    FX[FX.length - 1].keepMat = true;
+    const beam = makeBeam(0xff7a3d, 0.07);
+    tempMesh(beam, 0.38, (m, k) => { m.setEnds(handPos(), d.pos.clone().add(new THREE.Vector3(0, 1.4, 0))); m.material.opacity = 1 - k * k; });
   }
   function startPin() {
     const t = shiftLock ? null : nearestDummy(player.pos, 6);
@@ -2249,7 +2470,7 @@ function makePipKit() {
     if (!doll) return;
     if (burstIt) {
       const at = doll.g.position.clone().add(new THREE.Vector3(0, 0.6, 0));
-      burst(at, 18, 7, [fxPaper, fxThread, fxGold]); ring(at, 0xffffff, 3.2); dust(at, 6, 4);
+      burst(at, 22, 7, [fxFluff, fxConfetti, fxThread]); ring(at, 0xffffff, 3.2); dust(at, 6, 4);
       for (const d of aliveDummies()) if (d.pos.distanceTo(doll.g.position) < 2.9) hitDummy(d, { dmg: 3, type: 'u', stun: 1.3, mats: [fxPaper], label: 'POOF', awk: 3 });
     }
     scene.remove(doll.g); doll = null; cd[3] = MAX[3];
@@ -2268,7 +2489,7 @@ function makePipKit() {
     const dir = faceAim();
     startMove('anchorThrow', 0.32, 'throw');
     const mesh = needleMesh(1.8);
-    const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), threadMat);
+    const line = makeBeam(0xff7a3d, 0.05);
     scene.add(line);
     anchor = { stuck: false, pos: null, d: null, mesh, line, t: 0 };
     const v = dir.clone().multiplyScalar(44); v.y = shiftLock ? -Math.sin(pitch - 0.3) * 24 : 2;
@@ -2285,7 +2506,7 @@ function makePipKit() {
   }
   function removeAnchor() {
     if (!anchor) return;
-    scene.remove(anchor.line); anchor.line.geometry.dispose();
+    scene.remove(anchor.line); anchor.line.geometry.dispose(); anchor.line.material.dispose();
     if (anchor.stuckMesh) scene.remove(anchor.stuckMesh);
     anchor = null;
   }
@@ -2309,9 +2530,9 @@ function makePipKit() {
       if (mv.t > 0.05 && mv.t < 0.45 && Math.random() < 0.7) { const a = Math.random() * PI2; sparks(player.pos.clone().add(new THREE.Vector3(Math.cos(a) * 1.8, 1.1, Math.sin(a) * 1.8)), 1, 0xff7a3d, 0.8); }
       if (!mv.hit && mv.t >= 0.22) {
         mv.hit = true;
-        const tor = new THREE.Mesh(new THREE.TorusGeometry(1, 0.06, 6, 40), new THREE.MeshBasicMaterial({ color: 0xff7a3d, transparent: true }));
-        tor.rotation.x = Math.PI / 2;
-        tempMesh(tor, 0.3, (m, k) => { m.position.set(player.pos.x, player.pos.y + 1.1, player.pos.z); m.scale.setScalar(1 + k * 3); m.material.opacity = 1 - k; });
+        for (let i = 0; i < 3; i++) slashArc(0xff7a3d, 1.0 + i * 0.3, (i - 1) * 0.25, false, 1.25, player.pos, player.facing + i * 2.1);
+        ring(player.pos.clone().add(new THREE.Vector3(0, 0.1, 0)), 0xff7a3d, 4.5, true);
+        sparks(player.pos.clone().add(new THREE.Vector3(0, 1.1, 0)), 16, 0xff7a3d, 1.8);
         let healed = 0;
         for (const d of aliveDummies()) {
           const dist = Math.hypot(d.pos.x - player.pos.x, d.pos.z - player.pos.z);
@@ -2374,7 +2595,7 @@ function makePipKit() {
     if (anchor) {
       anchor.t += dt;
       const a = handPos(), b = anchor.stuck ? (anchor.d && !anchor.d.dead ? anchor.d.pos.clone().add(new THREE.Vector3(0, 1.4, 0)) : anchor.pos) : anchor.mesh.position;
-      anchor.line.geometry.setFromPoints([a, b]);
+      anchor.line.setEnds(a, b);
       if (anchor.stuck && anchor.d && anchor.stuckMesh) anchor.stuckMesh.position.copy(b);
       if (!anchor.stuck && !projectiles.some((p) => p.mesh === anchor.mesh)) { removeAnchor(); cd.R = 1; }
       else if (anchor && anchor.stuck && anchor.t > 10 && !(player.move && player.move.name === 'zip')) { removeAnchor(); cd.R = MAX.R; }
@@ -2430,9 +2651,8 @@ function makePipKit() {
   };
   function threadLines(d, life) {
     [rig.handL, rig.handR].forEach((h) => {
-      const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), threadMat);
-      tempMesh(line, life, (m) => { const a = new THREE.Vector3(); h.getWorldPosition(a); m.geometry.setFromPoints([a, d.pos.clone().add(new THREE.Vector3(0, 1.5, 0))]); });
-      FX[FX.length - 1].keepMat = true;
+      const beam = makeBeam(0xff7a3d, 0.06);
+      tempMesh(beam, life, (m) => { const a = new THREE.Vector3(); h.getWorldPosition(a); m.setEnds(a, d.pos.clone().add(new THREE.Vector3(0, 1.5, 0))); });
     });
   }
   function puppet() {
@@ -2674,8 +2894,10 @@ function makeMaskKit() {
     } else if (mv.name === 'spot') {
       if (!mv.fired && mv.t >= 0.12) {
         mv.fired = true;
-        const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 2.4, 8), new THREE.MeshBasicMaterial({ color: 0xfff1b8 }));
-        const holder = new THREE.Group(); beam.rotation.x = Math.PI / 2; holder.add(beam);
+        const beam = makeBeam(0xffe9a0, 0.35); beam.position.set(0, 0, -3.5); beam.scale.set(0.35, 0.35, 3.5);
+        const holder = new THREE.Group(); holder.add(beam);
+        const gl = new THREE.Sprite(new THREE.SpriteMaterial({ map: PT.star, color: 0xfff1b8, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false })); gl.material.userData.lin = true; gl.scale.setScalar(2.2); holder.add(gl);
+        flash(handPos(), 0xfff1b8, 1.6);
         spawnProj({ mesh: holder, pos: handPos(), vel: launchVel(mv.dir, 60).setY(shiftLock ? -Math.sin(pitch - 0.3) * 30 : 0.5), grav: 0, life: 0.45, orient: true, radius: 1.2,
           onHit: (d) => { const r = hitDummy(d, { dmg: 3, type: 'p', stun: 0.4, mats: [fxGold], spark: 0xfff1b8, label: 'ON STAGE', awk: 3 }); if (r === 'hit') d.marked = 6; },
           onWorld: (p) => sparks(p, 4, 0xfff1b8, 0.8), noExpire: true });
@@ -2862,6 +3084,7 @@ function makeMaskKit() {
         impactFrame(0.16); addShake(1.1); hitStop = 0.16;
         hitDummy(d, { dmg: 30, type: 'u', kb: new THREE.Vector3(0, -8, 0), set: true, down: 2.2, big: true, mats: [fxRed, fxGold, fxPaper], spark: 0xffd76a, ringColor: 0xff4a5a, label: 'CURTAIN DROP', awk: 0 });
         floatText('BRAVO!', mv.base.clone().add(new THREE.Vector3(0, 5, 0)), 'big');
+        burst(mv.base.clone().add(new THREE.Vector3(0, 5, 0)), 50, 10, [fxConfetti]);
         for (const o of aliveDummies()) if (o !== d && Math.hypot(o.pos.x - mv.base.x, o.pos.z - mv.base.z) < 5) hitDummy(o, { dmg: 12, type: 'u', down: 1.4, big: true, kb: new THREE.Vector3(0, 6, 0), set: true, label: 'CURTAIN DROP', awk: 0 });
       }
       if (mv.landed) { const k = Math.min(1, (t - 1.0) / 0.8); mv.cur.scale.set(1, Math.max(0.05, 1 - k * 0.95), 1); mv.cur.position.y = mv.base.y + 5.6 * Math.max(0.05, 1 - k * 0.95); }
@@ -3055,7 +3278,7 @@ function animateFighter(dt) {
     if (Math.abs(la) < 1.6) { P.neck = [ch(P, 'neck')[0], ch(P, 'neck')[1] + la * 0.55, ch(P, 'neck')[2]]; P.chest = [ch(P, 'chest')[0], ch(P, 'chest')[1] + la * 0.2, ch(P, 'chest')[2]]; }
   }
   if (moving) { const b = ch(P, 'body'); P.body = [b[0], b[1], b[2] - fy * 0.6]; }
-  applyRig(R, P, dt);
+  applyRig(R, P, dt, p.animW > 0.5);
   // swing trails
   const atkOn = !!(p.anim && ATTACK_CLIPS.has(p.anim.name) && p.anim.t < clipLen(p.anim.name) * 0.75) || p.dashT > 0;
   const tcol = awakened && kit.awkColor ? kit.awkColor : kit.color;
@@ -3093,6 +3316,7 @@ function updateDummies(dt) {
     d.tilt += (want - d.tilt) * (1 - Math.exp(-(want > d.tilt ? 14 : 5) * dt));
     d.wobble = Math.max(0, d.wobble - dt * 3);
     d.g.position.copy(d.pos);
+    if (hitStop > 0 && d.flash > 0) { d.g.position.x += rv(0.2); d.g.position.z += rv(0.2); d.g.position.y += rv(0.08); }
     if (d.g.scale.x < 1) d.g.scale.setScalar(Math.min(1, d.g.scale.x + dt * 3));
     const blocking = dummyMode === 'block' && !d.dead && d.guardBreak <= 0 && d.down <= 0 && d.blind <= 0;
     const facingPlayer = blocking || (dummyMode === 'attack' && !d.dead && d.down <= 0);
@@ -3105,7 +3329,7 @@ function updateDummies(dt) {
       if (d.anim.t > L) { d.animW -= dt / 0.15; if (d.animW <= 0) { d.anim = null; d.animW = 0; } } else d.animW = Math.min(1, d.animW + dt / 0.04);
       if (d.anim) P = mixPose(P, sampleClip(CLIPS[d.anim.name], Math.min(d.anim.t, L)), d.animW);
     }
-    applyRig(d.rig, P, dt);
+    applyRig(d.rig, P, dt, d.animW > 0.5);
     const wob = Math.sin(clock * 30) * 0.06 * d.wobble + (d.guardBreak > 0 ? Math.sin(clock * 18) * 0.06 : 0);
     d.pivot.quaternion.setFromAxisAngle(d.tiltAxis, d.tilt + wob);
     d.flash = Math.max(0, d.flash - dt);
@@ -3370,7 +3594,7 @@ document.querySelectorAll('.fcard').forEach((b) => b.addEventListener('click', (
 function openSelect() {
   started = false; document.body.classList.remove('playing');
   if (shiftLock) toggleShiftLock();
-  selected = fighterId; showSelected();
+  selected = fighterId; showSelected(); $('menu').classList.remove('show');
   $('overlay').hidden = false; $('play').focus();
 }
 showSelected();
