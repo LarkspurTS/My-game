@@ -1099,7 +1099,7 @@ function faceTexture(kind) {
     ell(34, 76, 6, 3.5, 'rgba(230,130,110,.25)'); ell(94, 76, 6, 3.5, 'rgba(230,130,110,.25)');
   } else if (kind === 'nang') {
     ell(44, 60, 7, 5.5, '#1a1410'); ell(84, 60, 7, 5.5, '#1a1410'); ell(46, 58.5, 2, 2, '#fff'); ell(86, 58.5, 2, 2, '#fff');
-    g.fillStyle = 'rgba(217,169,130,1)'; g.fillRect(36, 52, 17, 4); g.fillRect(76, 52, 17, 4);
+    g.fillStyle = 'rgba(168,113,75,1)'; g.fillRect(36, 52, 17, 4); g.fillRect(76, 52, 17, 4);
     g.strokeStyle = '#1a1410'; g.lineWidth = 2; g.beginPath(); g.moveTo(37, 56); g.quadraticCurveTo(44, 54, 52, 56); g.moveTo(76, 56); g.quadraticCurveTo(84, 54, 91, 56); g.stroke();
     g.strokeStyle = '#15120f'; g.lineWidth = 5; g.beginPath(); g.moveTo(31, 45); g.lineTo(54, 45); g.moveTo(74, 45); g.lineTo(97, 45); g.stroke();
     g.strokeStyle = 'rgba(140,90,60,.5)'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(60, 66); g.lineTo(57, 78); g.quadraticCurveTo(64, 82, 71, 78); g.stroke();
@@ -1222,6 +1222,26 @@ function makeRig(c) {
 }
 function setFace(rig, kind) { if (rig.faceMat.map) rig.faceMat.map.dispose(); rig.faceMat.map = faceTexture(kind); rig.faceMat.needsUpdate = true; }
 
+function makeSlickHair() {
+  const R = 0.272, geo = new THREE.SphereGeometry(R, 64, 40, 0, Math.PI * 2, 0, 2.35), pos = geo.attributes.position, v = new THREE.Vector3(), cols = [], dark = new THREE.Color(0x0b0807), lite = new THREE.Color(0x30261e);
+  for (let i = 0; i < pos.count; i++) {
+    v.fromBufferAttribute(pos, i);
+    const a = Math.atan2(v.x, v.z), lim = 1.22 + (2.3 - 1.22) * (1 - Math.cos(a)) / 2;
+    let th = Math.acos(Math.max(-1, Math.min(1, v.y / R)));
+    const edge = th >= lim; th = Math.min(th, lim);
+    const dx = Math.sin(th) * Math.sin(a), dy = Math.cos(th), dz = Math.sin(th) * Math.cos(a);
+    // grooves follow the comb lines (constant x), and wander side to side to make the waves
+    const wave = Math.sin(dx * 30 + Math.sin(dz * 5.5 - dy * 2) * 1.3);
+    let r = R + 0.017 * wave * Math.min(1, th * 2);
+    r += 0.075 * Math.pow(Math.max(0, dz) * Math.max(0, dy + 0.15), 1.2);
+    const c = dark.clone().lerp(lite, Math.pow(Math.max(0, wave), 4) * (0.4 + 0.6 * Math.max(0, dy))); cols.push(c.r, c.g, c.b);   // volume swept up at the front
+    if (dz < 0 && th > lim - 0.35) r += 0.022 * (th - (lim - 0.35)) / 0.35; // flicks out a little at the nape
+    if (edge) r -= 0.012;
+    pos.setXYZ(i, dx * r, dy * r, dz * r);
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+  geo.computeVertexNormals(); return geo;
+}
 function buildFighter(id) {
   let rig;
   if (id === 'juno') {
@@ -1274,16 +1294,10 @@ function buildFighter(id) {
     rig.waist.add(part(0.13, 0.11, 0.06, sash, 0.22, 0.04, 0.24));
     const emb = new THREE.Mesh(new THREE.PlaneGeometry(0.32, 0.32), new THREE.MeshBasicMaterial({ map: DUCKTEX, transparent: true })); emb.position.set(0, 0.26, -0.196); emb.rotation.y = Math.PI; emb.userData.outline = true; rig.chest.add(emb);
   } else if (id === 'nang') {
-    rig = makeRig({ skin: 0xd9a982, upper: 0x1b2238, armU: 0x1b2238, armL: 0x1b2238, lower: 0x1b2238, hand: 0x23263a, leg: 0x1b2238, foot: 0x15131c, face: 'nang' });
+    rig = makeRig({ skin: 0xa8714b, upper: 0x1b2238, armU: 0x1b2238, armL: 0x1b2238, lower: 0x1b2238, hand: 0x23263a, leg: 0x1b2238, foot: 0x15131c, face: 'nang' });
     const navy = SM(0x161c2e), red = SM(0xb3262e), gold = SM(0xd9a23a, { emissive: 0x3a2400 }), dark = SM(0x15131c);
-    // wavy black hair, swept back
-    const hair = SM(0x15120f), hair2 = SM(0x231d18);
-    const blob = (r, x, y, z, sx, sy, sz, m) => { const b = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 9), m || hair); b.position.set(x, y, z); b.scale.set(sx, sy, sz); rig.neck.add(b); return b; };
-    blob(0.27, 0, 0.47, -0.03, 1.02, 0.62, 1.08);
-    for (let r = 0; r < 5; r++) for (let c = -1; c <= 1; c++) blob(0.1, c * 0.13 + (r % 2 ? 0.05 : -0.03), 0.6 - r * 0.012 - Math.abs(c) * 0.04, 0.2 - r * 0.1, 1.15, 0.55, 1.5, (r + c) % 2 ? hair2 : hair);
-    blob(0.13, 0, 0.55, 0.2, 1.7, 0.6, 0.9); blob(0.08, 0.12, 0.5, 0.23, 1.2, 0.6, 0.8, hair2);
-    for (let i = 0; i < 6; i++) { const a = Math.PI * 0.65 + i / 5 * Math.PI * 0.7; blob(0.1, Math.sin(a) * 0.24, 0.36 - (i % 2) * 0.05, Math.cos(a) * 0.24, 1, 1.3, 1, i % 2 ? hair2 : hair); }
-    for (const sd of [-1, 1]) { blob(0.09, sd * 0.255, 0.44, 0.05, 0.6, 0.9, 1.4); blob(0.08, sd * 0.25, 0.38, -0.08, 0.6, 1, 1.3, hair2); }
+    // wavy black hair, slicked back: one shell with combed grooves that ripple front to back
+    { const hm = new THREE.Mesh(makeSlickHair(), SM(0xffffff, { vertexColors: true })); hm.position.set(0, 0.3, -0.005); hm.scale.set(1, 0.9, 1.04); rig.neck.add(hm); }
     // big thin-framed glasses
     const frame = SM(0x2a2622), lensMat = new THREE.MeshBasicMaterial({ color: 0xcfe4ff, transparent: true, opacity: 0.18, depthWrite: false });
     for (const sd of [-1, 1]) {
@@ -1292,11 +1306,12 @@ function buildFighter(id) {
       fp(w, t, t, frame, cx, cy + h / 2, z); fp(w * 0.9, t, t, frame, cx, cy - h / 2, z);
       fp(t, h, t, frame, cx + sd * w / 2, cy, z); fp(t, h * 0.9, t, frame, cx - sd * w / 2 + sd * 0.004, cy, z);
       const lens = new THREE.Mesh(new THREE.PlaneGeometry(w, h), lensMat); lens.position.set(cx, cy, z - 0.002); lens.userData.noOutline = true; rig.neck.add(lens);
-      fp(t, t, 0.27, frame, sd * 0.262, cy + 0.04, 0.14);
+      fp(0.13, t, t, frame, sd * 0.2, cy + 0.04, 0.271);
+      fp(t, t, 0.28, frame, sd * 0.262, cy + 0.04, 0.135);
     }
     { const br = part(0.04, 0.012, 0.012, frame, 0, 0.292, 0.272); br.userData.noOutline = true; rig.neck.add(br); }
-    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.283, 0.283, 0.07, 20), red); band.position.y = 0.39; rig.neck.add(band);
-    rig.neck.add(part(0.16, 0.08, 0.02, gold, 0, 0.39, 0.285));
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.262, 0.266, 0.06, 20), red); band.position.y = 0.345; rig.neck.add(band);
+    rig.neck.add(part(0.14, 0.065, 0.02, gold, 0, 0.345, 0.268));
     const t1 = part(0.07, 0.36, 0.02, red, -0.06, 0.24, -0.29); t1.rotation.z = 0.15; t1.rotation.x = 0.3; rig.neck.add(t1);
     const t2 = part(0.07, 0.3, 0.02, red, 0.06, 0.26, -0.29); t2.rotation.z = -0.2; t2.rotation.x = 0.3; rig.neck.add(t2);
     rig.chest.add(part(0.5, 0.34, 0.05, red, 0, 0.27, 0.2));
@@ -5525,18 +5540,43 @@ function makeCrescent() {
   const core = new THREE.Mesh(new THREE.TorusGeometry(1.7, 0.05, 4, 28, Math.PI), new THREE.MeshBasicMaterial({ color: 0xffffff })); core.geometry.rotateX(Math.PI / 2); g.add(core);
   return g;
 }
-const MOONTEX = [0, 1].map((half) => {
-  const cv = document.createElement('canvas'); cv.width = cv.height = 256; const g = cv.getContext('2d');
-  g.beginPath(); g.rect(half ? 128 : 0, 0, 128, 256); g.clip();
-  const gl = g.createRadialGradient(128, 128, 60, 128, 128, 128); gl.addColorStop(0, 'rgba(255,40,50,.9)'); gl.addColorStop(1, 'rgba(255,40,50,0)'); g.fillStyle = gl; g.fillRect(0, 0, 256, 256);
-  const disc = g.createRadialGradient(110, 105, 10, 128, 128, 92); disc.addColorStop(0, '#ff8a7a'); disc.addColorStop(0.6, '#e8202e'); disc.addColorStop(1, '#8a0c18');
-  g.fillStyle = disc; g.beginPath(); g.arc(128, 128, 90, 0, 7); g.fill();
-  g.fillStyle = 'rgba(110,0,15,.35)'; [[95, 100, 16], [150, 150, 22], [160, 90, 10], [105, 165, 12]].forEach(([x, y, r]) => { g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); });
-  const t = new THREE.CanvasTexture(cv); t.encoding = THREE.sRGBEncoding; return t;
-});
+const MOONTEX = (() => {
+  const S = 512, C = S / 2, RAD = 200, full = document.createElement('canvas'); full.width = full.height = S; const g = full.getContext('2d');
+  let sd = 11; const rnd = () => { sd = (sd * 16807) % 2147483647; return (sd - 1) / 2147483646; };
+  g.save(); g.beginPath(); g.arc(C, C, RAD, 0, 7); g.clip();
+  const base = g.createRadialGradient(C - 60, C - 70, 20, C, C, RAD); base.addColorStop(0, '#ffb39a'); base.addColorStop(0.45, '#e2553e'); base.addColorStop(1, '#a3221c');
+  g.fillStyle = base; g.fillRect(0, 0, S, S);
+  // maria: the big dark "seas"
+  for (const [mx, my, mr, n] of [[C - 50, C - 40, 70, 26], [C + 55, C - 70, 50, 18], [C + 30, C + 40, 60, 22], [C - 80, C + 70, 40, 12], [C + 95, C + 10, 30, 10]]) {
+    for (let i = 0; i < n; i++) { const x = mx + (rnd() - 0.5) * mr * 1.4, y = my + (rnd() - 0.5) * mr * 1.2, r = mr * (0.25 + rnd() * 0.45); const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, 'rgba(85,10,12,.32)'); gr.addColorStop(1, 'rgba(85,10,12,0)'); g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2); }
+  }
+  // fine surface grain
+  for (let i = 0; i < 6000; i++) { const x = rnd() * S, y = rnd() * S, l = rnd(); g.fillStyle = l > 0.5 ? `rgba(255,210,190,${0.05 + rnd() * 0.06})` : `rgba(60,0,5,${0.05 + rnd() * 0.08})`; g.fillRect(x, y, 1 + rnd() * 1.5, 1 + rnd() * 1.5); }
+  // craters: dark floor, lit rim on the far side, shadowed rim near the light
+  for (let i = 0; i < 70; i++) {
+    const r = Math.pow(rnd(), 3) * 14 + 1.2, a = rnd() * 6.283, d = Math.sqrt(rnd()) * (RAD - r), x = C + Math.cos(a) * d, y = C + Math.sin(a) * d;
+    g.fillStyle = 'rgba(70,6,8,.13)'; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
+    g.lineWidth = Math.max(1, r * 0.22);
+    g.strokeStyle = 'rgba(255,200,180,.2)'; g.beginPath(); g.arc(x, y, r, -0.4, 2.0); g.stroke();
+    g.strokeStyle = 'rgba(50,0,4,.22)'; g.beginPath(); g.arc(x, y, r, 2.4, 5.4); g.stroke();
+  }
+  // one bright rayed crater
+  const tx = C - 20, ty = C + 120; for (let i = 0; i < 18; i++) { const a = rnd() * 6.283, L = 40 + rnd() * 90; g.strokeStyle = 'rgba(255,215,195,.1)'; g.lineWidth = 2 + rnd() * 3; g.beginPath(); g.moveTo(tx, ty); g.lineTo(tx + Math.cos(a) * L, ty + Math.sin(a) * L); g.stroke(); }
+  g.fillStyle = 'rgba(255,225,210,.5)'; g.beginPath(); g.arc(tx, ty, 5, 0, 7); g.fill();
+  // limb darkening: the edge of a sphere is darker
+  const limb = g.createRadialGradient(C, C, RAD * 0.55, C, C, RAD); limb.addColorStop(0, 'rgba(30,0,4,0)'); limb.addColorStop(1, 'rgba(30,0,4,.62)'); g.fillStyle = limb; g.fillRect(0, 0, S, S);
+  g.restore();
+  // thin bright rim
+  g.strokeStyle = 'rgba(255,120,90,.55)'; g.lineWidth = 3; g.beginPath(); g.arc(C, C, RAD - 1, 0, 7); g.stroke();
+  return [0, 1].map((half) => {
+    const cv = document.createElement('canvas'); cv.width = cv.height = S; const h = cv.getContext('2d');
+    h.beginPath(); h.rect(half ? C : 0, 0, C, S); h.clip(); h.drawImage(full, 0, 0);
+    const t = new THREE.CanvasTexture(cv); t.encoding = THREE.sRGBEncoding; t.anisotropy = 4; return t;
+  });
+})();
 // the giant red moon: rises behind Nang, then splits in two on the final cut (also replayed for other players)
 function vfxMoon(anchor) {
-  const halves = MOONTEX.map((tex) => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, fog: false })); s.material.userData.lin = true; return s; });
+  const halves = MOONTEX.map((tex) => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, fog: false, toneMapped: false })); s.material.userData.lin = true; s.renderOrder = -1; return s; });
   const right = new THREE.Vector3(), spot = new THREE.Vector3(), dir = new THREE.Vector3();
   let size = 12;
   // sit behind the fight from the camera's view, in front of any wall, and stay huge on screen
@@ -5547,6 +5587,8 @@ function vfxMoon(anchor) {
     spot.copy(anchor).addScaledVector(dir, d).add(new THREE.Vector3(0, 1.5 + d * 0.15, 0)); size = (camD + d) * 0.6;
   };
   place();
+  const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: PT.glow, color: 0xff3a2a, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false })); halo.material.userData.lin = true; halo.renderOrder = -2;
+  tempMesh(halo, 2.2, (m, k) => { const t = k * 2.2; m.position.copy(spot); const sc = size * 1.9 * Math.min(1, easeOut(Math.min(1, t / 0.5))) * (1 + Math.sin(t * 6) * 0.02); m.scale.set(sc, sc, 1); m.material.opacity = 0.3 * (t > 1.15 ? Math.max(0, 1 - (t - 1.15) / 0.4) : 1); });
   halves.forEach((s, i) => tempMesh(s, 2.2, (m, k) => {
     const t = k * 2.2; if (i === 0) place();
     const sc = size * Math.min(1, easeOut(Math.min(1, t / 0.35)));
@@ -5560,6 +5602,57 @@ function vfxMoon(anchor) {
     const line = new THREE.Mesh(new THREE.PlaneGeometry(0.35, 1), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
     tempMesh(line, 0.35, (m, k) => { m.position.copy(spot); m.quaternion.copy(camera.quaternion); m.scale.set((1 - k) * size * 0.03, size * 1.3, 1); m.material.opacity = 1 - k; });
   });
+}
+// the giant finishing cut: a huge red crescent that sweeps from the sky down through the target
+function crescentGeo(R, w, a0, a1, segs) {
+  const P = [], I = [];
+  for (let i = 0; i <= segs; i++) {
+    const u = i / segs, a = a0 + (a1 - a0) * u, tw = w * Math.pow(Math.sin(Math.PI * Math.min(1, u * 1.15)), 0.75) + 0.01;
+    const off = w * 0.35 * Math.sin(Math.PI * u);
+    P.push(Math.cos(a) * (R - tw + off), Math.sin(a) * (R - tw + off), 0, Math.cos(a) * (R + tw * 0.35 + off), Math.sin(a) * (R + tw * 0.35 + off), 0);
+    if (i < segs) { const k = i * 2; I.push(k, k + 1, k + 2, k + 1, k + 3, k + 2); }
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setIndex(I); return g;
+}
+function vfxGrandSlash(base, facing) {
+  const F = new THREE.Vector3(Math.sin(facing), 0, Math.cos(facing));
+  const grp = new THREE.Group(); grp.position.copy(base).addScaledVector(F, -4.4).add(new THREE.Vector3(0, 1.3, 0)); grp.rotation.y = facing - Math.PI / 2; scene.add(grp);
+  const A0 = 2.05, A1 = -0.6;
+  const layers = [[1.7, NRED, 0.22], [1.05, 0xff1a2a, 0.8], [0.62, 0xff9a9a, 0.95], [0.3, 0xffffff, 1]].map(([w, col, op]) => {
+    const m = new THREE.Mesh(crescentGeo(4.7, w, A0, A0 - 0.01, 4), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+    m.material.userData.lin = true; m.userData.w = w; m.userData.op = op; grp.add(m); return m;
+  });
+  const ghosts = [];
+  tempMesh(new THREE.Object3D(), 0.95, (o, k) => {
+    const t = k * 0.95, p = easeOut(Math.min(1, t / 0.16)), head = A0 + (A1 - A0) * p;
+    for (const m of layers) {
+      if (t <= 0.2) { m.geometry.dispose(); m.geometry = crescentGeo(4.7, m.userData.w, A0, head, 64); }
+      const fade = t > 0.25 ? Math.max(0, 1 - (t - 0.25) / 0.7) : 1;
+      m.material.opacity = m.userData.op * fade;
+    }
+    const sc = 1 + Math.max(0, t - 0.2) * 0.12; grp.scale.set(sc, sc, 1 + Math.max(0, t - 0.2) * 0.6);
+    if (t < 0.2 && Math.random() < 0.9) { const a = head, pt = new THREE.Vector3(Math.cos(a) * 4.7, Math.sin(a) * 4.7, 0).applyMatrix4(grp.matrixWorld); sparks(pt, 3, 0xffd0d0, 1.6); }
+    if (k >= 1) { scene.remove(grp); for (const m of layers) { m.geometry.dispose(); m.material.dispose(); } }
+  });
+  for (let i = 0; i < 26; i++) P({ tex: 'streak', color: i % 2 ? NRED : 0xffffff, pos: base.clone().add(new THREE.Vector3(rv(1), 2 + Math.random() * 4, rv(1))), vel: F.clone().multiplyScalar(14 + Math.random() * 10).add(new THREE.Vector3(rv(3), -12 - Math.random() * 8, rv(3))), life: 0.35, s0: 0.9, s1: 0.1, stretch: 1.6, drag: 3 });
+}
+// the impact on the ground: a glowing fissure, a pillar of light and a shockwave
+function vfxSlashImpact(at, facing) {
+  const F = new THREE.Vector3(Math.sin(facing), 0, Math.cos(facing));
+  const gy = groundY(at.x, at.z, at.y + 1), c = new THREE.Vector3(at.x, gy + 0.05, at.z);
+  for (const [w, col, op] of [[1.6, NRED, 0.7], [0.45, 0xffd0c8, 1]]) {
+    const fis = new THREE.Mesh(new THREE.PlaneGeometry(w, 18), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false }));
+    fis.material.userData.lin = true; fis.rotation.x = -Math.PI / 2; fis.rotation.z = -facing; fis.position.copy(c).addScaledVector(F, 4).add(new THREE.Vector3(0, 0.03, 0));
+    tempMesh(fis, 1.6, (m, k) => { m.scale.y = Math.min(1, k * 10); m.material.opacity = op * (k < 0.5 ? 1 : (1 - k) * 2); });
+  }
+  const pillar = new THREE.Mesh(new THREE.PlaneGeometry(1, 40), new THREE.MeshBasicMaterial({ map: PT.glow, color: 0xffd8d8, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+  pillar.material.userData.lin = true;
+  tempMesh(pillar, 0.45, (m, k) => { m.position.copy(c).add(new THREE.Vector3(0, 20, 0)); m.quaternion.copy(camera.quaternion); m.scale.set(2.6 * (1 - k * 0.7), 1, 1); m.material.opacity = 1 - k; });
+  ring(c.clone(), NRED, 10, true); ring(c.clone(), 0xffffff, 6, true);
+  later(0.08, () => ring(c.clone(), NRED, 14, true));
+  crack(c.clone(), 6); debris(c.clone(), 18, 0x4a2a2a); dust(c.clone().add(new THREE.Vector3(0, 0.2, 0)), 22, 11);
+  sparks(c.clone().add(new THREE.Vector3(0, 0.6, 0)), 40, NRED, 3.2);
+  lightFlash(c.clone().add(new THREE.Vector3(0, 2, 0)), NRED, 22);
 }
 function vfxSmokeBomb(at) {
   for (let i = 0; i < 18; i++) P({ tex: 'smoke', add: false, color: i % 3 ? 0x3a3f52 : 0x6a6f82, pos: at.clone().add(new THREE.Vector3(rv(0.6), 0.2 + Math.random() * 1.6, rv(0.6))), vel: new THREE.Vector3(rv(3), 1 + Math.random() * 1.5, rv(3)), life: 0.9, s0: 0.9, s1: 2.6, drag: 3, a: 0.85, fadeIn: 0.05 });
@@ -5816,13 +5909,12 @@ function makeNangKit() {
         const k = Math.min(1, (c - 1.7) / 0.15);
         const top = mv.base.clone().addScaledVector(F, -1.6).add(new THREE.Vector3(0, 6.2, 0)), bottom = mv.base.clone().addScaledVector(F, 1.6);
         player.pos.lerpVectors(top, bottom, easeOut(k));
-        const line = new THREE.Mesh(new THREE.PlaneGeometry(0.25, 8), new THREE.MeshBasicMaterial({ color: NRED, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
-        if (!mv.lined) { mv.lined = true; line.position.copy(mv.base).add(new THREE.Vector3(0, 3.5, 0)); line.rotation.y = player.facing; tempMesh(line, 0.5, (m, kk) => { m.scale.x = 1 - kk; m.material.opacity = 1 - kk; }); }
+        if (!mv.lined) { mv.lined = true; vfxGrandSlash(mv.base.clone(), player.facing); netOnly('gslash', [mv.base.clone(), player.facing]); slowMo(0.5, 0.3); addShake(0.5); }
       }
       if (c >= 1.95 && !mv.hit) {
         mv.hit = true; d.grabbed = 0;
         hitDummy(d, { dmg: 999, type: 'u', otg: true, kb: new THREE.Vector3(F.x * 4, -12, F.z * 4), set: true, down: 2.5, big: true, mats: [fxRed, fxPaper], spark: NRED, ringColor: NRED, label: 'MOON SPLITTER', awk: 0 });
-        impactFrame(0.2); addShake(1.4); hitStop = 0.2;
+        impactFrame(0.2); addShake(1.6); hitStop = 0.22; vfxSlashImpact(mv.base.clone(), player.facing); netOnly('gimpact', [mv.base.clone(), player.facing]);
         ring(mv.base.clone(), NRED, 8, true); sparks(mv.base.clone().add(new THREE.Vector3(0, 1, 0)), 24, NRED, 3); dust(mv.base.clone().add(new THREE.Vector3(0, 0.2, 0)), 14, 8);
       }
       if (c >= 2.85 && !mv.ended) { mv.ended = true; letterbox(false); undim(); later(0.1, endAwaken); }
@@ -5847,7 +5939,7 @@ function makeNangKit() {
   K.unawaken = () => { marks = 0; clearClones(); undim(); };
   return K;
 }
-Object.assign(FXF, { moon: vfxMoon, smokeBomb: vfxSmokeBomb, nclone: vfxClone });
+Object.assign(FXF, { moon: vfxMoon, smokeBomb: vfxSmokeBomb, nclone: vfxClone, gslash: vfxGrandSlash, gimpact: vfxSlashImpact });
 KITS.nang = makeNangKit;
 
 // ---------- 1v1 duel vs the Sparring Master ----------
