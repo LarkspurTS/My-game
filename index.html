@@ -165,6 +165,7 @@ body.shiftlock #cross { display: block; }
 .sw.pip { background: repeating-linear-gradient(45deg, #d9a23a 0 10px, #c4572f 10px 20px, #3e6e8e 20px 30px); }
 .sw.pip::after { content: "✕ ✕ ✕"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; letter-spacing: 4px; font-size: 18px; text-shadow: 0 1px 0 #000; }
 .sw.umbra { background: linear-gradient(180deg, #2d2650, #0d0a14); } .sw.umbra::after { content: ""; position: absolute; left: 50%; top: 22%; width: 20px; height: 26px; margin-left: -10px; border-radius: 45%; background: #ffc36a; box-shadow: 0 0 18px 6px rgba(255,170,70,.7); }
+.sw.reed { background: linear-gradient(180deg, #17161c 0 62%, #e8742a 62% 74%, #17161c 74%); box-shadow: inset 0 0 0 3px #d9a23a; } .sw.reed::after { content: "🦆"; position: absolute; left: 50%; top: 18%; transform: translateX(-50%); font-size: 26px; }
 .sw.chef { background: repeating-linear-gradient(90deg, #f4f2ec 0 12px, #d8d4ca 12px 14px); } .sw.chef::after { content: ""; position: absolute; left: 50%; top: 8%; width: 30px; height: 30px; margin-left: -15px; border-radius: 50% 50% 10% 10%; background: #fff; box-shadow: 0 2px 0 #c0392b; }
 #vig { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, rgba(0,0,0,0) 58%, rgba(12,8,24,.32) 100%); }
 .sw.mask { background: #6b1420; } .sw.mask::after { content: ""; position: absolute; left: 50%; top: 10%; width: 34px; height: 38px; margin-left: -17px; background: #f2eee6; border-radius: 50% 50% 46% 46% / 40% 40% 60% 60%; }
@@ -336,6 +337,7 @@ body.curtains #curL, body.curtains #curR { transform: translateX(0); }
       <button class="fcard" data-id="mask" type="button"><span class="sw mask"></span><span class="fn">Mask</span><span class="fs">Stage · Hard</span></button>
       <button class="fcard" data-id="umbra" type="button"><span class="sw umbra"></span><span class="fn">Umbra Lee</span><span class="fs">Shadow · Medium</span></button>
       <button class="fcard" data-id="chef" type="button"><span class="sw chef"></span><span class="fn">Chef Toma</span><span class="fs">Kitchen · Easy</span></button>
+      <button class="fcard" data-id="reed" type="button"><span class="sw reed"></span><span class="fn">Reed</span><span class="fs">Duck Style · Medium</span></button>
     </div>
     <label class="namefield" for="nameIn"><span>Your name</span><input id="nameIn" maxlength="14" autocomplete="off" spellcheck="false"></label>
     <p class="fdesc" id="fdesc"></p>
@@ -1084,6 +1086,15 @@ function faceTexture(kind) {
     g.fillStyle = '#b8653a'; [[36, 74], [42, 78], [88, 74], [94, 78]].forEach(([x, y]) => { g.beginPath(); g.arc(x, y, 1.8, 0, 7); g.fill(); });
     g.strokeStyle = '#15131c'; g.lineWidth = 3.5; g.beginPath(); g.arc(64, 82, 16, 0.25, Math.PI - 0.25); g.stroke();
     g.lineWidth = 2.5; for (let i = 0; i < 5; i++) { const a = 0.4 + i * 0.58, x = 64 + Math.cos(a) * 16, y = 82 + Math.sin(a) * 16; g.beginPath(); g.moveTo(x, y - 5); g.lineTo(x, y + 5); g.stroke(); }
+  } else if (kind === 'reed') {
+    ell(44, 60, 7.5, 7, '#1a120c'); ell(84, 60, 7.5, 7, '#1a120c');
+    ell(46.5, 57.5, 2.4, 2.4, '#fff'); ell(86.5, 57.5, 2.4, 2.4, '#fff'); ell(42, 62, 1.2, 1.2, 'rgba(255,255,255,.6)'); ell(82, 62, 1.2, 1.2, 'rgba(255,255,255,.6)');
+    g.fillStyle = '#f1d2bf'; g.fillRect(34, 49, 20, 5); g.fillRect(74, 49, 20, 5);
+    g.strokeStyle = '#1a120c'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(35, 54); g.quadraticCurveTo(44, 50, 53, 54); g.moveTo(75, 54); g.quadraticCurveTo(84, 50, 93, 54); g.stroke();
+    g.strokeStyle = '#3a2516'; g.lineWidth = 4; g.beginPath(); g.moveTo(34, 44); g.quadraticCurveTo(44, 40, 53, 43); g.moveTo(75, 43); g.quadraticCurveTo(84, 40, 94, 44); g.stroke();
+    g.strokeStyle = 'rgba(150,90,70,.45)'; g.lineWidth = 2; g.beginPath(); g.moveTo(64, 66); g.lineTo(61, 76); g.lineTo(65, 77); g.stroke();
+    g.strokeStyle = '#6a3a2a'; g.lineWidth = 3; g.beginPath(); g.moveTo(56, 89); g.quadraticCurveTo(64, 92, 73, 88); g.stroke();
+    ell(34, 76, 6, 3.5, 'rgba(230,130,110,.25)'); ell(94, 76, 6, 3.5, 'rgba(230,130,110,.25)');
   } else if (kind === 'umbra') {
     g.strokeStyle = '#15131c'; g.lineWidth = 4;
     g.beginPath(); g.arc(44, 58, 10, 0.25, Math.PI - 0.25); g.stroke(); g.beginPath(); g.arc(84, 58, 10, 0.25, Math.PI - 0.25); g.stroke();
@@ -1233,6 +1244,25 @@ function buildFighter(id) {
     needle.add(part(0.06, 1.2, 0.06, STEEL, 0, 0, 0));
     needle.add(part(0.09, 0.14, 0.03, STEEL, 0, 0.58, 0));
     const spool = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.16, 10), SM(0xd8572f)); spool.rotation.z = Math.PI / 2; spool.position.set(0.36, 0.02, 0); rig.waist.add(spool);
+  } else if (id === 'reed') {
+    rig = makeRig({ skin: 0xf1d2bf, upper: 0x17161c, armU: 0x17161c, armL: 0x17161c, lower: 0x17161c, hand: 0xf1d2bf, leg: 0x17161c, foot: 0x2a2a2a, face: 'reed' });
+    const hair = SM(0x3a2516), hair2 = SM(0x4a301c), gold = SM(0xd9a23a, { emissive: 0x3a2400 }), sash = SM(0xe8742a);
+    const curl = (r, x, y, z, m) => { const c = new THREE.Mesh(new THREE.SphereGeometry(r, 9, 7), m || hair); c.position.set(x, y, z); rig.neck.add(c); };
+    curl(0.27, 0, 0.5, -0.02); curl(0.2, 0, 0.6, -0.04, hair2);
+    for (let i = 0; i < 14; i++) { const a = i / 14 * PI2, r = 0.22 + (i % 2) * 0.03; curl(0.1 + (i % 3) * 0.015, Math.sin(a) * r, 0.56 + (i % 2) * 0.06, Math.cos(a) * r - 0.02, i % 2 ? hair2 : hair); }
+    for (let i = 0; i < 9; i++) { const a = Math.PI * 0.55 + i / 8 * Math.PI * 0.9; curl(0.1, Math.sin(a) * 0.255, 0.4 - (i % 2) * 0.06, Math.cos(a) * 0.255, i % 2 ? hair2 : hair); }
+    for (let i = 0; i < 4; i++) { curl(0.09, -0.27 + (i % 2) * 0.01, 0.42 - i * 0.04, -0.02 - i * 0.05); curl(0.09, 0.27 - (i % 2) * 0.01, 0.42 - i * 0.04, -0.02 - i * 0.05); }
+    [[-0.15, 0.47, 0.2, 0.09], [-0.05, 0.49, 0.23, 0.1], [0.06, 0.48, 0.23, 0.09], [0.16, 0.46, 0.2, 0.085], [0.0, 0.44, 0.25, 0.07], [-0.1, 0.43, 0.24, 0.06]].forEach(([x, y, z, r], i) => curl(r, x, y, z, i % 2 ? hair2 : hair));
+    const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.19, 0.1, 16, 1, true), gold); collar.position.y = 0.5; rig.chest.add(collar);
+    rig.chest.add(part(0.05, 0.42, 0.02, gold, 0.06, 0.24, 0.195));
+    [0.4, 0.3, 0.2, 0.1].forEach((y) => rig.chest.add(part(0.11, 0.035, 0.03, gold, 0.06, y, 0.205)));
+    rig.chest.add(part(0.5, 0.03, 0.02, gold, 0, 0.0, 0.195));
+    for (const el of [rig.j.elL, rig.j.elR]) if (el) el.add(part(0.2, 0.06, 0.2, gold, 0, -0.3, 0));
+    rig.waist.add(part(0.68, 0.13, 0.44, sash, 0, 0.04, 0));
+    const tail1 = part(0.09, 0.42, 0.03, sash, 0.2, -0.2, 0.23); tail1.rotation.z = 0.12; rig.waist.add(tail1);
+    const tail2 = part(0.08, 0.34, 0.03, sash, 0.29, -0.16, 0.22); tail2.rotation.z = 0.28; rig.waist.add(tail2);
+    rig.waist.add(part(0.13, 0.11, 0.06, sash, 0.22, 0.04, 0.24));
+    const emb = new THREE.Mesh(new THREE.PlaneGeometry(0.32, 0.32), new THREE.MeshBasicMaterial({ map: DUCKTEX, transparent: true })); emb.position.set(0, 0.26, -0.196); emb.rotation.y = Math.PI; emb.userData.outline = true; rig.chest.add(emb);
   } else if (id === 'umbra') {
     rig = makeRig({ skin: 0xecd2bd, upper: 0x2d2650, lower: 0x1e1a36, armU: 0x2d2650, hand: 0xecd2bd, leg: 0x1e1a36, foot: 0x111018, face: 'umbra' });
     const hair = SM(0x141218);
@@ -1656,7 +1686,19 @@ const fxGeo = new THREE.IcosahedronGeometry(0.13, 0);
 function kindMat(kind, color) { const m = new THREE.MeshBasicMaterial({ color }); m.userData.kind = kind; return m; }
 const fxInk = kindMat('ink', 0x0d0c12), fxWet = kindMat('wet', 0x8a70ff), fxStraw = kindMat('straw', 0xd8b878), fxPaper = kindMat('paper', 0xffffff);
 const fxBlue = kindMat('blue', 0x9cc8ff), fxRed = kindMat('red', 0xff5a5a), fxGold = kindMat('gold', 0xffd76a), fxThread = kindMat('thread', 0xff7a3d);
-const fxShred = kindMat('shred', 0xffffff), fxFluff = kindMat('fluff', 0xffffff), fxConfetti = kindMat('confetti', 0xffffff);
+const DUCKTEX = (() => {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 256; const g = cv.getContext('2d');
+  g.shadowColor = '#ffd84a'; g.shadowBlur = 22;
+  const gr = g.createLinearGradient(0, 60, 0, 210); gr.addColorStop(0, '#fff3b0'); gr.addColorStop(1, '#ffb52a'); g.fillStyle = gr;
+  g.beginPath(); g.ellipse(118, 150, 78, 48, 0, 0, Math.PI * 2); g.fill();
+  g.beginPath(); g.moveTo(44, 140); g.lineTo(20, 112); g.lineTo(58, 128); g.fill();
+  g.beginPath(); g.arc(178, 96, 36, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#ff8a1e'; g.beginPath(); g.moveTo(206, 96); g.quadraticCurveTo(246, 100, 238, 112); g.quadraticCurveTo(220, 116, 204, 108); g.fill();
+  g.shadowBlur = 0; g.fillStyle = '#2a1a08'; g.beginPath(); g.arc(186, 88, 6, 0, 7); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.arc(188, 86, 2, 0, 7); g.fill();
+  g.strokeStyle = 'rgba(200,120,20,.7)'; g.lineWidth = 6; g.beginPath(); g.moveTo(80, 140); g.quadraticCurveTo(120, 112, 160, 140); g.quadraticCurveTo(120, 160, 80, 140); g.stroke();
+  const t = new THREE.CanvasTexture(cv); t.encoding = THREE.sRGBEncoding; return t;
+})();
+const fxFeather = kindMat('feather', 0xffffff), fxShred = kindMat('shred', 0xffffff), fxFluff = kindMat('fluff', 0xffffff), fxConfetti = kindMat('confetti', 0xffffff);
 
 // painted sprite textures
 const PT = {};
@@ -1677,6 +1719,12 @@ ctex('star', (g, S) => {
   const r = g.createRadialGradient(c, c, 0, c, c, c * 0.45); r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = r; g.fillRect(0, 0, S, S);
 });
 ctex('streak', (g, S) => { const r = g.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2); r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(0.4, 'rgba(255,255,255,.6)'); r.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = r; g.save(); g.translate(S / 2, S / 2); g.scale(1, 0.18); g.translate(-S / 2, -S / 2); g.fillRect(0, 0, S, S); g.restore(); });
+ctex('feather', (g, S) => {
+  g.translate(S / 2, S / 2); g.rotate(0.5);
+  const lg = g.createLinearGradient(0, -S * 0.42, 0, S * 0.42); lg.addColorStop(0, 'rgba(255,255,255,1)'); lg.addColorStop(1, 'rgba(255,255,255,.75)');
+  g.fillStyle = lg; g.beginPath(); g.moveTo(0, -S * 0.44); g.bezierCurveTo(S * 0.2, -S * 0.25, S * 0.16, S * 0.2, 0, S * 0.36); g.bezierCurveTo(-S * 0.16, S * 0.2, -S * 0.2, -S * 0.25, 0, -S * 0.44); g.fill();
+  g.strokeStyle = 'rgba(190,170,140,.9)'; g.lineWidth = S * 0.025; g.beginPath(); g.moveTo(0, -S * 0.4); g.lineTo(0, S * 0.46); g.stroke();
+});
 ctex('smoke', (g, S) => {
   let sd = 3; const r = () => { sd = (sd * 16807) % 2147483647; return (sd - 1) / 2147483646; };
   for (let i = 0; i < 9; i++) { const x = S * (0.3 + r() * 0.4), y = S * (0.3 + r() * 0.4), rad = S * (0.18 + r() * 0.2); const gr = g.createRadialGradient(x, y, 0, x, y, rad); gr.addColorStop(0, 'rgba(255,255,255,.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, S, S); }
@@ -1761,6 +1809,7 @@ function burst(pos, n, power, mats) {
     if (kind === 'ink') spawnDrop(pos, v, 0.05 + Math.random() * 0.1);
     else if (kind === 'straw') P({ tex: 'streak', add: false, color: 0xd9b56a, pos, vel: v, life: 0.55, s0: 0.35, grav: 16, drag: 2, stretch: 1 });
     else if (kind === 'shred') P({ tex: 'square', add: false, color: 0xf6f2e8, pos, vel: v, life: 0.9, s0: 0.22, grav: 5, drag: 3, spin: rv(20) });
+    else if (kind === 'feather') P({ tex: 'feather', add: false, color: i % 3 ? 0xfffaf0 : 0xffd76a, pos, vel: v.multiplyScalar(0.7), life: 1.1 + Math.random() * 0.5, s0: 0.42, s1: 0.32, grav: 2.5, drag: 3.5, spin: rv(6), rot: Math.random() * 6 });
     else if (kind === 'fluff') P({ tex: 'smoke', add: false, color: 0xfff8ee, pos, vel: v.multiplyScalar(0.6), life: 0.7, s0: 0.5, s1: 1.4, drag: 4, a: 0.9 });
     else if (kind === 'confetti') P({ tex: 'square', add: false, color: [0xff5a6e, 0xffd76a, 0x6fb3ff, 0x7ee08a, 0xc58bff][i % 5], pos, vel: v, life: 1.1, s0: 0.18, grav: 6, drag: 2.5, spin: rv(24) });
     else {
@@ -2317,7 +2366,7 @@ function hitDummy(d, o) {
   if (!awakened) awk = Math.min(100, awk + (o.awk || 2.5));
   if (kit.onHit) kit.onHit(d, o);
   combo += 1; comboTimer = 1.6;
-  if (awk >= 100 && !awkAnnounced) { awkAnnounced = true; toast('Awakening ready. Awakenings arrive in a later build'); }
+  if (awk >= 100 && !awkAnnounced) { awkAnnounced = true; toast('Awakening ready! Press G'); }
   if (d.hp <= 0 && !d.dead) { if (!d.rag && PHYS.world) d.rag = startRagdoll(d.rig, d.vel.clone(), 5); d.dead = 0.0001; d.down = 99; floatText('KO!', d.pos.clone().add(new THREE.Vector3(0, 3, 0)), 'ko'); impactFrame(0.1); }
   return 'hit';
 }
@@ -2475,8 +2524,8 @@ function spawnProj(o) {
   o.pos = o.pos.clone(); o.mesh.position.copy(o.pos); scene.add(o.mesh);
   o.trail = 0; o.grav = o.grav == null ? 9 : o.grav; o.radius = o.radius || 1.1;
   if (NETCAP && NET.on && o.owner !== 'dummy' && o.owner !== 'ghost' && FXQ.length < 90) {
-    const vis = fighterId === 'juno' ? 'ink' : fighterId === 'pip' ? 'needle' : fighterId === 'umbra' ? 'crow' : (o.grav === 0 ? 'beam' : 'straw');
-    const sz = o.mesh.geometry && o.mesh.geometry.parameters ? o.mesh.geometry.parameters.radius : 0.3;
+    const vis = fighterId === 'juno' ? 'ink' : fighterId === 'pip' ? 'needle' : fighterId === 'umbra' ? 'crow' : fighterId === 'reed' ? 'duck' : (o.grav === 0 ? 'beam' : 'straw');
+    const sz = o.vsz || (o.mesh.geometry && o.mesh.geometry.parameters ? o.mesh.geometry.parameters.radius : 0.3);
     FXQ.push(['pj', [vis, ser(o.pos), ser(o.vel), o.grav, o.life, sz || 0.3]]);
   }
   blobShadow(() => (projectiles.includes(o) ? o.pos : undefined), 0.7);
@@ -2486,6 +2535,7 @@ function updateProjectiles(dt) {
   for (let i = projectiles.length - 1; i >= 0; i--) {
     const pr = projectiles[i];
     pr.life -= dt; pr.vel.y -= pr.grav * dt;
+    if (pr.home && pr.home.pos && !pr.home.dead) { const sp = pr.vel.length(), want = pr.home.pos.clone().add(new THREE.Vector3(0, 1.3, 0)).sub(pr.pos).normalize().multiplyScalar(sp); pr.vel.lerp(want, Math.min(1, dt * 7)).setLength(sp); }
     pr.pos.addScaledVector(pr.vel, dt); pr.mesh.position.copy(pr.pos);
     if (pr.orient) pr.mesh.lookAt(pr.pos.clone().add(pr.vel)); else pr.mesh.rotation.x += dt * 12;
     if (pr.trailMat) { pr.trail -= dt; if (pr.trail <= 0) { pr.trail = 0.025; burst(pr.pos, 1, 1, [pr.trailMat]); } }
@@ -4339,7 +4389,7 @@ const realNow = () => performance.now() / 1000;
 let NETCAP = true, CAPD = 0, myName = 'Player' + Math.floor(1000 + Math.random() * 9000);
 try { const n = localStorage.getItem('wsv-name'); if (n) myName = n; } catch (err) { /* private mode */ }
 const FXQ = [];
-const KINDS = { ink: fxInk, wet: fxWet, straw: fxStraw, paper: fxPaper, blue: fxBlue, red: fxRed, gold: fxGold, thread: fxThread, shred: fxShred, fluff: fxFluff, confetti: fxConfetti };
+const KINDS = { ink: fxInk, wet: fxWet, straw: fxStraw, paper: fxPaper, blue: fxBlue, red: fxRed, gold: fxGold, thread: fxThread, shred: fxShred, fluff: fxFluff, confetti: fxConfetti, feather: fxFeather };
 function ser(a) {
   if (a === player) return { tg: NET.myId };
   if (a && a.remote) return { tg: a.id };
@@ -4516,6 +4566,7 @@ function handleMsg(m) {
 function ghostProj(vis, p, v, g, life, sz) {
   let mesh;
   if (vis === 'crow') { mesh = new THREE.Sprite(new THREE.SpriteMaterial({ map: silTex('crow'), transparent: true, depthWrite: false })); mesh.material.userData.lin = true; mesh.scale.setScalar(1.7); spawnProj({ mesh, pos: p, vel: v, grav: g, life, owner: 'ghost', orient: false, onWorld: () => {}, noExpire: true }); return; }
+  if (vis === 'duck') { mesh = duckSprite(Math.abs(sz) > 1.5 ? 2.4 : 1.15); if (v.x < 0) mesh.scale.x *= -1; spawnProj({ mesh, pos: p, vel: v, grav: g, life, owner: 'ghost', orient: false, trailMat: fxGold, onWorld: () => {}, noExpire: true }); return; }
   if (vis === 'ink') { mesh = new THREE.Mesh(new THREE.SphereGeometry(sz || 0.3, 18, 12), INK); }
   else if (vis === 'needle') { mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.9, 8), STEEL); mesh.geometry.rotateX(Math.PI / 2); }
   else if (vis === 'beam') { mesh = makeBeam(0xffe9a0, 0.35); mesh.scale.set(0.35, 0.35, 3.5); const h = new THREE.Group(); h.add(mesh); mesh.position.z = -3.5; mesh = h; }
@@ -5190,6 +5241,216 @@ function makeChefKit() {
 }
 Object.assign(FXF, { snake: vfxSnake, bear: vfxBear, wolves: vfxWolves, owl: vfxOwl, dragon: vfxDragon, crows: vfxCrows, chefTool: vfxChefTool, flame: vfxFlame, pot: vfxPot, spice: (at) => { for (let i = 0; i < 30; i++) P({ tex: 'smoke', add: false, color: i % 3 ? 0xc0381c : 0x8a5a1a, pos: at.clone().add(new THREE.Vector3(rv(3), 0.4 + Math.random() * 2, rv(3))), vel: randDir(0.5).multiplyScalar(3), life: 1.5, s0: 1, s1: 3, drag: 2, a: 0.75, fadeIn: 0.1 }); } });
 KITS.umbra = makeUmbraKit; KITS.chef = makeChefKit;
+
+// ---------- Reed, "The Quackmaster" (Duck Style kung fu) ----------
+function duckSprite(scale, add) {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: DUCKTEX, transparent: true, depthWrite: false, blending: add === false ? THREE.NormalBlending : THREE.AdditiveBlending }));
+  s.material.userData.lin = true; s.scale.set(scale, scale, 1); return s;
+}
+function featherPuff(pos, n, power) { burst(pos, n, power || 6, [fxFeather, fxFeather, fxGold]); }
+function vfxSplash(at, n) {
+  for (let i = 0; i < (n || 24); i++) P({ tex: 'glow', add: false, color: i % 3 ? 0x7cc8ff : 0xdff4ff, pos: at.clone().add(new THREE.Vector3(rv(1.2), 0.2, rv(1.2))), vel: new THREE.Vector3(rv(5), 6 + Math.random() * 7, rv(5)), life: 0.8, s0: 0.35, s1: 0.12, grav: 22, floor: at.y + 0.05 });
+  P({ tex: 'ring', color: 0x9adcff, pos: at.clone().add(new THREE.Vector3(0, 0.3, 0)), life: 0.4, s0: 0.5, s1: 5, a: 0.8 });
+}
+function vfxLily(points) {
+  for (const p of points) {
+    const pad = new THREE.Mesh(new THREE.CircleGeometry(1.1, 24, 0.3, Math.PI * 2 - 0.6), new THREE.MeshStandardMaterial({ color: 0x4f9a3a, roughness: 0.5, emissive: 0x2a5a10, emissiveIntensity: 0.6, side: THREE.DoubleSide }));
+    pad.rotation.x = -Math.PI / 2; pad.position.copy(p).add(new THREE.Vector3(0, 0.08, 0));
+    tempMesh(pad, 1.4, (m, k) => { m.scale.setScalar(Math.min(1, k * 8) * (k > 0.8 ? (1 - k) * 5 : 1) + 0.01); });
+  }
+}
+function vfxBigDuck(tg, from, facing) {
+  const s = duckSprite(13, true);
+  const f = new THREE.Vector3(Math.sin(facing), 0, Math.cos(facing));
+  const behind = from.clone().addScaledVector(f, -3.5);
+  tempMesh(s, 2.3, (m, k) => {
+    const t = k * 2.3, p = tg && tg.pos ? tg.pos : behind;
+    if (t < 1.3) { const rise = easeOut(Math.min(1, t / 0.7)); m.position.set(behind.x, behind.y + 1 + rise * 7.5, behind.z); m.scale.set(13 * (1 + Math.sin(t * 9) * 0.04), 13 * (1 + Math.sin(t * 9) * 0.1), 1); }
+    else { const dive = easeOut(Math.min(1, (t - 1.3) / 0.25)); m.position.lerpVectors(new THREE.Vector3(behind.x, behind.y + 8.5, behind.z), p.clone().add(new THREE.Vector3(0, 2.5, 0)), dive); m.scale.set(13 + dive * 4, 13 - dive * 3, 1); }
+    m.material.opacity = t > 1.9 ? (2.3 - t) / 0.4 : Math.min(1, t * 3);
+  });
+}
+function makeReedKit() {
+  const K = { id: 'reed', name: 'REED', sub: 'The Quackmaster', color: 0xffc83a, accent: '#b8862a',
+    desc: 'Duck Style kung fu. Duck Barrage fires a stream of glowing spirit ducks (hold 1 to keep firing; land most of them and the last one explodes). Water Step glides through attacks like a duck on a pond, Duck Dive drops on the target from above, and R lets out a QUACK that stuns.',
+    slots: [{ k: '1', name: 'Duck Barrage', tag: 'p' }, { k: '2', name: 'Water Step', tag: 'n' }, { k: '3', name: 'Feather Storm', tag: 'x' }, { k: '4', name: 'Duck Dive', tag: 'b' }, { k: 'R', name: 'Quack Shout', tag: 'u' }],
+    awkName: 'GRAND POND MASTER', awkLine: 'The pond is mine.', awkColor: 0xffc83a,
+    awkSlots: [{ k: '1', name: 'Mega Duck Barrage', tag: 'p' }, { k: '2', name: 'Lily Pad Leap', tag: 'b' }, { k: '3', name: 'Pond Splash', tag: 'x' }, { k: '4', name: 'Spirit of the Pond', tag: 'u' }, { k: 'R', name: 'Quack Shout', tag: 'u' }] };
+  const cd = { 1: 0, 2: 0, 3: 0, 4: 0, R: 0 }, MAX = { 1: 7, 2: 6, 3: 8, 4: 9, R: 10 }, acd = { 1: 0, 2: 0, 3: 0 }, AMAX = { 1: 8, 2: 8, 3: 7 };
+  let rippleT = 0, wave = null;
+  K.reset = () => { for (const k in cd) cd[k] = 0; wave = null; };
+  K.slotsNow = () => (awakened ? K.awkSlots : K.slots);
+  K.resLabel = () => (awakened ? 'Pond Master' : 'Duck Style');
+  K.resPct = () => 100 - cd[1] / MAX[1] * 100;
+  K.view = (k) => {
+    if (k === 'R') return { name: 'Quack Shout', tag: 'u', remain: cd.R, max: MAX.R };
+    if (awakened) { if (k === '4') return { name: 'Spirit of the Pond', tag: 'u', remain: 0, max: 1, glow: true }; const s = K.awkSlots.find((x) => x.k === k); return { name: s.name, tag: s.tag, remain: acd[k], max: AMAX[k] }; }
+    const s = K.slots.find((x) => x.k === k); return { name: s.name, tag: s.tag, remain: cd[k], max: MAX[k], active: !!(k === '1' && player.move && player.move.name === 'barrage') };
+  };
+  function aimTarget(range) { return nearestDummy(player.pos, range, shiftLock ? camForward() : facingVec()) || nearestDummy(player.pos, range * 0.5); }
+  K.press = (k) => {
+    if (busy() || player.blocking) return;
+    if (k === 'R') { if (cd.R > 0) return; const t = aimTarget(8); if (t) faceToward(t.pos); else if (shiftLock) player.facing = yaw + Math.PI; startMove('quack', 0.5, 'cast', { hit: false }); cd.R = MAX.R; return; }
+    if (awakened) {
+      if (k !== '4' && acd[k] > 0) return;
+      if (k === '1') { const t = aimTarget(24); if (t) faceToward(t.pos); startMove('barrage', 1.15, null, { a: true, mega: true, held: true, shots: 0, landed: 0, tgt: t }); acd[1] = AMAX[1]; }
+      if (k === '2') lilyLeap();
+      if (k === '3') { startMove('splash', 0.55, 'cast', { a: true }); acd[3] = AMAX[3]; }
+      if (k === '4') spiritPond();
+      return;
+    }
+    if (cd[k] > 0) return;
+    if (k === '1') { const t = aimTarget(22); if (t) faceToward(t.pos); startMove('barrage', 1.2, null, { held: true, shots: 0, landed: 0, tgt: t }); cd[1] = MAX[1]; }
+    if (k === '2') {
+      const mv = moveInput(); let dir = mv.lengthSq() > 0.01 ? mv.normalize() : (shiftLock ? camForward() : facingVec());
+      const t = nearestDummy(player.pos, 9, dir); if (t && mv.lengthSq() < 0.01) { dir = t.pos.clone().sub(player.pos).setY(0).normalize(); }
+      player.dashDir.copy(dir); player.dashT = 0.34; player.iframes = 0.38; player.facing = Math.atan2(dir.x, dir.z);
+      ring(player.pos.clone(), 0x7cc8ff, 2.5, true); vfxSplash(player.pos.clone(), 10); netOnly('splash', [player.pos.clone(), 10]); cd[2] = MAX[2];
+    }
+    if (k === '3') { startMove('storm', 0.6, 'spin', { hit: false }); cd[3] = MAX[3]; }
+    if (k === '4') duckDive();
+  };
+  K.release = (k) => { if (k === '1' && player.move && player.move.name === 'barrage') player.move.held = false; };
+  function duckDive() {
+    const t = aimTarget(13);
+    let to = t ? t.pos.clone() : player.pos.clone().addScaledVector(shiftLock ? camForward() : facingVec(), 7);
+    to.y = groundY(to.x, to.z, to.y + 1);
+    if (t) faceToward(t.pos);
+    startMove('dive', 0.75, 'upper', { lockPos: true, from: player.pos.clone(), to, hit: false, slammed: false });
+    cd[4] = MAX[4]; featherPuff(player.pos.clone().add(new THREE.Vector3(0, 0.5, 0)), 8, 4);
+  }
+  function lilyLeap() {
+    const t = aimTarget(16);
+    if (!t) { toast('No target in range'); return; }
+    faceToward(t.pos);
+    const c = t.pos.clone(), pts = [];
+    for (let i = 0; i < 3; i++) { const a = player.facing + Math.PI + (i - 1) * 1.6, p = c.clone().add(new THREE.Vector3(Math.sin(a) * 3.2, 0, Math.cos(a) * 3.2)); p.y = groundY(p.x, p.z, c.y + 1); pts.push(p); }
+    vfxLily(pts); netOnly('lily', [pts]);
+    startMove('lily', 1.05, null, { a: true, lockPos: true, from: player.pos.clone(), pts, victim: t, hop: -1, hit: false });
+    acd[2] = AMAX[2];
+  }
+  function spiritPond() {
+    const d = nearestDummy(player.pos, 20);
+    if (!d) { toast('No target in range for Spirit of the Pond'); return; }
+    faceToward(d.pos);
+    startMove('spirit', 2.4, 'raise', { a: true, lockPos: true, d, base: d.pos.clone(), hit: false, ended: false });
+    player.iframes = 3; d.grabbed = 2.1; d.stun = 2.6; if (d.ai) d.ai.wind = 0;
+    vfxBigDuck(d, player.pos.clone(), player.facing); netOnly('bigDuck', [d, player.pos.clone(), player.facing]);
+    startCine({ focus: () => d.pos, dur: 2.4, dist: 11, height: 3.5, yaw: player.facing + 2.5, spin: 0.35 });
+    letterbox(true); callout('SPIRIT OF THE POND');
+  }
+  function fireDuck(mv) {
+    const dir = mv.tgt && !mv.tgt.dead ? mv.tgt.pos.clone().add(new THREE.Vector3(0, 1.3, 0)).sub(handPos()).normalize() : (shiftLock ? camForward() : facingVec());
+    const sc = mv.mega ? 2.4 : 1.15;
+    const s = duckSprite(sc);
+    const from = (mv.shots % 2 ? rig.handL : rig.handR).getWorldPosition(new THREE.Vector3());
+    if (screenSide(from, from.clone().add(dir))) s.scale.x = -sc;
+    playAnim(mv.shots % 2 ? 'm1b' : 'm1a', 2.2);
+    flash(from, 0xffc83a, mv.mega ? 1.4 : 0.8);
+    spawnProj({ mesh: s, pos: from, vel: dir.clone().multiplyScalar(mv.mega ? 30 : 34), grav: 0, life: 0.85, radius: mv.mega ? 1.8 : 1.2, home: mv.tgt, vsz: sc, trailMat: fxGold,
+      onHit: (d) => { const r = hitDummy(d, { dmg: mv.mega ? 4 : 2, type: 'p', stun: 0.4, kb: dir.clone().multiplyScalar(1.5), mats: [fxFeather, fxGold], spark: 0xffc83a, awk: 1.5 }); if (r === 'hit' && d === mv.tgt) mv.landed++; },
+      onWorld: (p) => featherPuff(p, 4, 3), noExpire: true });
+    mv.shots++;
+  }
+  K.moveTick = (mv, dt) => {
+    const f = facingVec();
+    if (mv.name === 'barrage') {
+      const cap = mv.mega ? 8 : (mv.held ? 8 : Math.max(5, mv.shots));
+      while (mv.shots < cap && mv.t >= 0.1 + mv.shots * 0.1) fireDuck(mv);
+      if (!mv.mega && !mv.held && mv.shots >= 5 && !mv.cut) { mv.cut = true; mv.dur = Math.min(mv.dur, mv.t + 0.3); }
+      const lastT = 0.1 + (cap - 1) * 0.1 + 0.3;
+      if (!mv.boomed && mv.shots >= cap && mv.t >= lastT) {
+        mv.boomed = true;
+        if (mv.tgt && !mv.tgt.dead && mv.landed >= Math.ceil(cap * 0.6)) {
+          const d = mv.tgt, dir = d.pos.clone().sub(player.pos).setY(0).normalize();
+          featherPuff(d.pos.clone().add(new THREE.Vector3(0, 1.4, 0)), 22, 9);
+          hitDummy(d, { dmg: mv.mega ? 8 : 5, type: 'p', kb: new THREE.Vector3(dir.x * 11, 5, dir.z * 11), set: true, down: mv.mega ? 1.2 : 0, big: true, mats: [fxFeather, fxGold], spark: 0xffc83a, ringColor: 0xffc83a, label: mv.mega ? 'MEGA DUCK BARRAGE' : 'DUCK BARRAGE', awk: 4 });
+        }
+      }
+    } else if (mv.name === 'quack' && !mv.hit && mv.t >= 0.15) {
+      mv.hit = true;
+      const head = player.pos.clone().add(new THREE.Vector3(0, 2.2, 0));
+      floatText('QUACK!', head.clone().add(new THREE.Vector3(0, 0.8, 0)), 'big');
+      for (let i = 0; i < 3; i++) later(i * 0.08, () => ring(head.clone().addScaledVector(f, 1 + i), 0xffe08a, 3 + i * 1.5));
+      addShake(0.7); impactBlur(head, 0.6);
+      for (const d of meleeTargets(6.5, 0.3)) hitDummy(d, { dmg: 4, type: 'u', stun: 1.4, mats: [fxGold, fxFeather], spark: 0xffe08a, label: 'STUNNED', awk: 4 });
+    } else if (mv.name === 'storm' && !mv.hit && mv.t >= 0.22) {
+      mv.hit = true;
+      for (let i = 0; i < 3; i++) slashArc(0xffe08a, 1.0 + i * 0.3, (i - 1) * 0.2, false, 1.3, player.pos, player.facing + i * 2.1);
+      featherPuff(player.pos.clone().add(new THREE.Vector3(0, 1.2, 0)), 28, 11);
+      ring(player.pos.clone(), 0xffc83a, 4.5, true);
+      for (const d of aliveDummies()) {
+        const dist = Math.hypot(d.pos.x - player.pos.x, d.pos.z - player.pos.z);
+        if (dist > 3.8 || Math.abs(d.pos.y - player.pos.y) > 2.4) continue;
+        const out = d.pos.clone().sub(player.pos).setY(0).normalize();
+        hitDummy(d, { dmg: 9, type: 'x', kb: new THREE.Vector3(out.x * 12, 4, out.z * 12), set: true, down: 1, big: true, mats: [fxFeather, fxGold], spark: 0xffc83a, ringColor: 0xffc83a, label: 'FEATHER STORM', awk: 5 });
+      }
+    } else if (mv.name === 'dive') {
+      const t = Math.min(1, mv.t / 0.5), apex = mv.from.clone().lerp(mv.to, 0.5).add(new THREE.Vector3(0, 5.5, 0));
+      if (t < 1) { const a = mv.from.clone().lerp(apex, t), b = apex.clone().lerp(mv.to, t); player.pos.copy(a.lerp(b, t)); }
+      if (!mv.slammed && mv.t >= 0.32) { mv.slammed = true; playAnim('slam', 1.4); }
+      if (!mv.hit && t >= 1) {
+        mv.hit = true; player.pos.copy(mv.to);
+        vfxSplash(mv.to.clone(), 26); netOnly('splash', [mv.to.clone(), 26]); ring(mv.to.clone(), 0x7cc8ff, 4.5, true); addShake(0.6);
+        for (const d of aliveDummies()) if (Math.hypot(d.pos.x - mv.to.x, d.pos.z - mv.to.z) < 3 && Math.abs(d.pos.y - mv.to.y) < 3) {
+          const out = d.pos.clone().sub(mv.to).setY(0); if (out.lengthSq() < 0.01) out.copy(f); out.normalize();
+          hitDummy(d, { dmg: 11, type: 'b', heavy: true, kb: new THREE.Vector3(out.x * 9, 7, out.z * 9), set: true, down: 1.2, big: true, mats: [fxFeather, fxGold], spark: 0x7cc8ff, ringColor: 0x7cc8ff, label: 'DUCK DIVE', awk: 5 });
+        }
+      }
+    } else if (mv.name === 'lily') {
+      const hop = Math.min(2, Math.floor(mv.t / 0.28));
+      const from = hop === 0 ? mv.from : mv.pts[hop - 1], to = mv.pts[hop], k = Math.min(1, (mv.t - hop * 0.28) / 0.28);
+      if (mv.t < 0.84) { const p = from.clone().lerp(to, k); p.y += Math.sin(k * Math.PI) * 2.5; player.pos.copy(p); if (hop !== mv.hop) { mv.hop = hop; playAnim('upper', 1.6); vfxSplash(from.clone(), 8); } }
+      else if (!mv.hit) {
+        mv.hit = true;
+        const v = mv.victim, end = v && !v.dead ? v.pos.clone() : mv.pts[2].clone();
+        player.pos.copy(end).addScaledVector(f, -1.2); playAnim('slam', 1.5);
+        vfxSplash(end.clone(), 22); netOnly('splash', [end.clone(), 22]); ring(end.clone(), 0x7cc8ff, 4, true); addShake(0.6);
+        if (v && !v.dead && Math.hypot(v.pos.x - end.x, v.pos.z - end.z) < 3) {
+          const out = v.pos.clone().sub(player.pos).setY(0); if (out.lengthSq() < 0.01) out.copy(f); out.normalize();
+          hitDummy(v, { dmg: 12, type: 'b', heavy: true, kb: new THREE.Vector3(out.x * 8, 6, out.z * 8), set: true, down: 1.2, big: true, mats: [fxFeather, fxGold], spark: 0x7cc8ff, ringColor: 0x7cc8ff, label: 'LILY PAD LEAP', awk: 0 });
+        }
+      }
+    } else if (mv.name === 'splash' && !wave && mv.t >= 0.15) {
+      const ringM = new THREE.Mesh(new THREE.RingGeometry(0.8, 1, 48), new THREE.MeshBasicMaterial({ color: 0x7cc8ff, transparent: true, side: THREE.DoubleSide, depthWrite: false }));
+      ringM.rotation.x = -Math.PI / 2; scene.add(ringM);
+      wave = { r: 0.5, at: player.pos.clone(), mesh: ringM, hit: new Set() };
+      vfxSplash(player.pos.clone(), 30); netOnly('splash', [player.pos.clone(), 30]); addShake(0.4);
+    } else if (mv.name === 'spirit') {
+      const d = mv.d;
+      if (!mv.hit && !d.dead) { const lift = Math.max(0, Math.min(1, (mv.t - 0.9) / 0.4)); d.pos.copy(mv.base).add(new THREE.Vector3(0, lift * 4, 0)); d.vel.set(0, 0, 0); }
+      if (!mv.hit && mv.t >= 1.55) {
+        mv.hit = true; d.grabbed = 0;
+        hitDummy(d, { dmg: 30, type: 'u', otg: true, kb: new THREE.Vector3(0, -18, 0), set: true, down: 2, big: true, slam: true, mats: [fxFeather, fxGold], spark: 0xffc83a, ringColor: 0xffc83a, label: 'SPIRIT OF THE POND', awk: 0 });
+        impactFrame(0.16); addShake(1.1); hitStop = 0.16; vfxSplash(mv.base.clone(), 40); netOnly('splash', [mv.base.clone(), 40]); featherPuff(mv.base.clone().add(new THREE.Vector3(0, 2, 0)), 40, 12);
+      }
+      if (mv.t >= 2.3 && !mv.ended) { mv.ended = true; letterbox(false); later(0.1, endAwaken); }
+    }
+  };
+  K.update = (dt) => {
+    for (const k in cd) cd[k] = Math.max(0, cd[k] - dt);
+    for (const k in acd) acd[k] = Math.max(0, acd[k] - dt);
+    if (player.dashT > 0 && Math.random() < 0.8) ring(player.pos.clone(), 0x7cc8ff, 1.6, true);
+    if (wave) {
+      wave.r += dt * 20; wave.mesh.position.set(wave.at.x, wave.at.y + 0.1, wave.at.z); wave.mesh.scale.setScalar(wave.r); wave.mesh.material.opacity = Math.max(0, 1 - wave.r / 9);
+      for (const d of aliveDummies()) {
+        if (wave.hit.has(d)) continue;
+        const dist = Math.hypot(d.pos.x - wave.at.x, d.pos.z - wave.at.z);
+        if (dist <= wave.r && dist < 8.5 && Math.abs(d.pos.y - wave.at.y) < 3) { wave.hit.add(d); const out = d.pos.clone().sub(wave.at).setY(0).normalize(); hitDummy(d, { dmg: 9, type: 'x', kb: new THREE.Vector3(out.x * 13, 5, out.z * 13), set: true, down: 1.1, big: true, mats: [fxBlue, fxFeather], spark: 0x7cc8ff, ringColor: 0x7cc8ff, label: 'POND SPLASH' }); }
+      }
+      if (wave.r > 9) { scene.remove(wave.mesh); wave.mesh.geometry.dispose(); wave.mesh.material.dispose(); wave = null; }
+    }
+    if (awakened) {
+      rippleT -= dt; if (rippleT <= 0) { rippleT = 0.35; ring(player.pos.clone(), 0x9adcff, 2.2, true); }
+      if (Math.random() < 0.35) burst(player.pos.clone().add(new THREE.Vector3(rv(1), 0.5 + Math.random() * 1.5, rv(1))), 1, 1.5, [fxFeather]);
+    }
+  };
+  K.awaken = () => { acd[1] = acd[2] = acd[3] = 0; };
+  K.unawaken = () => {};
+  return K;
+}
+Object.assign(FXF, { splash: vfxSplash, lily: (pts) => vfxLily(pts.map((p) => (p && p.isVector3 ? p : new THREE.Vector3(p[0], p[1], p[2])))), bigDuck: vfxBigDuck });
+KITS.reed = makeReedKit;
 
 // ---------- 1v1 duel vs the Sparring Master ----------
 const duel = { on: false, d: null, state: 'off', t: 0, enraged: false };
