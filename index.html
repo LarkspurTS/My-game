@@ -4069,7 +4069,8 @@ setupFighter('juno');
 
 // ---------- Online multiplayer (peer-to-peer, one shared room per site) ----------
 const qs = new URLSearchParams(location.search);
-const ROOM = (qs.get('room') || (location.host + location.pathname)).toLowerCase();
+// one shared room for the whole game, no matter which link people open it from
+const ROOM = (qs.get('room') || 'fightingtest405-main').toLowerCase();
 function hashStr(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); }
 const HOST_ID = 'wsv-' + hashStr(ROOM) + '-host';
 const PEER_OPTS = qs.get('peerhost') ? { host: qs.get('peerhost'), port: +(qs.get('peerport') || 9000), path: qs.get('peerpath') || '/', secure: qs.get('peersecure') === '1', debug: 0 } : { debug: 0 };
