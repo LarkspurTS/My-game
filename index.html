@@ -4890,7 +4890,7 @@ function makeUmbraKit() {
     if (k === '1') return { name: follow ? 'Flock' : 'Crow', tag: follow ? 'b' : 'p', remain: follow ? 0 : cd[1], max: MAX[1], glow: !!follow };
     const s = K.slots.find((x) => x.k === k); return { name: s.name, tag: s.tag, remain: cd[k], max: MAX[k] };
   };
-  function endEclipse() { if (eclipse > 0) { eclipse = 0; player.hidden = false; shadeSmoke(player.pos, 10, 0.8); cd.R = MAX.R; } }
+  function endEclipse(force) { if (eclipse > 0 || force) { eclipse = 0; player.hidden = false; player.sinkY = 0; shadeSmoke(player.pos, 10, 0.8); cd.R = MAX.R; } }
   K.blocksM1 = () => { endEclipse(); return false; };
   K.press = (k) => {
     if (k === 'R') {
@@ -4995,7 +4995,7 @@ function makeUmbraKit() {
     for (const k in cd) { if (k === '1' && follow) continue; if (k === 'R' && eclipse > 0) continue; cd[k] = Math.max(0, cd[k] - dt); }
     for (const k in acd) acd[k] = Math.max(0, acd[k] - dt);
     if (follow) { follow.t -= dt; if (follow.t <= 0 || follow.d.dead) follow = null; }
-    if (eclipse > 0) { eclipse -= dt; if (Math.random() < 0.7) P({ tex: 'smoke', add: false, color: 0x0d0a14, pos: player.pos.clone().add(new THREE.Vector3(rv(0.5), 0.3 + Math.random() * 1.5, rv(0.5))), vel: new THREE.Vector3(0, 0.8, 0), life: 0.6, s0: 0.6, s1: 1.2, a: 0.75 }); if (eclipse <= 0) endEclipse(); }
+    if (eclipse > 0) { eclipse -= dt; if (Math.random() < 0.7) P({ tex: 'smoke', add: false, color: 0x0d0a14, pos: player.pos.clone().add(new THREE.Vector3(rv(0.5), 0.3 + Math.random() * 1.5, rv(0.5))), vel: new THREE.Vector3(0, 0.8, 0), life: 0.6, s0: 0.6, s1: 1.2, a: 0.75 }); if (eclipse <= 0) endEclipse(true); }
     // the stage darkens during Puppet Show
     dim += ((awakened ? 1 : 0) - dim) * (1 - Math.exp(-3 * dt));
     if (dim > 0.002 || awakened) { sun.intensity = 1.35 - dim * 0.95; hemi.intensity = 0.95 - dim * 0.6; } else if (dim !== 0) { dim = 0; sun.intensity = 1.35; hemi.intensity = 0.95; }
