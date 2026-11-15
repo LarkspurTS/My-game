@@ -1222,27 +1222,71 @@ function makeRig(c) {
 }
 function setFace(rig, kind) { if (rig.faceMat.map) rig.faceMat.map.dispose(); rig.faceMat.map = faceTexture(kind); rig.faceMat.needsUpdate = true; }
 
-function makeSlickHair() {
-  const R = 0.28, geo = new THREE.SphereGeometry(R, 64, 40, 0, Math.PI * 2, 0, 2.65), pos = geo.attributes.position, v = new THREE.Vector3(), cols = [], dark = new THREE.Color(0x0b0807), lite = new THREE.Color(0x30261e);
-  for (let i = 0; i < pos.count; i++) {
-    v.fromBufferAttribute(pos, i);
-    const a = Math.atan2(v.x, v.z), lim = 1.5 + (2.62 - 1.5) * Math.pow((1 - Math.cos(a)) / 2, 1.4);
-    let th = Math.acos(Math.max(-1, Math.min(1, v.y / R)));
-    const edge = th >= lim; th = Math.min(th, lim);
-    const dx = Math.sin(th) * Math.sin(a), dy = Math.cos(th), dz = Math.sin(th) * Math.cos(a);
-    // grooves follow the comb lines (constant x), and wander side to side to make the waves
-    const wave = Math.sin(dx * 30 + Math.sin(dz * 5.5 - dy * 2) * 1.3);
-    let r = R + 0.017 * wave * Math.min(1, th * 2);
-    r += 0.075 * Math.pow(Math.max(0, dz) * Math.max(0, dy + 0.15), 1.2);
-    const c = dark.clone().lerp(lite, Math.pow(Math.max(0, wave), 4) * (0.4 + 0.6 * Math.max(0, dy))); cols.push(c.r, c.g, c.b);   // volume swept up at the front
-    if (dz < 0 && th > lim - 0.35) r += 0.022 * (th - (lim - 0.35)) / 0.35; // flicks out a little at the nape
-    // uneven, slightly messy lumps
-    r += 0.014 * Math.sin(dx * 17 + dz * 13 + 1.3) * Math.sin(dy * 19 + dx * 7) + 0.008 * Math.sin(dz * 31 + dx * 23);
-    if (edge) r = Math.min(R, 0.255 / Math.max(0.3, Math.sin(th)));   // tuck the rim against the head
-    pos.setXYZ(i, dx * r, dy * r, dz * r);
+// Nang's head: snug hair base, wavy locks combed back over the top, glasses that wrap the head
+function makeNangHead(rig, red, gold) {
+  const N = rig.neck, HR = 0.25, TOP = 0.46;
+  const add = (m) => { m.userData.noOutline = true; N.add(m); return m; };
+  const hairline = (a) => 0.405 - (0.405 - 0.1) * Math.pow((1 - Math.cos(a)) / 2, 1.25);
+  // 1. base layer: hugs the sides of the head and domes over the top
+  {
+    const A = 64, V = 22, P = [], I = [], R = HR + 0.008, D = 0.1;
+    for (let j = 0; j <= V; j++) for (let i = 0; i <= A; i++) {
+      const a = i / A * Math.PI * 2, v = j / V, h0 = hairline(a), wall = TOP - h0, arc = D * 1.4, sAt = v * (wall + arc);
+      let rr, y;
+      if (sAt <= wall) { rr = R; y = h0 + sAt; } else { const ph = Math.min(1, (sAt - wall) / arc) * Math.PI / 2; rr = R * Math.cos(ph); y = TOP + D * Math.sin(ph); }
+      P.push(Math.sin(a) * rr, y, Math.cos(a) * rr);
+      if (j < V && i < A) { const k = j * (A + 1) + i; I.push(k, k + 1, k + A + 1, k + 1, k + A + 2, k + A + 1); }
+    }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setIndex(I); g.computeVertexNormals();
+    add(new THREE.Mesh(g, SM(0x15100c)));
   }
-  geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
-  geo.computeVertexNormals(); return geo;
+  // 2. locks: each starts at the front hairline, sweeps up and back over the crown and down to the nape, with a gentle wave
+  const lockMats = [SM(0x1b1511), SM(0x241c16)];
+  const XS = [-0.2, -0.15, -0.1, -0.05, 0, 0.05, 0.1, 0.15, 0.2];
+  XS.forEach((xo, li) => {
+    const Rl = HR + 0.016 + (li % 2) * 0.01, k = Math.sqrt(Math.max(0.05, 1 - (xo / Rl) ** 2)), zf = Rl * k;
+    const ys = hairline(Math.asin(Math.min(1, Math.abs(xo) / Rl))) + 0.004, yb = 0.2;
+    const pomp = 0.05 * (1 - Math.abs(xo) / 0.25), Dh = (0.115 + 0.012 * (li % 3)) * k;
+    const path = [];
+    const n1 = 4, n2 = 26, n3 = 10;
+    const zin = Math.sqrt(Math.max(0.0025, (HR - 0.004) ** 2 - xo * xo));
+    for (let i = 0; i < n1; i++) { const t = i / n1; path.push(new THREE.Vector3(xo, ys - 0.012 + (TOP - ys + 0.012) * t, zin + (zf + 0.01 - zin) * Math.sin(t * Math.PI / 2))); }
+    for (let i = 0; i <= n2; i++) { const b = i / n2 * Math.PI; path.push(new THREE.Vector3(xo, TOP + (Dh + pomp * Math.pow(1 - i / n2, 2)) * Math.sin(b), (zf + 0.01) * Math.cos(b))); }
+    const zb = Math.sqrt(Math.max(0.0025, (HR - 0.004) ** 2 - xo * xo));
+    for (let i = 1; i <= n3; i++) { const t = i / n3; path.push(new THREE.Vector3(xo, TOP - (TOP - yb) * t, -((zf + 0.01) + (zb - zf - 0.01) * t * t))); }
+    const M = path.length, P = [], I = [], SEG = 6;
+    for (let i = 0; i < M; i++) {
+      const u = i / (M - 1), p = path[i].clone();
+      p.x += 0.02 * Math.sin(u * Math.PI * 3.2 + li * 1.7) * Math.min(1, u * 4);
+      const T = path[Math.min(M - 1, i + 1)].clone().sub(path[Math.max(0, i - 1)]).normalize();
+      const out = p.clone().sub(new THREE.Vector3(0, Math.min(p.y, TOP), 0)); out.x *= 0.3; out.normalize();
+      const side = new THREE.Vector3().crossVectors(T, out).normalize();
+      const taper = 1 - 0.55 * Math.pow(u, 3);
+      const hw = 0.072 * taper, ht = 0.014 * taper;
+      for (let s2 = 0; s2 < SEG; s2++) { const t = s2 / SEG * Math.PI * 2; const q = p.clone().addScaledVector(side, Math.cos(t) * hw).addScaledVector(out, Math.sin(t) * ht + ht * 0.4); P.push(q.x, q.y, q.z); }
+      if (i < M - 1) for (let s2 = 0; s2 < SEG; s2++) { const a0 = i * SEG + s2, a1 = i * SEG + (s2 + 1) % SEG; I.push(a0, a0 + SEG, a1, a1, a0 + SEG, a1 + SEG); }
+    }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setIndex(I); g.computeVertexNormals();
+    add(new THREE.Mesh(g, lockMats[li % 2]));
+  });
+  // 3. headband tied over the hair
+  add(new THREE.Mesh(new THREE.CylinderGeometry(0.268, 0.27, 0.055, 32), red)).position.y = 0.345;
+  add(part(0.13, 0.06, 0.016, gold, 0, 0.345, 0.272));
+  // 4. glasses: thin round-cornered frames that follow the curve of the face, arms running back along the sides
+  const frame = SM(0x24201c), GR = 0.27;
+  const onCyl = (x, y, r) => new THREE.Vector3(x, y, Math.sqrt(Math.max(0, r * r - x * x)));
+  const tube = (pts, closed, rad) => add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, closed), closed ? 56 : 24, rad, 6, closed), frame));
+  for (const sd of [-1, 1]) {
+    const pts = [];
+    for (let i = 0; i < 40; i++) { const t = i / 40 * Math.PI * 2, c = Math.cos(t), s2 = Math.sin(t); pts.push(onCyl(sd * 0.077 + 0.064 * Math.sign(c) * Math.pow(Math.abs(c), 0.55), 0.252 + 0.048 * Math.sign(s2) * Math.pow(Math.abs(s2), 0.55) * (s2 < 0 ? 1.1 : 1), GR)); }
+    tube(pts, true, 0.0065);
+    const arm = [];
+    const p0 = Math.asin(0.141 / GR);
+    for (let i = 0; i <= 16; i++) { const t = i / 16, ph = p0 + (Math.PI / 2 + 0.45 - p0) * t, r = GR + (0.257 - GR) * Math.min(1, t * 1.6); arm.push(new THREE.Vector3(sd * Math.sin(ph) * r, 0.272 - 0.012 * t * t, Math.cos(ph) * r)); }
+    tube(arm, false, 0.006);
+  }
+  const top = []; for (let i = 0; i <= 12; i++) top.push(onCyl(-0.128 + 0.256 * i / 12, 0.299, GR + 0.003)); tube(top, false, 0.005);
+  const nose = []; for (let i = 0; i <= 4; i++) nose.push(onCyl(-0.014 + 0.028 * i / 4, 0.268 + 0.006 * Math.sin(i / 4 * Math.PI), GR + 0.004)); tube(nose, false, 0.005);
 }
 function buildFighter(id) {
   let rig;
@@ -1298,22 +1342,7 @@ function buildFighter(id) {
   } else if (id === 'nang') {
     rig = makeRig({ skin: 0xa8714b, upper: 0x1b2238, armU: 0x1b2238, armL: 0x1b2238, lower: 0x1b2238, hand: 0x23263a, leg: 0x1b2238, foot: 0x15131c, face: 'nang' });
     const navy = SM(0x161c2e), red = SM(0xb3262e), gold = SM(0xd9a23a, { emissive: 0x3a2400 }), dark = SM(0x15131c);
-    // wavy black hair, slicked back: one shell with combed grooves that ripple front to back
-    { const hm = new THREE.Mesh(makeSlickHair(), SM(0xffffff, { vertexColors: true })); hm.position.set(0, 0.37, -0.01); hm.scale.set(1.02, 0.86, 1.05); rig.neck.add(hm); }
-    // big thin-framed glasses
-    const frame = SM(0x2a2622), lensMat = new THREE.MeshBasicMaterial({ color: 0xcfe4ff, transparent: true, opacity: 0.18, depthWrite: false });
-    for (const sd of [-1, 1]) {
-      const cx = sd * 0.075, cy = 0.25, z = 0.272, w = 0.13, h = 0.1, t = 0.012;
-      const fp = (...a) => { const m = part(...a); m.userData.noOutline = true; m.castShadow = false; rig.neck.add(m); };
-      fp(w, t, t, frame, cx, cy + h / 2, z); fp(w * 0.9, t, t, frame, cx, cy - h / 2, z);
-      fp(t, h, t, frame, cx + sd * w / 2, cy, z); fp(t, h * 0.9, t, frame, cx - sd * w / 2 + sd * 0.004, cy, z);
-      const lens = new THREE.Mesh(new THREE.PlaneGeometry(w, h), lensMat); lens.position.set(cx, cy, z - 0.002); lens.userData.noOutline = true; rig.neck.add(lens);
-      fp(0.13, t, t, frame, sd * 0.2, cy + 0.04, 0.271);
-      fp(t, t, 0.28, frame, sd * 0.262, cy + 0.04, 0.135);
-    }
-    { const br = part(0.04, 0.012, 0.012, frame, 0, 0.292, 0.272); br.userData.noOutline = true; rig.neck.add(br); }
-    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.262, 0.266, 0.06, 20), red); band.position.y = 0.345; rig.neck.add(band);
-    rig.neck.add(part(0.14, 0.065, 0.02, gold, 0, 0.345, 0.268));
+    makeNangHead(rig, red, gold);
     const t1 = part(0.07, 0.36, 0.02, red, -0.06, 0.24, -0.29); t1.rotation.z = 0.15; t1.rotation.x = 0.3; rig.neck.add(t1);
     const t2 = part(0.07, 0.3, 0.02, red, 0.06, 0.26, -0.29); t2.rotation.z = -0.2; t2.rotation.x = 0.3; rig.neck.add(t2);
     rig.chest.add(part(0.5, 0.34, 0.05, red, 0, 0.27, 0.2));
