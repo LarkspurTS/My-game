@@ -7197,9 +7197,10 @@ function echoFace(kind, g, ell) {
   return true;
 }
 // hair textures for Echo's flat top
-const FLATTOP_TEX = canvasTex(128, (g, S) => {
-  g.fillStyle = '#1a120d'; g.fillRect(0, 0, S, S);
-  for (let i = 0; i < 900; i++) { const x = Math.random() * S, y = Math.random() * S; g.fillStyle = Math.random() < 0.5 ? 'rgba(70,52,40,.55)' : 'rgba(5,3,2,.7)'; g.fillRect(x, y, 1.2, 2.2 + Math.random() * 2); }
+const FLATTOP_TEX = canvasTex(256, (g, S) => {
+  g.fillStyle = '#1c140f'; g.fillRect(0, 0, S, S);
+  // tiny coils: little dark rings with a light rim, packed tight
+  for (let i = 0; i < 4200; i++) { const x = Math.random() * S, y = Math.random() * S, r = 0.9 + Math.random() * 1.4; g.strokeStyle = Math.random() < 0.55 ? 'rgba(92,72,56,.55)' : 'rgba(6,4,3,.75)'; g.lineWidth = 0.9; g.beginPath(); g.arc(x, y, r, Math.random() * 6, Math.random() * 6 + 4); g.stroke(); }
 });
 const FLATTOP_TOP = canvasTex(128, (g, S) => {
   g.fillStyle = '#21170f'; g.fillRect(0, 0, S, S);
@@ -7233,9 +7234,9 @@ function buildEcho() {
     const sides = new THREE.Mesh(new THREE.CylinderGeometry(0.2565, 0.2565, 0.3, 32, 1, true, 0.85, PI2 - 1.7), fadeMat); sides.position.y = 0.315; sides.userData.noOutline = true; rig.neck.add(sides);
     const brow = new THREE.Mesh(new THREE.CylinderGeometry(0.2565, 0.2565, 0.06, 32, 1, true, -0.85, 1.7), fadeMat); brow.position.y = 0.44; brow.userData.noOutline = true; rig.neck.add(brow);
     const topMat = toon(0xffffff, { map: FLATTOP_TEX });
-    const block = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.325, 0.25, 4, 1), topMat); block.rotation.y = Math.PI / 4; block.position.y = 0.575; rig.neck.add(block);
-    const lip = new THREE.Mesh(new THREE.CylinderGeometry(0.33, 0.35, 0.03, 4, 1), topMat); lip.rotation.y = Math.PI / 4; lip.position.y = 0.705; rig.neck.add(lip);
-    const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.44, 0.44), toon(0xffffff, { map: FLATTOP_TOP })); plate.rotation.x = -Math.PI / 2; plate.position.y = 0.722; rig.neck.add(plate);
+    // round flat top: follows the head, flares slightly as it rises, flat on top with a soft rounded edge
+    const prof = [[0.252, 0], [0.262, 0.04], [0.272, 0.12], [0.282, 0.2], [0.29, 0.27], [0.293, 0.305], [0.289, 0.325], [0.278, 0.338], [0.255, 0.345], [0.15, 0.348], [0, 0.348]].map(([x, y]) => new THREE.Vector2(x, y));
+    const ft = new THREE.Mesh(new THREE.LatheGeometry(prof, 48), topMat); ft.position.y = 0.4; rig.neck.add(ft);
   }
   // ---- vintage tour tee (shows through the open jacket) ----
   const tee = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.4), toon(0xffffff, { map: TEE_TEX })); tee.position.set(0, 0.26, 0.182); rig.chest.add(tee);
@@ -7285,12 +7286,12 @@ function buildEcho() {
   }
   { const br = part(0.03, 0.014, 0.014, frameM, 0, 0.27, 0.268); br.userData.noOutline = true; rig.neck.add(br); }
   // ---- optional backwards cap (Menu toggle, shown to everyone) ----
-  const cap = new THREE.Group(); cap.position.set(0, 0.705, -0.01); cap.visible = false; rig.neck.add(cap); rig.echoCap = cap;
+  const cap = new THREE.Group(); cap.position.set(0, 0.735, 0); cap.visible = false; rig.neck.add(cap); rig.echoCap = cap;
   const capMat = SM(0xff4fa8);
-  const crown = new THREE.Mesh(new THREE.SphereGeometry(0.27, 20, 10, 0, PI2, 0, Math.PI / 2), capMat); crown.scale.set(1, 0.55, 1.02); cap.add(crown);
-  const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.025, 20, 1, false, -Math.PI / 2, Math.PI), SM(0x17171c)); brim.position.set(0, 0.01, -0.27); brim.scale.set(1, 1, 0.9); cap.add(brim);
+  const crown = new THREE.Mesh(new THREE.SphereGeometry(0.305, 24, 10, 0, PI2, 0, Math.PI / 2), capMat); crown.scale.set(1, 0.5, 1); cap.add(crown);
+  const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.025, 20, 1, false, -Math.PI / 2, Math.PI), SM(0x17171c)); brim.position.set(0, 0.01, -0.3); brim.scale.set(1, 1, 0.9); cap.add(brim);
   const btn = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6), SM(0x17171c)); btn.position.y = 0.15; cap.add(btn);
-  cap.add(part(0.12, 0.05, 0.02, SM(0xefe6d2), 0, 0.06, 0.27));
+  cap.add(part(0.12, 0.05, 0.02, SM(0xefe6d2), 0, 0.06, 0.3));
   // ---- high-top sneakers: thick sole, ankle collar, color accents ----
   for (const kn of [rig.j.knL, rig.j.knR]) {
     kn.add(part(0.3, 0.06, 0.44, SM(0xf4f4f2), 0, -0.5, 0.05));
