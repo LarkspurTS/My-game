@@ -1233,7 +1233,7 @@ function makeRig(c) {
     handL: L.hand, handR: R.hand, footR: RL.foot, head };
   return rig;
 }
-function setFace(rig, kind) { if (rig.faceMat.map) rig.faceMat.map.dispose(); rig.faceMat.map = faceTexture(kind); rig.faceMat.needsUpdate = true; }
+function setFace(rig, kind) { if (rig.faceMat.map) rig.faceMat.map.dispose(); rig.faceMat.map = faceTexture(kind); rig.faceMat.needsUpdate = true; if (rig.echoCap) rig.echoCap.visible = /-cap$/.test(kind); }
 
 // Nang's head: snug hair base, wavy locks combed back over the top, glasses that wrap the head
 function makeNangHead(rig, red, gold) {
@@ -7183,7 +7183,7 @@ const VINYLTEX = canvasTex(512, (g, S) => {
   g.fillStyle = '#121216'; g.beginPath(); g.arc(C, C, 8, 0, PI2); g.fill();
 });
 function echoFace(kind, g, ell) {
-  if (kind !== 'echo') return false;
+  if (kind !== 'echo' && kind !== 'echo-cap') return false;
   // eye whites so they read on darker skin, relaxed lids, strong brows, easy smile
   ell(44, 61, 9, 6.5, '#f4efe8'); ell(84, 61, 9, 6.5, '#f4efe8');
   ell(45, 62, 5, 5.5, '#3a2416'); ell(85, 62, 5, 5.5, '#3a2416'); ell(45, 62, 2.6, 3, '#0c0806'); ell(85, 62, 2.6, 3, '#0c0806');
@@ -7211,9 +7211,22 @@ const FLATTOP_FADE = canvasTex(256, (g, S) => {
   for (let y = 0; y < S; y++) { const k = y / S, a = Math.max(0, 1 - Math.pow(k / 0.82, 1.6)); g.fillStyle = 'rgba(22,15,10,' + (a * 0.9).toFixed(3) + ')'; g.fillRect(0, y, S, 1); }
   for (let i = 0; i < 9000; i++) { const x = Math.random() * S, y = Math.pow(Math.random(), 1.4) * S * 0.95, k = y / S; if (Math.random() > 1 - k * 0.9) continue; g.fillStyle = 'rgba(10,6,4,' + (0.35 + Math.random() * 0.4).toFixed(2) + ')'; g.fillRect(x, y, 1.5, 1.5); }
 });
+const TEE_TEX = canvasTex(256, (g, S) => {
+  g.fillStyle = '#2a2a30'; g.fillRect(0, 0, S, S);
+  // faded sunset circle with stripes cut through it
+  const sun = g.createLinearGradient(0, 70, 0, 190); sun.addColorStop(0, '#ffd27a'); sun.addColorStop(0.5, '#ff7a5a'); sun.addColorStop(1, '#ff4fa8');
+  g.save(); g.beginPath(); g.arc(128, 135, 62, 0, PI2); g.clip(); g.fillStyle = sun; g.fillRect(0, 70, S, 130);
+  g.fillStyle = '#2a2a30'; for (let i = 0; i < 5; i++) g.fillRect(60, 150 + i * 10, 140, 3 + i);
+  g.restore();
+  // waveform across the sun
+  g.strokeStyle = '#3fe0d0'; g.lineWidth = 4; g.beginPath(); for (let x = 30; x <= 226; x += 3) { const k = (x - 30) / 196, y = 135 + Math.sin(k * 36) * Math.sin(k * Math.PI) * 26; if (x === 30) g.moveTo(x, y); else g.lineTo(x, y); } g.stroke();
+  g.fillStyle = '#efe6d2'; g.textAlign = 'center'; g.font = 'bold 34px Georgia, serif'; g.fillText('AFTERBEAT', 128, 50); g.font = 'bold 18px Georgia, serif'; g.fillText('WORLD TOUR  \u201894', 128, 228);
+  // worn print: specks of the shirt showing through
+  for (let i = 0; i < 1600; i++) { g.fillStyle = 'rgba(42,42,48,' + (0.4 + Math.random() * 0.5).toFixed(2) + ')'; g.fillRect(Math.random() * S, Math.random() * S, 1 + Math.random() * 2, 1 + Math.random() * 2); }
+});
 function buildEcho() {
-  const rig = makeRig({ skin: 0x7a4a2e, upper: 0x1f6f78, armU: 0x1f6f78, armL: 0x1f6f78, lower: 0x17171c, hand: 0x2a2a30, leg: 0x17171c, foot: 0xf2f2f2, face: 'echo' });
-  const teal = SM(0x1f6f78), dark = SM(0x17171c), hair = SM(0x1d1612);
+  const rig = makeRig({ skin: 0x7a4a2e, upper: 0x2a2a30, armU: 0x1f6f78, armL: 0x1f6f78, lower: 0x23252e, hand: 0x2a2a30, leg: 0x23252e, foot: 0xf4f4f2, face: 'echo' });
+  const hair = SM(0x1d1612);
   // flat top: a skin fade on the sides (skin at the bottom, dark at the top) and a squared, textured top
   {
     const fadeMat = toon(0xffffff, { map: FLATTOP_FADE });
@@ -7224,21 +7237,68 @@ function buildEcho() {
     const lip = new THREE.Mesh(new THREE.CylinderGeometry(0.33, 0.35, 0.03, 4, 1), topMat); lip.rotation.y = Math.PI / 4; lip.position.y = 0.705; rig.neck.add(lip);
     const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.44, 0.44), toon(0xffffff, { map: FLATTOP_TOP })); plate.rotation.x = -Math.PI / 2; plate.position.y = 0.722; rig.neck.add(plate);
   }
-  // headphones resting around his neck, lights pulse to the beat
-  const hp = new THREE.Group(); hp.position.set(0, 0.5, 0.02); rig.chest.add(hp);
-  const band = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.026, 8, 24, Math.PI), dark); band.rotation.x = -Math.PI / 2; hp.add(band);
+  // ---- vintage tour tee (shows through the open jacket) ----
+  const tee = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.4), toon(0xffffff, { map: TEE_TEX })); tee.position.set(0, 0.26, 0.182); rig.chest.add(tee);
+  // ---- open bomber jacket: teal with cream ribbing and a pink stripe ----
+  const jk = SM(0x1f6f78), rib = SM(0xefe6d2), pinkT = SM(0xff4fa8);
+  for (const sd of [-1, 1]) {
+    rig.chest.add(part(0.2, 0.52, 0.045, jk, sd * 0.255, 0.25, 0.195));              // front panel, open in the middle
+    rig.chest.add(part(0.045, 0.52, 0.4, jk, sd * 0.37, 0.25, 0));                   // side
+    rig.chest.add(part(0.03, 0.5, 0.05, rib, sd * 0.152, 0.25, 0.205));             // ribbed zipper edge
+    const lap = part(0.07, 0.05, 0.24, rib, sd * 0.2, 0.505, 0.07); lap.rotation.y = sd * -0.35; rig.chest.add(lap); // collar
+    rig.chest.add(part(0.2, 0.06, 0.05, rib, sd * 0.255, 0.01, 0.198));             // waistband
+  }
+  rig.chest.add(part(0.76, 0.52, 0.045, jk, 0, 0.25, -0.198));                       // back
+  rig.chest.add(part(0.76, 0.06, 0.05, rib, 0, 0.01, -0.2));
+  rig.chest.add(part(0.4, 0.06, 0.08, rib, 0, 0.51, -0.17));                          // back collar
+  const backArt = new THREE.Mesh(new THREE.PlaneGeometry(0.46, 0.18), new THREE.MeshBasicMaterial({ map: WAVETEX })); backArt.position.set(0, 0.3, -0.222); backArt.rotation.y = Math.PI; rig.chest.add(backArt); rig.echoStripe = backArt;
+  for (const [sh, el, sd] of [[rig.j.shL, rig.j.elL, -1], [rig.j.shR, rig.j.elR, 1]]) {
+    sh.add(part(0.235, 0.08, 0.25, jk, 0, 0.02, 0));                                 // shoulder
+    sh.add(part(0.04, 0.3, 0.06, pinkT, sd * 0.105, -0.16, 0));                      // sleeve stripe
+    el.add(part(0.215, 0.07, 0.23, rib, 0, -0.29, 0));                                // cuff
+  }
+  // ---- gold chain with a little gold record ----
+  const gold = new THREE.MeshStandardMaterial({ color: 0xffcf5a, metalness: 0.9, roughness: 0.25, emissive: 0x3a2400 });
+  const chainPts = [new THREE.Vector3(-0.12, 0.5, 0.12), new THREE.Vector3(-0.11, 0.4, 0.2), new THREE.Vector3(-0.05, 0.3, 0.205), new THREE.Vector3(0, 0.27, 0.205), new THREE.Vector3(0.05, 0.3, 0.205), new THREE.Vector3(0.11, 0.4, 0.2), new THREE.Vector3(0.12, 0.5, 0.12)];
+  const chain = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(chainPts), 40, 0.013, 6), gold); chain.userData.noOutline = true; rig.chest.add(chain);
+  const medal = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.015, 20), gold); medal.rotation.x = Math.PI / 2; medal.position.set(0, 0.23, 0.21); medal.userData.noOutline = true; rig.chest.add(medal);
+  const hole = new THREE.Mesh(new THREE.CircleGeometry(0.016, 12), new THREE.MeshBasicMaterial({ color: EPINK })); hole.position.set(0, 0.23, 0.219); rig.chest.add(hole);
+  // ---- headphones resting on the shoulders: the band wraps behind the neck, outside the head ----
+  const hpMat = SM(0x1b1b20);
+  const P3 = (x, y, z) => new THREE.Vector3(x, y, z);
+  const path = [P3(-0.2, 0.47, 0.215), P3(-0.29, 0.52, 0.1), P3(-0.3, 0.535, -0.06), P3(-0.2, 0.535, -0.24), P3(0, 0.535, -0.31), P3(0.2, 0.535, -0.24), P3(0.3, 0.535, -0.06), P3(0.29, 0.52, 0.1), P3(0.2, 0.47, 0.215)];
+  const band = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(path), 48, 0.024, 8), hpMat); band.userData.noOutline = true; rig.chest.add(band);
   const lights = [];
   for (const sd of [-1, 1]) {
-    const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.08, 20), dark); cup.rotation.z = Math.PI / 2; cup.rotation.y = sd * 0.5; cup.position.set(sd * 0.21, -0.02, 0.07); hp.add(cup);
-    const glow = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.018, 8, 24), new THREE.MeshBasicMaterial({ color: ETEAL })); glow.rotation.y = Math.PI / 2 + sd * 0.5; glow.position.set(sd * 0.25, -0.02, 0.09); glow.userData.noOutline = true; hp.add(glow); lights.push(glow);
+    const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.07, 20), hpMat); cup.rotation.x = Math.PI / 2; cup.rotation.z = sd * 0.25; cup.position.set(sd * 0.2, 0.43, 0.245); rig.chest.add(cup);
+    const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.02, 20), SM(0x3a3a42)); pad.rotation.x = Math.PI / 2; pad.position.set(sd * 0.2, 0.43, 0.21); rig.chest.add(pad);
+    const glow = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.014, 8, 24), new THREE.MeshBasicMaterial({ color: ETEAL })); glow.position.set(sd * 0.2, 0.43, 0.282); glow.userData.noOutline = true; rig.chest.add(glow); lights.push(glow);
   }
   rig.echoLights = lights;
-  // hood bunched behind the neck
-  const hood = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.1, 10, 20), teal); hood.rotation.x = Math.PI / 2 + 0.3; hood.position.set(0, 0.5, -0.12); hood.scale.set(1, 1, 0.6); rig.chest.add(hood);
-  // glowing waveform stripe, front pocket, drawstrings
-  const stripe = new THREE.Mesh(new THREE.PlaneGeometry(0.46, 0.16), new THREE.MeshBasicMaterial({ map: WAVETEX })); stripe.position.set(0, 0.3, 0.192); rig.chest.add(stripe); rig.echoStripe = stripe;
-  rig.chest.add(part(0.34, 0.14, 0.03, SM(0x185a62), 0, 0.06, 0.195));
-  for (const sd of [-1, 1]) rig.chest.add(part(0.025, 0.18, 0.02, SM(0xf2f2f2), sd * 0.07, 0.4, 0.2));
+  // ---- sunglasses ----
+  const shadeMat = new THREE.MeshStandardMaterial({ color: 0x101016, metalness: 0.6, roughness: 0.15, emissive: 0x0a2a2a });
+  const frameM = SM(0x0c0c10);
+  for (const sd of [-1, 1]) {
+    const lens = new THREE.Mesh(boxGeo(0.13, 0.075, 0.016), shadeMat); lens.position.set(sd * 0.072, 0.255, 0.265); lens.userData.noOutline = true; rig.neck.add(lens);
+    const shine = new THREE.Mesh(new THREE.PlaneGeometry(0.03, 0.05), new THREE.MeshBasicMaterial({ color: 0x9ff5ec, transparent: true, opacity: 0.55 })); shine.position.set(sd * 0.072 - 0.035, 0.265, 0.2745); shine.rotation.z = -0.5; rig.neck.add(shine);
+    const arm = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([P3(sd * 0.135, 0.275, 0.262), P3(sd * 0.215, 0.275, 0.16), P3(sd * 0.258, 0.27, 0.02), P3(sd * 0.258, 0.26, -0.06)]), 12, 0.008, 5), frameM); arm.userData.noOutline = true; rig.neck.add(arm);
+  }
+  { const br = part(0.03, 0.014, 0.014, frameM, 0, 0.27, 0.268); br.userData.noOutline = true; rig.neck.add(br); }
+  // ---- optional backwards cap (Menu toggle, shown to everyone) ----
+  const cap = new THREE.Group(); cap.position.set(0, 0.705, -0.01); cap.visible = false; rig.neck.add(cap); rig.echoCap = cap;
+  const capMat = SM(0xff4fa8);
+  const crown = new THREE.Mesh(new THREE.SphereGeometry(0.27, 20, 10, 0, PI2, 0, Math.PI / 2), capMat); crown.scale.set(1, 0.55, 1.02); cap.add(crown);
+  const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.025, 20, 1, false, -Math.PI / 2, Math.PI), SM(0x17171c)); brim.position.set(0, 0.01, -0.27); brim.scale.set(1, 1, 0.9); cap.add(brim);
+  const btn = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6), SM(0x17171c)); btn.position.y = 0.15; cap.add(btn);
+  cap.add(part(0.12, 0.05, 0.02, SM(0xefe6d2), 0, 0.06, 0.27));
+  // ---- high-top sneakers: thick sole, ankle collar, color accents ----
+  for (const kn of [rig.j.knL, rig.j.knR]) {
+    kn.add(part(0.3, 0.06, 0.44, SM(0xf4f4f2), 0, -0.5, 0.05));
+    kn.add(part(0.305, 0.025, 0.445, SM(0xff4fa8), 0, -0.475, 0.05));
+    kn.add(part(0.29, 0.16, 0.3, SM(0xf4f4f2), 0, -0.34, -0.01));
+    kn.add(part(0.295, 0.05, 0.305, SM(0x1f6f78), 0, -0.27, -0.01));
+    kn.add(part(0.3, 0.035, 0.18, SM(0x1f6f78), 0, -0.42, 0.09));
+  }
   // cassette recorder on the belt
   const cas = new THREE.Group(); cas.position.set(0.33, -0.05, 0.08); rig.waist.add(cas);
   cas.add(part(0.06, 0.22, 0.3, SM(0x2a2a30), 0, 0, 0));
@@ -7410,8 +7470,10 @@ function makeEchoKit() {
     }
   };
   K.cancel = () => {};
+  K.faceKind = () => (ECHO_AUDIO.cap ? 'echo-cap' : 'echo');
   K.update = (dt) => {
     for (const k in cd) cd[k] = Math.max(0, cd[k] - dt);
+    if (rig && rig.echoCap && rig.echoCap.visible !== !!ECHO_AUDIO.cap) rig.echoCap.visible = !!ECHO_AUDIO.cap;
     if (ghost) { ghost.t -= dt; if (ghost.t <= 0) { shards(ghost.root.position.clone().add(new THREE.Vector3(0, 1.4, 0)), 6, ETEAL, 3); scene.remove(ghost.root); ghost = null; } }
     // the beat: a click, a ring at his feet, headphones and chest stripe pulse
     const beatN = Math.floor(clock / BEAT);
@@ -7434,6 +7496,10 @@ function makeEchoKit() {
   try { ECHO_AUDIO.muted = localStorage.getItem('wsv-beat') === 'off'; } catch (err) { /* ok */ }
   if (ECHO_AUDIO.muted) b.textContent = 'Echo beat sound: off';
   $('menu').insertBefore(b, $('chipGfx'));
+  const cb = document.createElement('button'); cb.className = 'mbtn'; cb.id = 'chipCap'; cb.type = 'button';
+  try { ECHO_AUDIO.cap = localStorage.getItem('wsv-echo-cap') === 'on'; } catch (err) { /* ok */ }
+  cb.textContent = 'Echo cap: ' + (ECHO_AUDIO.cap ? 'on' : 'off'); $('menu').insertBefore(cb, $('chipGfx'));
+  cb.addEventListener('click', (e) => { e.stopPropagation(); ECHO_AUDIO.cap = !ECHO_AUDIO.cap; cb.textContent = 'Echo cap: ' + (ECHO_AUDIO.cap ? 'on' : 'off'); try { localStorage.setItem('wsv-echo-cap', ECHO_AUDIO.cap ? 'on' : 'off'); } catch (err) { /* ok */ } e.currentTarget.blur(); });
   b.addEventListener('click', (e) => { e.stopPropagation(); ECHO_AUDIO.muted = !ECHO_AUDIO.muted; b.textContent = 'Echo beat sound: ' + (ECHO_AUDIO.muted ? 'off' : 'on'); try { localStorage.setItem('wsv-beat', ECHO_AUDIO.muted ? 'off' : 'on'); } catch (err) { /* ok */ } e.currentTarget.blur(); });
 }
 let ringEndT = 0;
