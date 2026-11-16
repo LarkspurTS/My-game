@@ -335,7 +335,7 @@ body.curtains #curL, body.curtains #curR { transform: translateX(0); }
 <div id="overlay">
   <div class="card scrap">
     <h1>Windstep Village</h1>
-    <div class="build">Build 26 · Steerable Moon Splitter · Pick your fighter</div>
+    <div class="build">Build 27 · Mirror Clash + chat · Pick your fighter</div>
     <div class="roster" id="roster">
       <button class="fcard sel" data-id="juno" type="button"><span class="sw juno"></span><span class="fn">Juno Marrow</span><span class="fs">Ink · Hard</span></button>
       <button class="fcard" data-id="pip" type="button"><span class="sw pip"></span><span class="fn">Pip Hollow</span><span class="fs">Thread · Medium</span></button>
@@ -1656,6 +1656,7 @@ const taps = new Map();
 function gameKey(code) { return /^(Key[WASDQFHGRE]|Arrow|Space|Shift|Digit[1-4])/.test(code); }
 window.addEventListener('keydown', (e) => {
   if (!started) return;
+  if (document.activeElement && document.activeElement.id === 'chatIn') return;
   if (gameKey(e.code)) e.preventDefault();
   if (e.repeat) return;
   keys[e.code] = true;
@@ -4576,7 +4577,7 @@ function cleanupPeer() { try { if (NET.peer) NET.peer.destroy(); } catch (err) {
 function tryHost() {
   cleanupPeer();
   let peer; try { peer = new Peer(HOST_ID, PEER_OPTS); } catch (err) { setNet('off', 'Offline · solo'); return; }
-  NET.peer = peer;
+  NET.peer = peer; voiceAttach(peer);
   peer.on('open', (id) => { NET.on = true; NET.isHost = true; NET.myId = id; NET.tries = 0; netLabel(); });
   peer.on('connection', (conn) => setupConn(conn));
   peer.on('error', (err) => {
@@ -4587,7 +4588,7 @@ function tryHost() {
 }
 function joinAsClient() {
   cleanupPeer();
-  const peer = new Peer(PEER_OPTS); NET.peer = peer;
+  const peer = new Peer(PEER_OPTS); NET.peer = peer; voiceAttach(peer);
   peer.on('open', (id) => {
     NET.myId = id; NET.isHost = false;
     const conn = peer.connect(HOST_ID, { reliable: true, serialization: 'json' });
@@ -4700,6 +4701,13 @@ function handleMsg(m) {
     const p = player; p.seized = m.dur; p.blocking = false; p.iframes = 0; p.dashT = 0; p.hidden = false;
     if (p.move) { if (kit.cancel) kit.cancel(); p.move = null; }
     if (!m.quiet) letterbox(true); callout(m.title || 'MOON SPLITTER', m.sub || 'There is no escape');
+    if (!m.title && fighterId === 'mira' && kit.clashReady && kit.clashReady()) startClashQTE(m.id);
+  } else if (m.t === 'chat') {
+    chatMsg(m);
+  } else if (m.t === 'clash') {
+    if (kit.onClash) kit.onClash(m); else netSend({ t: 'clashAck', to: m.id, ok: false });
+  } else if (m.t === 'clashAck') {
+    if (m.ok && kit.clashWin) kit.clashWin(remotes.get(m.id)); else if (!m.ok) callout('', 'Too late to clash');
   } else if (m.t === 'flip') {
     flipMyScreen(m.dur);
   } else if (m.t === 'crack') {
@@ -5868,6 +5876,17 @@ function makeNangKit() {
     }
     return 'countered';
   };
+  // Mira caught the Moon Splitter with a perfect Mirror Clash: the cut is cancelled and the awakening ends
+  K.onClash = (m) => {
+    const mv = player.move;
+    const ok = !!(mv && mv.name === 'moon' && mv.phase === 'cut' && mv.d && mv.d.id === m.id && mv.t - mv.t0 < 1.68);
+    netSend({ t: 'clashAck', to: m.id, ok });
+    if (!ok) return;
+    const d = mv.d; mv.phase = 'clashed'; d.grabbed = 0; mv.dur = mv.t + 0.25; undim();
+    vfxClash(player.pos.clone(), d.pos.clone()); netOnly('clash', [player.pos.clone(), d.pos.clone()]);
+    callout('CLASH!', 'Your blade met a mirror'); impactFrame(0.14); hitStop = 0.15;
+    later(0.2, endAwaken);
+  };
   function finalDraw() {
     const d = nearestDummy(player.pos, 16);
     if (!d) { toast('No target in range for Final Draw'); return; }
@@ -6476,6 +6495,22 @@ function makeMiraKit() {
     if (!awakened || !twin || o.echo || o.type === 'u') return;
     later(0.12, () => { if (!twin || d.dead) return; slashArc(MIRC, 1.1, rv(0.6), true, 0.9, twin.root.position.clone(), twin.root.rotation.y); hitDummy(d, { dmg: Math.max(1, Math.ceil(o.dmg * 0.5)), type: o.type === 'g' ? 'b' : o.type, stun: 0.4, echo: true, mats: [fxPaper], spark: MIRC, awk: 0 }); });
   };
+  // Mirror Clash: only when Cracked Glass is ready (the clash uses it up)
+  K.clashReady = () => cd.R <= 0 && player.dead <= 0;
+  K.clashWin = (src) => {
+    if (!src || src.dead || !src.pos) return;
+    cd.R = MAX.R; player.seized = 0; player.forcedT = 0; player.vel.set(0, 0, 0); player.move = null;
+    const base = src.pos.clone(); base.y = groundY(base.x, base.z, base.y + 1);
+    const away = player.pos.clone().sub(base).setY(0); if (away.lengthSq() < 0.01) away.set(0, 0, 1); away.normalize();
+    const spot = base.clone().addScaledVector(away, 4.6); spot.y = groundY(spot.x, spot.z, base.y + 3);
+    player.pos.copy(spot); faceToward(base); player.iframes = 4;
+    startMove('mbreak', 3.3, 'cast', { a: true, lockPos: true, d: src, base, hit: false, ended: false });
+    src.grabbed = 3.1; if (src.ai) src.ai.wind = 0; src.stun = Math.max(src.stun || 0, 3);
+    if (src.remote) netSend({ t: 'seize', to: src.id, dur: 3.1, title: 'MIRROR BREAK', sub: 'Your reflection turned on you' });
+    vfxClash(player.pos.clone(), base.clone()); vfxMirrorBreak(src, player.pos.clone()); netOnly('mbreak', [src, player.pos.clone()]);
+    startCine({ focus: () => src.pos, dur: 3.1, dist: 10, height: 3.2, yaw: player.facing + 2.4, spin: 0.3 });
+    letterbox(true); callout('MIRROR BREAK', 'The moon shatters');
+  };
   function shatteredReflection() {
     const d = nearestDummy(player.pos, 16);
     if (!d) { toast('No target in range for Shattered Reflection'); return; }
@@ -6537,6 +6572,15 @@ function makeMiraKit() {
       }
     } else if (mv.name === 'crackst') {
       if (Math.random() < 0.5) P({ tex: 'star', color: MIRC, pos: player.pos.clone().add(new THREE.Vector3(rv(0.8), 0.3 + Math.random() * 1.8, rv(0.8))), life: 0.3, s0: 0.35, s1: 0.05 });
+    } else if (mv.name === 'mbreak') {
+      const d = mv.d;
+      if (!mv.hit && !d.dead) { d.pos.copy(mv.base); d.vel.set(0, 0, 0); }
+      if (!mv.hit && mv.t >= 2.35) {
+        mv.hit = true; d.grabbed = 0;
+        hitDummy(d, { dmg: 999, type: 'u', ux: true, otg: true, kb: new THREE.Vector3(0, 8, 0), set: true, down: 2.5, big: true, mats: [fxPaper], spark: MIRC, ringColor: MIRC, label: 'MIRROR BREAK', awk: 0 });
+        impactFrame(0.2); addShake(1.4); hitStop = 0.2;
+      }
+      if (mv.t >= 3.1 && !mv.ended) { mv.ended = true; letterbox(false); }
     } else if (mv.name === 'shref') {
       const d = mv.d;
       if (!mv.hit && !d.dead) { d.pos.copy(mv.base); d.vel.set(0, 0, 0); }
@@ -7585,7 +7629,7 @@ let interNow = null;
 function canInteract() { return started && !player.move && player.dead <= 0 && !player.rag && !(player.seized > 0) && !cine && !duel.on && !(TEAM && TEAM.state !== 'off') && !MG.kind && !HS.on && !$('dojoPanel').classList.contains('show'); }
 function useInteract() { if (interNow && canInteract()) interNow.fn(); }
 $('iPrompt').addEventListener('click', (e) => { e.stopPropagation(); useInteract(); });
-window.addEventListener('keydown', (e) => { if (e.code === 'KeyE' && !e.repeat) useInteract(); });
+window.addEventListener('keydown', (e) => { if (e.code === 'KeyE' && !e.repeat && !(document.activeElement && document.activeElement.id === 'chatIn') && !QTE.on) useInteract(); });
 
 // ---------- travel ----------
 function goToIsland() {
@@ -7767,6 +7811,199 @@ function islandTick(dt) {
   if (ISLAND.portal) { ISLAND.portal.material.opacity = 0.35 + Math.sin(clock * 2) * 0.12; if (Math.random() < 0.3) P({ tex: 'glow', color: 0x9adcff, pos: GATE.clone().add(new THREE.Vector3(rv(2.4), 0.3 + Math.random() * 4, 0)), vel: new THREE.Vector3(0, 0.8, 0), life: 0.8, s0: 0.3, s1: 0.05 }); }
 }
 
+// =====================================================================
+// MIRROR CLASH (Mira's timing counter to Moon Splitter), TEXT CHAT, VOICE CHAT
+// =====================================================================
+{
+  const st = document.createElement('style');
+  st.textContent = `
+  #qte { position: fixed; left: 50%; top: 62%; transform: translateX(-50%); z-index: 45; display: none; text-align: center; pointer-events: auto; padding: 12px 16px 14px; width: min(380px, calc(100vw - 32px)); box-sizing: border-box; }
+  #qte.show { display: block; } #qte .h { font-family: var(--display); font-size: 20px; letter-spacing: .5px; } #qte .s { font-size: 13px; margin: 2px 0 8px; font-weight: 700; }
+  #qte .bar { position: relative; height: 22px; background: rgba(21,19,28,.85); outline: 2px solid var(--paper); }
+  #qte .zone { position: absolute; top: 0; bottom: 0; background: linear-gradient(90deg, #3ad46a, #8cff9e); }
+  #qte .needle { position: absolute; top: -6px; bottom: -6px; width: 5px; margin-left: -2px; background: #fff; box-shadow: 0 0 8px #fff; }
+  #chatLog { position: fixed; left: calc(16px + env(safe-area-inset-left, 0px)); bottom: calc(132px + env(safe-area-inset-bottom, 0px)); width: min(360px, 70vw); z-index: 24; pointer-events: none; display: flex; flex-direction: column; gap: 3px; font-size: 14px; }
+  #chatLog div { background: rgba(21,19,28,.62); color: #fff; padding: 3px 8px; border-radius: 3px; transition: opacity .6s; overflow-wrap: anywhere; }
+  #chatLog div b { color: #ffd76a; margin-right: 6px; } #chatLog div.me b { color: #8cd0ff; } #chatLog div.sys { color: #c9c3b6; font-style: italic; }
+  #chatLog.open div { opacity: 1 !important; }
+  #chatIn { position: fixed; left: calc(16px + env(safe-area-inset-left, 0px)); bottom: calc(100px + env(safe-area-inset-bottom, 0px)); width: min(360px, 70vw); z-index: 26; display: none; font: inherit; font-size: 15px; padding: 7px 10px; border: 2px solid var(--ink); background: var(--paper); color: var(--ink); box-sizing: border-box; }
+  #chatIn.show { display: block; }
+  #chatBtn, #micChip { position: fixed; z-index: 24; pointer-events: auto; cursor: pointer; font-weight: 800; font-size: 13px; padding: 6px 9px; border: 0; }
+  #chatBtn { right: calc(16px + env(safe-area-inset-right, 0px)); top: calc(118px + env(safe-area-inset-top, 0px)); }
+  #micChip { right: calc(16px + env(safe-area-inset-right, 0px)); top: calc(154px + env(safe-area-inset-top, 0px)); display: none; }
+  #micChip.show { display: block; } #micChip.muted { opacity: .55; text-decoration: line-through; }
+  body:not(.playing) #chatBtn, body:not(.playing) #micChip { display: none; }`;
+  document.head.appendChild(st);
+  const add = (tag, id, cls, html) => { const e = document.createElement(tag); e.id = id; if (cls) e.className = cls; if (html) e.innerHTML = html; document.body.appendChild(e); return e; };
+  add('div', 'qte', 'scrap', '<div class="h">MIRROR CLASH!</div><div class="s">Stop it on the green: SPACE / click / tap</div><div class="bar"><div class="zone"></div><div class="needle"></div></div>');
+  add('div', 'chatLog');
+  const ci = add('input', 'chatIn'); ci.maxLength = 120; ci.placeholder = 'Say something… (Enter to send, Esc to close)'; ci.autocomplete = 'off'; ci.spellcheck = false;
+  add('button', 'chatBtn', 'scrap', '💬');
+  add('button', 'micChip', 'scrap', '🎙 Mic on');
+  const menu = $('menu'), vb = document.createElement('button'); vb.className = 'mbtn'; vb.id = 'chipVoice'; vb.type = 'button'; vb.textContent = 'Voice chat: off';
+  menu.insertBefore(vb, $('chipGfx'));
+}
+
+// ---------- Mirror Clash: the timing bar ----------
+const QTE = { on: false, t0: 0, from: null, zone: [0, 0], done: false };
+function qtePos() { const t = (realNow() - QTE.t0) / 0.7; const k = t % 2; return k < 1 ? k : 2 - k; }
+function startClashQTE(fromId) {
+  if (QTE.on) return;
+  const w = 0.2, z0 = 0.2 + Math.random() * (0.8 - w - 0.2);
+  QTE.on = true; QTE.done = false; QTE.from = fromId; QTE.zone = [z0, z0 + w]; QTE.t0 = realNow() + 0.15;
+  const zone = $('qte').querySelector('.zone'); zone.style.left = (z0 * 100) + '%'; zone.style.width = (w * 100) + '%';
+  $('qte').classList.add('show');
+  setTimeout(() => { if (QTE.on && !QTE.done) resolveQTE(false, true); }, 1500);
+}
+function resolveQTE(ok, timeout) {
+  if (!QTE.on || QTE.done) return;
+  QTE.done = true; QTE.on = false; $('qte').classList.remove('show');
+  if (ok) { netSend({ t: 'clash', to: QTE.from, ok: true }); flash(player.pos.clone().add(new THREE.Vector3(0, 1.5, 0)), 0xc9a6ff, 3); callout('CLASH!', 'Mirror against moon...'); }
+  else if (!timeout) callout('', 'Missed the clash');
+}
+function qteInput(e) {
+  if (!QTE.on || QTE.done) return;
+  if (e && e.type === 'keydown' && e.code !== 'Space' && e.code !== 'KeyE' && e.code !== 'Enter') return;
+  if (e) { e.preventDefault(); e.stopPropagation(); }
+  const k = qtePos(); resolveQTE(realNow() >= QTE.t0 && k >= QTE.zone[0] - 0.02 && k <= QTE.zone[1] + 0.02);
+}
+window.addEventListener('keydown', qteInput, true);
+window.addEventListener('pointerdown', (e) => { if (QTE.on) qteInput(e); }, true);
+function qteTick() { if (QTE.on) $('qte').querySelector('.needle').style.left = (Math.max(0, Math.min(1, realNow() < QTE.t0 ? 0 : qtePos())) * 100) + '%'; }
+
+// the big counter cutscene: mirrors rise, shards pin Nang down, glass twins cut through, everything shatters
+function vfxMirrorBreak(tg, from) {
+  if (!tg || !tg.pos) return;
+  const c = tg.pos.clone(), mirrors = [], pins = [], N = 6;
+  for (let i = 0; i < 26; i++) P({ tex: 'streak', color: i % 3 ? 0xff5a5a : 0xffffff, pos: c.clone().add(new THREE.Vector3(rv(6), 9 + Math.random() * 5, rv(6))), vel: new THREE.Vector3(rv(2), -18 - Math.random() * 8, rv(2)), life: 0.7, s0: 0.9, s1: 0.2, stretch: 1.5 });
+  flash(c.clone().add(new THREE.Vector3(0, 8, 0)), 0xff5a5a, 6);
+  for (let i = 0; i < N; i++) {
+    const a = i / N * PI2, m = makeMirror(1.3), p = c.clone().add(new THREE.Vector3(Math.cos(a) * 3.8, 0, Math.sin(a) * 3.8));
+    m.position.copy(p).add(new THREE.Vector3(0, -2, 0)); m.lookAt(c.x, p.y - 2, c.z); m.userData.home = p; scene.add(m); mirrors.push(m);
+    const pin = new THREE.Mesh(new THREE.OctahedronGeometry(0.28), new THREE.MeshBasicMaterial({ color: 0xe9e2ff, transparent: true, opacity: 0.9 })); pin.scale.set(0.6, 4.2, 0.6); pin.visible = false; scene.add(pin); pins.push({ m: pin, a });
+  }
+  const twins = [];
+  tempMesh(new THREE.Object3D(), 2.9, (o, k) => {
+    const t = k * 2.9;
+    mirrors.forEach((m, i) => { const rise = Math.min(1, Math.max(0, (t - i * 0.04) / 0.35)); m.position.y = m.userData.home.y - 2 + easeOut(rise) * 3.6; m.rotation.z = t > 2.2 ? Math.sin(t * 60) * 0.03 : 0; });
+    pins.forEach((p, i) => {
+      const k2 = Math.max(0, Math.min(1, (t - 0.45 - i * 0.05) / 0.15)); p.m.visible = k2 > 0 && t < 2.45;
+      const outer = c.clone().add(new THREE.Vector3(Math.cos(p.a) * 3.6, 3, Math.sin(p.a) * 3.6)), inner = c.clone().add(new THREE.Vector3(Math.cos(p.a) * 0.55, 0.5, Math.sin(p.a) * 0.55));
+      p.m.position.lerpVectors(outer, inner, easeOut(k2)); p.m.lookAt(inner.x * 2 - outer.x, inner.y * 2 - outer.y, inner.z * 2 - outer.z); p.m.rotateX(Math.PI / 2);
+      if (k2 >= 1 && !p.hit) { p.hit = true; shards(inner.clone(), 5, 0xe9e2ff, 4); ring(inner.clone(), 0xc9a6ff, 1.2); }
+    });
+    if (k >= 1) { mirrors.forEach((m) => scene.remove(m)); pins.forEach((p) => scene.remove(p.m)); twins.forEach((tw) => scene.remove(tw.root)); }
+  });
+  for (let i = 0; i < 4; i++) later(1.1 + i * 0.25, () => {
+    const m1 = mirrors[i], m2 = mirrors[(i + 3) % N]; if (!m1) return;
+    const tw = makeGlassTwin('mira', 0.55); twins.push(tw); const a = m1.position.clone(), b = m2.position.clone(); a.y = b.y = c.y;
+    tw.root.rotation.y = Math.atan2(b.x - a.x, b.z - a.z); tw.j.shR.rotation.set(-2.4, 0, 0.3);
+    tempMesh(new THREE.Object3D(), 0.3, (o, k) => { tw.root.position.lerpVectors(a, b, easeOut(k)); tw.j.shR.rotation.x = -2.4 + k * 3; if (k >= 1) { scene.remove(tw.root); shards(b.clone().add(new THREE.Vector3(0, 1.4, 0)), 8, 0xd9c4ff, 5); } });
+    later(0.12, () => { slashArc(i % 2 ? 0xffffff : MIRC, 1.2, rv(1), i % 2 === 0, 1.6, c, tw.root.rotation.y); sparks(c.clone().add(new THREE.Vector3(0, 1.3, 0)), 8, MIRC, 1.6); });
+  });
+  later(2.3, () => {
+    flash(c.clone().add(new THREE.Vector3(0, 1.5, 0)), 0xffffff, 8);
+    mirrors.forEach((m) => { shards(m.position.clone(), 18, 0xd9c4ff, 11); flash(m.position.clone(), MIRC, 2); });
+    ring(c.clone(), MIRC, 10, true); ring(c.clone(), 0xffffff, 6, true);
+  });
+  void from;
+}
+function vfxClash(a, b) {
+  if (!a || !b) return;
+  const pa = a.isVector3 ? a : a.pos, pb = b.isVector3 ? b : b.pos; if (!pa || !pb) return;
+  const mid = pa.clone().lerp(pb, 0.5).add(new THREE.Vector3(0, 1.6, 0));
+  flash(mid, 0xffffff, 6); sparks(mid, 30, 0xff5a5a, 2.6); sparks(mid, 30, MIRC, 2.6); ring(mid, 0xffffff, 6); addShake(0.8);
+  for (let i = 0; i < 4; i++) later(i * 0.07, () => { const d = new THREE.Vector3(rv(1), rv(1), rv(1)).normalize(); beamFx(mid.clone().addScaledVector(d, -2.5), d, 5, i % 2 ? 0xff5a5a : MIRC, 0.12, 0.25); });
+}
+Object.assign(FXF, { mbreak: vfxMirrorBreak, clash: vfxClash });
+
+// ---------- text chat ----------
+const CHAT = { open: false };
+function chatLine(name, text, cls) {
+  const log = $('chatLog'), row = document.createElement('div'); if (cls) row.className = cls;
+  if (name) { const b = document.createElement('b'); b.textContent = name; row.appendChild(b); }
+  row.appendChild(document.createTextNode(text)); log.appendChild(row);
+  while (log.children.length > 8) log.removeChild(log.firstChild);
+  setTimeout(() => { row.style.opacity = '0'; }, 12000);
+}
+function chatBubble(who, text) {
+  const pos = who === player ? player.pos : who && who.pos; if (!pos) return;
+  floatText(text.length > 40 ? text.slice(0, 38) + '…' : text, pos.clone().add(new THREE.Vector3(0, 3.4, 0)), 'ink');
+}
+function openChat() { if (!started) return; CHAT.open = true; $('chatIn').classList.add('show'); $('chatLog').classList.add('open'); $('chatIn').focus(); if (shiftLock) toggleShiftLock(); for (const k in keys) keys[k] = false; }
+function closeChat() { CHAT.open = false; $('chatIn').classList.remove('show'); $('chatLog').classList.remove('open'); $('chatIn').blur(); $('chatIn').value = ''; }
+function sendChat() {
+  const text = $('chatIn').value.replace(/\s+/g, ' ').trim().slice(0, 120); closeChat();
+  if (!text) return;
+  chatLine(myName, text, 'me'); chatBubble(player, text);
+  if (NET.on) netSend({ t: 'chat', n: myName, m: text }); else chatLine('', '(you are offline, so only you can see this)', 'sys');
+}
+$('chatIn').addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); sendChat(); } else if (e.key === 'Escape') { e.preventDefault(); closeChat(); } });
+window.addEventListener('keydown', (e) => { if ((e.code === 'Enter' || e.code === 'NumpadEnter') && !CHAT.open && started && !QTE.on && document.activeElement !== $('chatIn') && !(document.activeElement && document.activeElement.tagName === 'INPUT')) { e.preventDefault(); openChat(); } });
+$('chatBtn').addEventListener('click', (e) => { e.stopPropagation(); if (CHAT.open) sendChat(); else openChat(); });
+function chatMsg(m) {
+  const r = remotes.get(m.id), name = String(m.n || (r && r.name) || 'Player').slice(0, 20), text = String(m.m || '').slice(0, 120);
+  if (!text) return; chatLine(name, text); if (r) chatBubble(r, text);
+}
+
+// ---------- voice chat (peer-to-peer, louder the closer you are) ----------
+const VOICE = { on: false, muted: false, stream: null, calls: new Map(), ctx: null, tryT: 0 };
+function voiceAttach(peer) {
+  peer.on('call', (call) => {
+    try { call.answer(VOICE.on && VOICE.stream ? VOICE.stream : undefined); } catch (err) { return; }
+    wireCall(call);
+  });
+}
+function wireCall(call) {
+  const id = call.peer, old = VOICE.calls.get(id);
+  if (old && old.call !== call) { try { old.call.close(); } catch (err) { /* ok */ } if (old.audio) old.audio.remove(); }
+  const ent = { call, audio: null, an: null, buf: null, level: 0 }; VOICE.calls.set(id, ent);
+  call.on('stream', (stream) => {
+    if (ent.audio) return;
+    const a = document.createElement('audio'); a.autoplay = true; a.playsInline = true; a.srcObject = stream; a.style.display = 'none'; document.body.appendChild(a); ent.audio = a;
+    a.play().catch(() => { /* needs a tap first; it retries on the next tap */ });
+    try { VOICE.ctx = VOICE.ctx || new (window.AudioContext || window.webkitAudioContext)(); const src = VOICE.ctx.createMediaStreamSource(stream), an = VOICE.ctx.createAnalyser(); an.fftSize = 256; src.connect(an); ent.an = an; ent.buf = new Uint8Array(an.frequencyBinCount); } catch (err) { /* level meter is optional */ }
+  });
+  const drop = () => { if (VOICE.calls.get(id) === ent) { VOICE.calls.delete(id); if (ent.audio) ent.audio.remove(); } };
+  call.on('close', drop); call.on('error', drop);
+}
+function callPeer(id) { if (!NET.peer || !VOICE.stream || id === NET.myId) return; try { const call = NET.peer.call(id, VOICE.stream); if (call) wireCall(call); } catch (err) { /* ok */ } }
+async function voiceStart() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { toast('Voice chat needs a secure page (https) and a newer browser'); return; }
+  try { VOICE.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false }); }
+  catch (err) { toast('Microphone blocked. Allow mic access (or open the game from the GitHub link) to use voice chat'); return; }
+  VOICE.on = true; VOICE.muted = false; applyMute();
+  for (const r of remotes.values()) callPeer(r.id);
+  $('chipVoice').textContent = 'Voice chat: on'; $('micChip').classList.add('show');
+  chatLine('', 'Voice chat on. People closer to you sound louder. Press V to mute.', 'sys');
+}
+function voiceStop() {
+  VOICE.on = false;
+  if (VOICE.stream) VOICE.stream.getTracks().forEach((t) => t.stop());
+  VOICE.stream = null;
+  for (const ent of VOICE.calls.values()) { try { ent.call.close(); } catch (err) { /* ok */ } if (ent.audio) ent.audio.remove(); }
+  VOICE.calls.clear();
+  $('chipVoice').textContent = 'Voice chat: off'; $('micChip').classList.remove('show');
+}
+function applyMute() { if (VOICE.stream) VOICE.stream.getAudioTracks().forEach((t) => { t.enabled = !VOICE.muted; }); $('micChip').textContent = VOICE.muted ? '🎙 Muted (V)' : '🎙 Mic on (V)'; $('micChip').classList.toggle('muted', VOICE.muted); }
+$('chipVoice').addEventListener('click', (e) => { e.stopPropagation(); $('menu').classList.remove('show'); if (VOICE.on) voiceStop(); else voiceStart(); e.currentTarget.blur(); });
+$('micChip').addEventListener('click', (e) => { e.stopPropagation(); VOICE.muted = !VOICE.muted; applyMute(); });
+window.addEventListener('keydown', (e) => { if (e.code === 'KeyV' && !e.repeat && VOICE.on && document.activeElement !== $('chatIn')) { VOICE.muted = !VOICE.muted; applyMute(); toast(VOICE.muted ? 'Mic muted' : 'Mic on'); } });
+window.addEventListener('pointerdown', () => { for (const ent of VOICE.calls.values()) if (ent.audio && ent.audio.paused) ent.audio.play().catch(() => {}); if (VOICE.ctx && VOICE.ctx.state === 'suspended') VOICE.ctx.resume(); });
+function voiceTick(dt) {
+  qteTick();
+  if (!VOICE.calls.size && !VOICE.on) return;
+  if (VOICE.on) { VOICE.tryT -= dt; if (VOICE.tryT <= 0) { VOICE.tryT = 3; for (const r of remotes.values()) if (r.seen && !VOICE.calls.has(r.id)) callPeer(r.id); } }
+  for (const [id, ent] of VOICE.calls) {
+    const r = remotes.get(id);
+    if (!r) { try { ent.call.close(); } catch (err) { /* ok */ } if (ent.audio) ent.audio.remove(); VOICE.calls.delete(id); continue; }
+    if (ent.audio) { const d = r.pos.distanceTo(player.pos); ent.audio.volume = Math.max(0, Math.min(1, 1 - (d - 8) / 40)); }
+    let talking = false;
+    if (ent.an) { ent.an.getByteFrequencyData(ent.buf); let s = 0; for (let i = 0; i < ent.buf.length; i++) s += ent.buf[i]; ent.level = ent.level * 0.8 + (s / ent.buf.length) * 0.2; talking = ent.level > 12; }
+    const want = (talking ? '🔊 ' : '') + r.name; if (r.tagName.textContent !== want) r.tagName.textContent = want;
+  }
+}
+
 // ---------- Performance: automatic resolution + low graphics ----------
 let frameN = 0;
 const GFX = { low: false };
@@ -7818,7 +8055,7 @@ function frame(now) {
   animateFighter(freezeT > 0 ? dt : (gdt || dt * 0.1));
   updateFX(freezeT > 0 ? dt : (gdt || dt * 0.15));
   auraTick(dt);
-  duelTick(dt); teamTick(); screenFxTick(); islandTick(dt);
+  duelTick(dt); teamTick(); screenFxTick(); islandTick(dt); voiceTick(dt);
   updateDrops(gdt || dt * 0.1); updateBlobs();
   hitLightT -= dt; hitLight.intensity = hitLightT > 0 ? hitLight.intensity * Math.exp(-14 * dt) : 0;
   blurStr = Math.max(0, blurStr - dt * 3.5); if (blurPass) { blurPass.enabled = blurStr > 0.02; blurPass.uniforms.uStr.value = blurStr; }
