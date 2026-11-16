@@ -171,6 +171,7 @@ body.shiftlock #cross { display: block; }
 .sw.tock { background: radial-gradient(circle at 50% 50%, #f4ead2 0 34%, #b8862a 35% 40%, #6b4a2e 41%); } .sw.tock::after { content: ""; position: absolute; left: 50%; top: 50%; width: 3px; height: 14px; margin: -14px 0 0 -1px; background: #2a1c12; box-shadow: 5px 9px 0 -1px #2a1c12; }
 .sw.maple { background: repeating-linear-gradient(0deg, #c23a2b 0 7px, #6a1e16 7px 9px), #c23a2b; } .sw.maple::after { content: ""; position: absolute; left: 50%; top: 10%; width: 6px; height: 34px; margin-left: -3px; background: #8a5a32; box-shadow: 6px -2px 0 2px #dfe6ee; transform: rotate(20deg); }
 .sw.rook { background: conic-gradient(#1c1b22 25%, #eeeae0 0 50%, #1c1b22 0 75%, #eeeae0 0) 0 0 / 16px 16px; } .sw.rook::after { content: ""; position: absolute; left: 50%; top: 18%; width: 22px; height: 28px; margin-left: -11px; background: #2a2930; clip-path: polygon(0 0, 22% 0, 22% 20%, 39% 20%, 39% 0, 61% 0, 61% 20%, 78% 20%, 78% 0, 100% 0, 100% 100%, 0 100%); }
+.sw.echo { background: linear-gradient(180deg, #0d2a2e, #1f6f78); } .sw.echo::after { content: ""; position: absolute; left: 12%; right: 12%; top: 40%; height: 16px; background: repeating-linear-gradient(90deg, #3fe0d0 0 3px, transparent 3px 7px); clip-path: polygon(0 50%, 10% 20%, 20% 80%, 30% 0, 40% 100%, 50% 30%, 60% 70%, 70% 10%, 80% 90%, 90% 40%, 100% 50%, 100% 60%, 0 60%); box-shadow: 0 0 10px #3fe0d0; }
 .sw.chef { background: repeating-linear-gradient(90deg, #f4f2ec 0 12px, #d8d4ca 12px 14px); } .sw.chef::after { content: ""; position: absolute; left: 50%; top: 8%; width: 30px; height: 30px; margin-left: -15px; border-radius: 50% 50% 10% 10%; background: #fff; box-shadow: 0 2px 0 #c0392b; }
 #vig { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, rgba(0,0,0,0) 58%, rgba(12,8,24,.32) 100%); }
 .sw.mask { background: #6b1420; } .sw.mask::after { content: ""; position: absolute; left: 50%; top: 10%; width: 34px; height: 38px; margin-left: -17px; background: #f2eee6; border-radius: 50% 50% 46% 46% / 40% 40% 60% 60%; }
@@ -335,7 +336,7 @@ body.curtains #curL, body.curtains #curR { transform: translateX(0); }
 <div id="overlay">
   <div class="card scrap">
     <h1>Windstep Village</h1>
-    <div class="build">Build 27 · Mirror Clash + chat · Pick your fighter</div>
+    <div class="build">Build 28 · New fighter: Echo · Pick your fighter</div>
     <div class="roster" id="roster">
       <button class="fcard sel" data-id="juno" type="button"><span class="sw juno"></span><span class="fn">Juno Marrow</span><span class="fs">Ink · Hard</span></button>
       <button class="fcard" data-id="pip" type="button"><span class="sw pip"></span><span class="fn">Pip Hollow</span><span class="fs">Thread · Medium</span></button>
@@ -348,6 +349,7 @@ body.curtains #curL, body.curtains #curR { transform: translateX(0); }
       <button class="fcard" data-id="tock" type="button"><span class="sw tock"></span><span class="fn">Professor Tock</span><span class="fs">Time · Hard</span></button>
       <button class="fcard" data-id="maple" type="button"><span class="sw maple"></span><span class="fn">Maple</span><span class="fs">Axe · Easy</span></button>
       <button class="fcard" data-id="rook" type="button"><span class="sw rook"></span><span class="fn">Rook</span><span class="fs">Chess · Medium</span></button>
+      <button class="fcard" data-id="echo" type="button"><span class="sw echo"></span><span class="fn">Echo</span><span class="fs">Rhythm · Hard</span></button>
     </div>
     <label class="namefield" for="nameIn"><span>Your name</span><input id="nameIn" maxlength="14" autocomplete="off" spellcheck="false"></label>
     <p class="fdesc" id="fdesc"></p>
@@ -1084,7 +1086,7 @@ function faceTexture(kind) {
   const cv = document.createElement('canvas'); cv.width = cv.height = 256;
   const g = cv.getContext('2d'); g.scale(2, 2); g.lineCap = 'round'; g.lineJoin = 'round';
   const ell = (x, y, rx, ry, c) => { g.fillStyle = c; g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); g.fill(); };
-  if (drawFace14(kind, g, ell)) {
+  if (echoFace(kind, g, ell) || drawFace14(kind, g, ell)) {
     /* new fighters */
   } else if (kind === 'juno') {
     ell(44, 62, 8, 12, '#15131c'); ell(84, 62, 8, 12, '#15131c');
@@ -1301,7 +1303,9 @@ function makeNangHead(rig, red, gold) {
 }
 function buildFighter(id) {
   let rig;
-  if (isNew14(id)) {
+  if (id === 'echo') {
+    rig = buildEcho();
+  } else if (isNew14(id)) {
     rig = build14(id);
   } else if (id === 'juno') {
     rig = makeRig({ skin: 0xe6c3a5, upper: 0x232742, lower: 0x161a30, hand: 0x0d0c12, leg: 0x161a30, foot: 0x2b2a30, face: 'juno' });
@@ -4702,6 +4706,8 @@ function handleMsg(m) {
     if (p.move) { if (kit.cancel) kit.cancel(); p.move = null; }
     if (!m.quiet) letterbox(true); callout(m.title || 'MOON SPLITTER', m.sub || 'There is no escape');
     if (!m.title && fighterId === 'mira' && kit.clashReady && kit.clashReady()) startClashQTE(m.id);
+  } else if (m.t === 'ringing') {
+    ringMyEars(m.dur);
   } else if (m.t === 'chat') {
     chatMsg(m);
   } else if (m.t === 'clash') {
@@ -7135,6 +7141,287 @@ Object.assign(FXF, {
 });
 Object.assign(KITS, { mira: makeMiraKit, tock: makeTockKit, maple: makeMapleKit, rook: makeRookKit });
 
+// =====================================================================
+// ECHO, "The Afterbeat": records the hits he lands on the beat, plays them back
+// =====================================================================
+const ETEAL = 0x3fe0d0, EPINK = 0xff4fa8, BEAT = 0.5;
+const beatPhase = () => ((clock % BEAT) + BEAT) % BEAT;
+const onBeatNow = () => { const ph = beatPhase(); return ph < 0.13 || ph > BEAT - 0.13; };
+// a soft metronome click only the Echo player hears
+const ECHO_AUDIO = { ctx: null, lastBeat: -1, muted: false };
+function echoClick(accent) {
+  if (ECHO_AUDIO.muted) return;
+  try {
+    const ctx = ECHO_AUDIO.ctx || (ECHO_AUDIO.ctx = new (window.AudioContext || window.webkitAudioContext)());
+    if (ctx.state === 'suspended') ctx.resume();
+    const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine'; o.frequency.value = accent ? 1320 : 880;
+    g.gain.setValueAtTime(0.0001, ctx.currentTime); g.gain.exponentialRampToValueAtTime(accent ? 0.07 : 0.04, ctx.currentTime + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.08);
+    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + 0.1);
+  } catch (err) { /* sound is optional */ }
+}
+function echoBass(big) {
+  if (ECHO_AUDIO.muted) return;
+  try {
+    const ctx = ECHO_AUDIO.ctx || (ECHO_AUDIO.ctx = new (window.AudioContext || window.webkitAudioContext)());
+    const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine';
+    o.frequency.setValueAtTime(big ? 120 : 90, ctx.currentTime); o.frequency.exponentialRampToValueAtTime(38, ctx.currentTime + 0.4);
+    g.gain.setValueAtTime(big ? 0.35 : 0.12, ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.5);
+    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + 0.55);
+  } catch (err) { /* ok */ }
+}
+const WAVETEX = canvasTex(256, (g, S) => {
+  g.fillStyle = '#0d2a2e'; g.fillRect(0, 0, S, S);
+  g.strokeStyle = '#3fe0d0'; g.lineWidth = 7; g.shadowColor = '#3fe0d0'; g.shadowBlur = 14; g.beginPath();
+  for (let x = 0; x <= S; x += 4) { const k = x / S, a = Math.sin(k * Math.PI) * (0.25 + 0.75 * Math.abs(Math.sin(k * 17))); const y = S / 2 + Math.sin(k * 40) * a * S * 0.32; if (x) g.lineTo(x, y); else g.moveTo(x, y); }
+  g.stroke();
+});
+const VINYLTEX = canvasTex(512, (g, S) => {
+  const C = S / 2; g.fillStyle = '#121216'; g.beginPath(); g.arc(C, C, C - 2, 0, PI2); g.fill();
+  g.strokeStyle = 'rgba(255,255,255,.07)'; for (let r = 60; r < C - 6; r += 5) { g.lineWidth = 1.5; g.beginPath(); g.arc(C, C, r, 0, PI2); g.stroke(); }
+  g.fillStyle = 'rgba(255,255,255,.12)'; g.beginPath(); g.moveTo(C, C); g.arc(C, C, C - 4, -0.5, -0.1); g.fill();
+  g.fillStyle = '#ff4fa8'; g.beginPath(); g.arc(C, C, 70, 0, PI2); g.fill(); g.fillStyle = '#3fe0d0'; g.beginPath(); g.arc(C, C, 52, 0, PI2); g.fill();
+  g.fillStyle = '#121216'; g.beginPath(); g.arc(C, C, 8, 0, PI2); g.fill();
+});
+function echoFace(kind, g, ell) {
+  if (kind !== 'echo') return false;
+  // eye whites so they read on darker skin, relaxed lids, strong brows, easy smile
+  ell(44, 61, 9, 6.5, '#f4efe8'); ell(84, 61, 9, 6.5, '#f4efe8');
+  ell(45, 62, 5, 5.5, '#3a2416'); ell(85, 62, 5, 5.5, '#3a2416'); ell(45, 62, 2.6, 3, '#0c0806'); ell(85, 62, 2.6, 3, '#0c0806');
+  ell(46.8, 60, 1.6, 1.6, '#fff'); ell(86.8, 60, 1.6, 1.6, '#fff');
+  g.fillStyle = 'rgb(122,74,46)'; g.fillRect(34, 50, 21, 7.5); g.fillRect(74, 50, 21, 7.5);
+  g.strokeStyle = '#120c08'; g.lineWidth = 3; g.beginPath(); g.moveTo(35, 57.5); g.quadraticCurveTo(44, 55.5, 54, 57.5); g.moveTo(74, 57.5); g.quadraticCurveTo(84, 55.5, 93, 57.5); g.stroke();
+  g.lineWidth = 5.5; g.beginPath(); g.moveTo(33, 46); g.lineTo(55, 44); g.moveTo(73, 44); g.lineTo(95, 46); g.stroke();
+  g.strokeStyle = 'rgba(40,20,12,.55)'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(60, 70); g.quadraticCurveTo(57, 78, 61, 80); g.moveTo(67, 80); g.quadraticCurveTo(71, 78, 68, 70); g.stroke();
+  g.fillStyle = '#4a2418'; g.beginPath(); g.moveTo(53, 88); g.quadraticCurveTo(64, 97, 76, 87); g.quadraticCurveTo(64, 91, 53, 88); g.fill();
+  g.strokeStyle = '#1a0c08'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(53, 88); g.quadraticCurveTo(64, 95, 76, 87); g.stroke();
+  return true;
+}
+function buildEcho() {
+  const rig = makeRig({ skin: 0x7a4a2e, upper: 0x1f6f78, armU: 0x1f6f78, armL: 0x1f6f78, lower: 0x17171c, hand: 0x2a2a30, leg: 0x17171c, foot: 0xf2f2f2, face: 'echo' });
+  const teal = SM(0x1f6f78), dark = SM(0x17171c), hair = SM(0x1d1612);
+  // flat top: short faded sides, tall squared-off top
+  const fade = SM(0x2a2019);
+  { const sides = new THREE.Mesh(new THREE.CylinderGeometry(0.257, 0.257, 0.12, 24, 1, true, 1.0, PI2 - 2.0), fade); sides.material = toon(0x2a2019); sides.material.side = THREE.DoubleSide; sides.position.y = 0.41; rig.neck.add(sides); }
+  rig.neck.add(part(0.48, 0.27, 0.46, hair, 0, 0.585, -0.01));
+  rig.neck.add(part(0.44, 0.03, 0.42, SM(0x241a14), 0, 0.72, -0.01));
+  // headphones resting around his neck, lights pulse to the beat
+  const hp = new THREE.Group(); hp.position.set(0, 0.5, 0.02); rig.chest.add(hp);
+  const band = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.026, 8, 24, Math.PI), dark); band.rotation.x = -Math.PI / 2; hp.add(band);
+  const lights = [];
+  for (const sd of [-1, 1]) {
+    const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.08, 20), dark); cup.rotation.z = Math.PI / 2; cup.rotation.y = sd * 0.5; cup.position.set(sd * 0.21, -0.02, 0.07); hp.add(cup);
+    const glow = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.018, 8, 24), new THREE.MeshBasicMaterial({ color: ETEAL })); glow.rotation.y = Math.PI / 2 + sd * 0.5; glow.position.set(sd * 0.25, -0.02, 0.09); glow.userData.noOutline = true; hp.add(glow); lights.push(glow);
+  }
+  rig.echoLights = lights;
+  // hood bunched behind the neck
+  const hood = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.1, 10, 20), teal); hood.rotation.x = Math.PI / 2 + 0.3; hood.position.set(0, 0.5, -0.12); hood.scale.set(1, 1, 0.6); rig.chest.add(hood);
+  // glowing waveform stripe, front pocket, drawstrings
+  const stripe = new THREE.Mesh(new THREE.PlaneGeometry(0.46, 0.16), new THREE.MeshBasicMaterial({ map: WAVETEX })); stripe.position.set(0, 0.3, 0.192); rig.chest.add(stripe); rig.echoStripe = stripe;
+  rig.chest.add(part(0.34, 0.14, 0.03, SM(0x185a62), 0, 0.06, 0.195));
+  for (const sd of [-1, 1]) rig.chest.add(part(0.025, 0.18, 0.02, SM(0xf2f2f2), sd * 0.07, 0.4, 0.2));
+  // cassette recorder on the belt
+  const cas = new THREE.Group(); cas.position.set(0.33, -0.05, 0.08); rig.waist.add(cas);
+  cas.add(part(0.06, 0.22, 0.3, SM(0x2a2a30), 0, 0, 0));
+  const win = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.08), new THREE.MeshBasicMaterial({ color: EPINK })); win.position.set(0.032, 0.02, 0); win.rotation.y = Math.PI / 2; cas.add(win); rig.echoTape = win;
+  // fingerless gloves: skin fingertips peeking out
+  for (const h of [rig.handL, rig.handR]) h.add(part(0.2, 0.05, 0.22, SM(0x7a4a2e), 0, -0.07, 0));
+  return rig;
+}
+// a sound-wave ghost of a recorded hit (also replayed for other players)
+function vfxSoundGhost(from, tg, col) {
+  if (!tg || !tg.pos || !from) return;
+  const g = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.07, 8, 28), new THREE.MeshBasicMaterial({ color: col || ETEAL, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+  g.material.userData.lin = true; const a = from.clone();
+  tempMesh(g, 0.32, (m, k) => { const b = tg.pos.clone().add(new THREE.Vector3(0, 1.3, 0)); m.position.lerpVectors(a, b, easeOut(k)); m.lookAt(b); m.scale.setScalar(0.6 + k * 1.6); m.material.opacity = 1 - k * 0.5; });
+  later(0.3, () => { if (tg.pos) { ring(tg.pos.clone().add(new THREE.Vector3(0, 1.3, 0)), col || ETEAL, 2.2); sparks(tg.pos.clone().add(new THREE.Vector3(0, 1.3, 0)), 5, col || ETEAL, 1); } });
+}
+function tintTwin(tw, col) { let done = false; tw.root.traverse((o) => { if (!done && o.isMesh && o.visible && o.material && o.material.color && o.material.blending === THREE.AdditiveBlending) { o.material.color.setHex(col); done = true; } }); }
+function vfxBeatRing(pos, big) { ring(pos.clone(), big ? EPINK : ETEAL, big ? 7 : 2.6, true); }
+function vfxCount(pos, n) { floatText(String(n), pos.clone().add(new THREE.Vector3(0, 3.2, 0)), 'big'); ring(pos.clone().add(new THREE.Vector3(0, 0.1, 0)), EPINK, 2 + (3 - n) * 0.8, true); }
+function vfxEncore(tg) {
+  if (!tg || !tg.pos) return;
+  const rec = new THREE.Mesh(new THREE.CircleGeometry(4.2, 48), new THREE.MeshBasicMaterial({ map: VINYLTEX, transparent: true, side: THREE.DoubleSide, depthWrite: false }));
+  rec.rotation.x = -Math.PI / 2;
+  tempMesh(rec, 2.6, (m, k) => { const t = k * 2.6; m.position.copy(tg.pos).add(new THREE.Vector3(0, 0.12, 0)); m.rotation.z += t < 1.9 ? 0.14 : 0.02; m.scale.setScalar(Math.min(1, t * 4) * (k > 0.9 ? (1 - k) * 10 : 1) + 0.01); });
+  for (let i = 0; i < 3; i++) { const r2 = new THREE.Mesh(new THREE.TorusGeometry(2.2 + i * 0.6, 0.06, 6, 40), new THREE.MeshBasicMaterial({ color: i % 2 ? EPINK : ETEAL, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false })); r2.material.userData.lin = true;
+    tempMesh(r2, 2.2, (m, k) => { m.position.copy(tg.pos).add(new THREE.Vector3(0, 1.3 + Math.sin(k * 12 + i) * 0.5, 0)); m.rotation.x = Math.PI / 2 + Math.sin(k * 8 + i) * 0.5; m.rotation.z += 0.1 * (i + 1); m.material.opacity = 1 - k; }); }
+}
+function makeEchoKit() {
+  const K = { id: 'echo', name: 'ECHO', sub: 'The Afterbeat', color: ETEAL, accent: '#1f6f78',
+    desc: 'Only you can hear his beat. Moves you use ON THE BEAT hit a little harder and get recorded onto his tape (4 slots). R plays the whole tape back at your target at once. Tap Tempo is a palm combo, Feedback blasts a cone of noise that slows, Skip teleports and leaves an afterimage, and Drop counts in 3-2-1: press 4 again on the beat for a massive bass slam.',
+    slots: [{ k: '1', name: 'Tap Tempo', tag: 'b' }, { k: '2', name: 'Feedback', tag: 'x' }, { k: '3', name: 'Skip', tag: 'n' }, { k: '4', name: 'Drop', tag: 'x' }, { k: 'R', name: 'Playback', tag: 'p' }],
+    awkName: 'LIVE SET', awkLine: 'Make some noise!', awkColor: EPINK,
+    awkSlots: [{ k: '1', name: 'Tap Tempo', tag: 'b' }, { k: '2', name: 'Feedback', tag: 'x' }, { k: '3', name: 'Skip', tag: 'n' }, { k: '4', name: 'Encore', tag: 'u' }, { k: 'R', name: 'Playback', tag: 'p' }] };
+  const cd = { 1: 0, 2: 0, 3: 0, 4: 0, R: 0 }, MAX = { 1: 3.5, 2: 7, 3: 6, 4: 10, R: 4 };
+  let tape = [], ghost = null, castId = 0, recorded = new Set();
+  const cap = () => (awakened ? 8 : 4);
+  function dropGhost() { if (ghost) { scene.remove(ghost.root); ghost = null; } }
+  K.reset = () => { for (const k in cd) cd[k] = 0; tape = []; dropGhost(); };
+  K.slotsNow = () => (awakened ? K.awkSlots : K.slots);
+  K.resLabel = () => 'Tape ' + tape.length + '/' + cap() + (onBeatNow() ? '  ♪' : '');
+  K.resPct = () => tape.length / cap() * 100;
+  K.view = (k) => {
+    if (k === 'R') return { name: tape.length ? 'Playback (' + tape.length + ')' : 'Playback', tag: 'p', remain: cd.R, max: MAX.R, glow: tape.length >= cap(), fill: tape.length / cap() * 100 };
+    if (awakened && k === '4') return { name: 'Encore', tag: 'u', remain: 0, max: 1, glow: true };
+    if (k === '4' && player.move && player.move.name === 'drop') return { name: player.move.phase === 'ready' ? 'DROP IT!' : 'Counting…', tag: 'x', remain: 0, max: 1, glow: player.move.phase === 'ready' };
+    const s = K.slots.find((x) => x.k === k); return { name: s.name, tag: s.tag, remain: cd[k], max: MAX[k] };
+  };
+  // a move started on the beat records its first landed hit
+  function beatCheck() { const ok = awakened || onBeatNow(); if (ok) { floatText('ON BEAT', player.pos.clone().add(new THREE.Vector3(0, 2.9, 0)), 'ink'); vfxBeatRing(player.pos); } return ok; }
+  K.onHit = (d, o) => {
+    if (!o.beat || o.playback) return;
+    // the whole move is recorded: later hits of the same move add to its entry
+    const ent = tape.find((e) => e.cast === o.cast);
+    if (ent) { ent.dmg = Math.min(16, ent.dmg + o.dmg * 0.6); return; }
+    if (recorded.has(o.cast)) return; recorded.add(o.cast);
+    if (tape.length < cap()) { tape.push({ cast: o.cast, dmg: o.dmg, type: o.type === 'u' ? 'x' : o.type }); floatText('● REC ' + tape.length, d.pos.clone().add(new THREE.Vector3(0, 3.4, 0)), 'ink'); }
+  };
+  K.dmgMul = (o) => (o.beat ? 1.25 : 1);
+  function ghostStrike() {
+    if (!ghost) return; const g = ghost; ghost = null;
+    const t = nearestDummy(g.root.position, 4.5);
+    g.root.rotation.y = t ? Math.atan2(t.pos.x - g.root.position.x, t.pos.z - g.root.position.z) : g.root.rotation.y;
+    slashArc(ETEAL, 1.2, 0.2, false, 1.1, g.root.position.clone(), g.root.rotation.y);
+    if (t) hitDummy(t, { dmg: 5, type: 'b', stun: 0.7, kb: t.pos.clone().sub(g.root.position).setY(0).normalize().multiplyScalar(5).setY(2), set: true, mats: [fxBlue], spark: ETEAL, label: 'AFTERIMAGE', awk: 3 });
+    later(0.25, () => { shards(g.root.position.clone().add(new THREE.Vector3(0, 1.4, 0)), 8, ETEAL, 5); scene.remove(g.root); });
+  }
+  K.press = (k) => {
+    // Drop: the slam is the second press of 4, judged against the beat
+    if (k === '4' && player.move && player.move.name === 'drop' && player.move.phase === 'ready') { slam(player.move, onBeatNow() || awakened); return; }
+    if (busy() || player.blocking) return;
+    if (k === 'R') {
+      if (cd.R > 0) return;
+      if (!tape.length) { toast('Tape is empty. Land moves on the beat to record them'); return; }
+      const t = aimFace14(22); if (!t) { toast('No target in range'); return; }
+      startMove('playback', 0.4 + tape.length * 0.1, 'cast', { tg: t, list: tape.slice(), n: 0 }); tape = []; cd.R = MAX.R;
+      if (rig.echoTape) rig.echoTape.material.color.setHex(EPINK); return;
+    }
+    if (awakened && k === '4') { encore(); return; }
+    if (cd[k] > 0) return;
+    castId++; const beat = beatCheck(), cast = castId;
+    if (k === '1') { aimFace14(5); startMove('tap', 0.7, null, { hits: 0, beat, cast }); cd[1] = MAX[1]; }
+    if (k === '2') { aimFace14(8); startMove('feedback', 0.6, 'cast', { done: false, beat, cast }); cd[2] = MAX[2]; }
+    if (k === '3') {
+      const mv = moveInput(), dir = mv.lengthSq() > 0.01 ? mv.normalize() : (shiftLock ? camForward() : facingVec());
+      const from = player.pos.clone(), to = player.pos.clone().addScaledVector(dir, 6);
+      dropGhost();
+      if (beat) { const tw = makeGlassTwin('echo', 0.5); tintTwin(tw, ETEAL); tw.root.position.copy(from); tw.root.rotation.y = player.facing; poseLike(tw, rig); ghost = { root: tw.root, t: 3 }; }
+      else { const tw = makeGlassTwin('echo', 0.35); tw.root.position.copy(from); tw.root.rotation.y = player.facing; poseLike(tw, rig); tempMesh(new THREE.Object3D(), 0.4, (o, kk) => { if (kk >= 1) scene.remove(tw.root); }); }
+      if (spotFree(to.x, to.y, to.z)) player.pos.copy(to);
+      player.iframes = Math.max(player.iframes, 0.3); player.facing = Math.atan2(dir.x, dir.z);
+      for (let i = 0; i < 6; i++) P({ tex: 'glow', color: i % 2 ? ETEAL : EPINK, pos: from.clone().lerp(player.pos, i / 5).add(new THREE.Vector3(0, 1.2, 0)), life: 0.3, s0: 0.5, s1: 0.05 });
+      netOnly('ebeat', [from, 0]); cd[3] = MAX[3]; return;
+    }
+    if (k === '4') { aimFace14(6); startMove('drop', 3.2, 'raise', { phase: 'count', n: 0, cast, t0beat: Math.ceil(clock / BEAT) * BEAT }); cd[4] = MAX[4]; }
+    if (ghost) later(0.15, ghostStrike);
+  };
+  K.release = () => {};
+  function slam(mv, good) {
+    mv.phase = 'done'; mv.dur = mv.t + 0.5; playAnim('slam', 1.4); echoBass(good);
+    const at = player.pos.clone(); vfxBeatRing(at, good); netOnly('ebeat', [at, good ? 1 : 0]);
+    if (good) {
+      addShake(0.9); impactFrame(0.1); ring(at.clone(), ETEAL, 9, true); dust(at.clone().add(new THREE.Vector3(0, 0.2, 0)), 14, 9);
+      for (let i = 0; i < 3; i++) later(i * 0.07, () => ring(at.clone().add(new THREE.Vector3(0, 0.3 + i * 0.5, 0)), i % 2 ? EPINK : ETEAL, 5 + i * 2));
+      bigHitAll(at, 5.2, { dmg: 14, type: 'x', kbOut: 6, kbUp: 13, down: 1.2, big: true, mats: [fxBlue], spark: ETEAL, ringColor: EPINK, label: 'DROP!', awk: 6, beat: true, cast: mv.cast });
+    } else {
+      floatText('off beat…', at.clone().add(new THREE.Vector3(0, 2.8, 0)), 'ink');
+      bigHitAll(at, 2.6, { dmg: 4, type: 'b', kbOut: 4, kbUp: 2, mats: [fxBlue], spark: ETEAL, awk: 2 });
+    }
+  }
+  function encore() {
+    const d = nearestDummy(player.pos, 16);
+    if (!d) { toast('No target in range for Encore'); return; }
+    faceToward(d.pos);
+    startMove('encore', 2.7, 'raise', { a: true, lockPos: true, d, base: d.pos.clone(), hit: false, ended: false, n: 0, count: Math.max(8, tape.length) });
+    player.iframes = 3; d.grabbed = 2.3; d.stun = 2.7; if (d.ai) d.ai.wind = 0;
+    if (d.remote) netSend({ t: 'seize', to: d.id, dur: 2.3, title: 'ENCORE', sub: 'One more time!' });
+    vfxEncore(d); netOnly('encore', [d]); tape = [];
+    startCine({ focus: () => d.pos, dur: 2.6, dist: 10, height: 3.4, yaw: player.facing + 2.4, spin: 0.45 });
+    letterbox(true); callout('ENCORE', 'One more time!');
+  }
+  K.moveTick = (mv, dt) => {
+    const f = facingVec();
+    if (mv.name === 'tap') {
+      const marks = [0.06, 0.2, 0.36];
+      if (mv.hits < 3 && mv.t >= marks[mv.hits]) {
+        const i = mv.hits++, last3 = i === 2; playAnim(['m1a', 'm1b', 'm1d'][i], 1.7);
+        ring(handPos(), i % 2 ? EPINK : ETEAL, last3 ? 2.4 : 1.3);
+        for (const d of meleeTargets(3.0, 0.2)) {
+          const big = last3 && mv.beat;
+          hitDummy(d, { dmg: last3 ? 5 : 3, type: 'b', stun: 0.7, kb: f.clone().multiplyScalar(big ? 12 : last3 ? 3 : 1).setY(big ? 4 : 0), set: big, big, mats: [fxBlue], spark: ETEAL, ringColor: EPINK, label: big ? 'TAP TEMPO' : null, awk: 2.5, beat: mv.beat, cast: mv.cast });
+        }
+        if (last3 && mv.beat) { vfxBeatRing(player.pos.clone().addScaledVector(f, 1.5)); echoBass(false); }
+      }
+    } else if (mv.name === 'feedback' && !mv.done && mv.t >= 0.18) {
+      mv.done = true; echoClick(true);
+      for (let i = 0; i < 5; i++) later(i * 0.05, () => { const g = new THREE.Mesh(new THREE.TorusGeometry(0.6 + i * 0.5, 0.05, 6, 30, 1.6), new THREE.MeshBasicMaterial({ color: i % 2 ? EPINK : ETEAL, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false })); g.material.userData.lin = true; g.position.copy(player.pos).add(new THREE.Vector3(0, 1.3, 0)).addScaledVector(f, 0.8 + i * 1.1); g.rotation.y = player.facing; g.rotation.z = Math.PI / 2 - 0.8; tempMesh(g, 0.35, (m, k) => { m.material.opacity = 1 - k; m.scale.setScalar(1 + k * 0.5); }); });
+      for (const d of meleeTargets(7, 0.5)) {
+        hitDummy(d, { dmg: 6, type: 'x', stun: 0.9, slow: 2.5, kb: f.clone().multiplyScalar(5).setY(2), set: true, mats: [fxBlue], spark: ETEAL, ringColor: ETEAL, label: 'FEEDBACK', awk: 4, beat: mv.beat, cast: mv.cast });
+        applySlow(d, 2.5); if (d.remote) netSend({ t: 'ringing', to: d.id, dur: 2.5 });
+      }
+    } else if (mv.name === 'drop') {
+      if (mv.phase === 'count') {
+        const n = Math.floor((clock - mv.t0beat) / BEAT) + 1;
+        if (clock >= mv.t0beat && n > mv.n && n <= 3) { mv.n = n; vfxCount(player.pos, 4 - n); netOnly('ecount', [player.pos.clone(), 4 - n]); echoClick(true); }
+        if (clock >= mv.t0beat + 3 * BEAT - 0.15) { mv.phase = 'ready'; mv.readyT = mv.t; floatText('DROP IT!', player.pos.clone().add(new THREE.Vector3(0, 3.2, 0)), 'big'); }
+      } else if (mv.phase === 'ready' && mv.t - mv.readyT > 1.0) slam(mv, false);
+    } else if (mv.name === 'playback') {
+      const t = mv.tg;
+      while (mv.n < mv.list.length && mv.t >= 0.12 + mv.n * 0.1) {
+        const e = mv.list[mv.n++], from = player.pos.clone().add(new THREE.Vector3(rv(1.2), 1.4 + Math.random(), rv(1.2)));
+        if (!t || t.dead) continue;
+        vfxSoundGhost(from, t, mv.n % 2 ? ETEAL : EPINK); netOnly('eghost', [from, t, mv.n % 2 ? ETEAL : EPINK]); echoClick(mv.n === mv.list.length);
+        const last = mv.n === mv.list.length;
+        later(0.3, () => { if (!t.dead) hitDummy(t, { dmg: Math.max(2, Math.round(e.dmg)), type: e.type, stun: 0.8, kb: last ? t.pos.clone().sub(player.pos).setY(0).normalize().multiplyScalar(10).setY(5) : new THREE.Vector3(0, 1, 0), set: last, down: last && mv.list.length >= 4 ? 1 : 0, big: last, mats: [fxBlue], spark: ETEAL, ringColor: EPINK, label: last ? 'PLAYBACK x' + mv.list.length : null, awk: 2, playback: true }); });
+      }
+    } else if (mv.name === 'encore') {
+      const d = mv.d;
+      if (!mv.hit && !d.dead) { d.pos.copy(mv.base).add(new THREE.Vector3(0, Math.min(1, mv.t / 0.5) * 2.2, 0)); d.vel.set(0, 0, 0); }
+      while (!mv.hit && mv.n < mv.count && mv.t >= 0.5 + mv.n * (1.3 / mv.count)) {
+        mv.n++; const a = Math.random() * PI2, from = mv.base.clone().add(new THREE.Vector3(Math.cos(a) * 5, 1.5 + Math.random() * 2.5, Math.sin(a) * 5));
+        vfxSoundGhost(from, d, mv.n % 2 ? ETEAL : EPINK); echoClick(false);
+      }
+      if (!mv.hit && mv.t >= 2.0) {
+        mv.hit = true; d.grabbed = 0; echoBass(true);
+        hitDummy(d, { dmg: 30, type: 'u', otg: true, kb: f.clone().multiplyScalar(14).setY(9), set: true, down: 2, big: true, mats: [fxBlue], spark: ETEAL, ringColor: EPINK, label: 'ENCORE', awk: 0 });
+        impactFrame(0.16); addShake(1.2); hitStop = 0.16; ring(mv.base.clone(), EPINK, 8, true);
+      }
+      if (mv.t >= 2.5 && !mv.ended) { mv.ended = true; letterbox(false); later(0.1, endAwaken); }
+    }
+  };
+  K.cancel = () => {};
+  K.update = (dt) => {
+    for (const k in cd) cd[k] = Math.max(0, cd[k] - dt);
+    if (ghost) { ghost.t -= dt; if (ghost.t <= 0) { shards(ghost.root.position.clone().add(new THREE.Vector3(0, 1.4, 0)), 6, ETEAL, 3); scene.remove(ghost.root); ghost = null; } }
+    // the beat: a click, a ring at his feet, headphones and chest stripe pulse
+    const beatN = Math.floor(clock / BEAT);
+    if (beatN !== ECHO_AUDIO.lastBeat && started && fighterId === 'echo') {
+      ECHO_AUDIO.lastBeat = beatN; const accent = beatN % 4 === 0;
+      echoClick(accent); if (!player.hidden) ring(player.pos.clone(), awakened ? (accent ? EPINK : ETEAL) : ETEAL, awakened ? (accent ? 4.5 : 3) : 1.6, true);
+    }
+    const pulse = 1 - beatPhase() / BEAT;
+    if (rig && rig.echoLights) for (const l of rig.echoLights) { l.material.color.setHex(awakened && beatN % 2 ? EPINK : ETEAL); l.scale.setScalar(1 + pulse * 0.35); }
+    if (rig && rig.echoStripe) rig.echoStripe.material.color.setScalar(0.5 + pulse * 0.6);
+    if (rig && rig.echoTape) rig.echoTape.material.color.setHex(tape.length ? (beatN % 2 ? EPINK : 0xff9ad0) : 0x553040);
+  };
+  K.awaken = () => { tape = tape.slice(0, 8); };
+  K.unawaken = () => {};
+  return K;
+}
+{
+  const st = document.createElement('style'); st.textContent = 'body.ringing #game { filter: blur(2.5px) saturate(1.4); }'; document.head.appendChild(st);
+  const b = document.createElement('button'); b.className = 'mbtn'; b.id = 'chipBeat'; b.type = 'button'; b.textContent = 'Echo beat sound: on';
+  try { ECHO_AUDIO.muted = localStorage.getItem('wsv-beat') === 'off'; } catch (err) { /* ok */ }
+  if (ECHO_AUDIO.muted) b.textContent = 'Echo beat sound: off';
+  $('menu').insertBefore(b, $('chipGfx'));
+  b.addEventListener('click', (e) => { e.stopPropagation(); ECHO_AUDIO.muted = !ECHO_AUDIO.muted; b.textContent = 'Echo beat sound: ' + (ECHO_AUDIO.muted ? 'off' : 'on'); try { localStorage.setItem('wsv-beat', ECHO_AUDIO.muted ? 'off' : 'on'); } catch (err) { /* ok */ } e.currentTarget.blur(); });
+}
+let ringEndT = 0;
+function ringMyEars(dur) { document.body.classList.add('ringing'); ringEndT = Math.max(ringEndT, clock + dur); player.slowT = Math.max(player.slowT || 0, dur); }
+function ringTick() { if (ringEndT && clock >= ringEndT) { ringEndT = 0; document.body.classList.remove('ringing'); } }
+Object.assign(FXF, { eghost: vfxSoundGhost, ebeat: (p, b) => vfxBeatRing(p, !!b), ecount: vfxCount, encore: vfxEncore });
+KITS.echo = makeEchoKit;
+
 // ---------- 1v1 duel vs the Sparring Master ----------
 const duel = { on: false, d: null, state: 'off', t: 0, enraged: false };
 Object.assign(AI_CLIP, { combo: ['m1a', 0.035], spin: ['m1d', 0.08], upper: ['upper', 0.07], slam: ['slam', 0.07], dash: ['haymaker', 0.3], wave: ['cast', 0.06] });
@@ -8055,7 +8342,7 @@ function frame(now) {
   animateFighter(freezeT > 0 ? dt : (gdt || dt * 0.1));
   updateFX(freezeT > 0 ? dt : (gdt || dt * 0.15));
   auraTick(dt);
-  duelTick(dt); teamTick(); screenFxTick(); islandTick(dt); voiceTick(dt);
+  duelTick(dt); teamTick(); screenFxTick(); islandTick(dt); voiceTick(dt); ringTick();
   updateDrops(gdt || dt * 0.1); updateBlobs();
   hitLightT -= dt; hitLight.intensity = hitLightT > 0 ? hitLight.intensity * Math.exp(-14 * dt) : 0;
   blurStr = Math.max(0, blurStr - dt * 3.5); if (blurPass) { blurPass.enabled = blurStr > 0.02; blurPass.uniforms.uStr.value = blurStr; }
