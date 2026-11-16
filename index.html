@@ -7325,6 +7325,13 @@ function vfxSoundGhost(from, tg, col) {
   later(0.3, () => { if (tg.pos) { ring(tg.pos.clone().add(new THREE.Vector3(0, 1.3, 0)), col || ETEAL, 2.2); sparks(tg.pos.clone().add(new THREE.Vector3(0, 1.3, 0)), 5, col || ETEAL, 1); } });
 }
 function tintTwin(tw, col) { let done = false; tw.root.traverse((o) => { if (!done && o.isMesh && o.visible && o.material && o.material.color && o.material.blending === THREE.AdditiveBlending) { o.material.color.setHex(col); done = true; } }); }
+function vfxDropRing(pos, lead) {
+  const mk = (r0, r1, col, op) => { const m = new THREE.Mesh(new THREE.RingGeometry(r0, r1, 48), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: op, depthWrite: false, side: THREE.DoubleSide })); m.material.userData.lin = true; m.rotation.x = -Math.PI / 2; m.position.copy(pos).add(new THREE.Vector3(0, 0.08, 0)); return m; };
+  const target = mk(1.15, 1.35, EPINK, 0.9), shrink = mk(0.92, 1.0, 0xffffff, 0.95);
+  tempMesh(target, lead + 0.3, (m, k) => { m.material.opacity = 0.9 * (k > 0.8 ? (1 - k) * 5 : 1); });
+  tempMesh(shrink, lead, (m, k) => { m.scale.setScalar(1.25 + (1 - k) * 4.5); m.material.opacity = 0.4 + 0.55 * k; });
+  later(lead, () => flash(pos.clone().add(new THREE.Vector3(0, 0.4, 0)), EPINK, 2));
+}
 function vfxBeatRing(pos, big) { ring(pos.clone(), big ? EPINK : ETEAL, big ? 7 : 2.6, true); }
 function vfxCount(pos, n) { floatText(String(n), pos.clone().add(new THREE.Vector3(0, 3.2, 0)), 'big'); ring(pos.clone().add(new THREE.Vector3(0, 0.1, 0)), EPINK, 2 + (3 - n) * 0.8, true); }
 function vfxEncore(tg) {
@@ -7337,7 +7344,7 @@ function vfxEncore(tg) {
 }
 function makeEchoKit() {
   const K = { id: 'echo', name: 'ECHO', sub: 'The Afterbeat', color: ETEAL, accent: '#1f6f78',
-    desc: 'Only you can hear his beat. Moves you use ON THE BEAT hit a little harder and get recorded onto his tape (4 slots). R plays the whole tape back at your target at once. Tap Tempo is a palm combo, Feedback blasts a cone of noise that slows, Skip teleports and leaves an afterimage, and Drop counts in 3-2-1: press 4 again on the beat for a massive bass slam.',
+    desc: 'Only you can hear his beat. Moves you use ON THE BEAT hit a little harder and get recorded onto his tape (4 slots). R plays the whole tape back at your target at once. Tap Tempo is a palm combo, Feedback blasts a cone of noise that slows, Skip teleports and leaves an afterimage, and Drop: a ring shrinks around him and closes on the next beat. Press 4 again right as it closes for a massive bass slam.',
     slots: [{ k: '1', name: 'Tap Tempo', tag: 'b' }, { k: '2', name: 'Feedback', tag: 'x' }, { k: '3', name: 'Skip', tag: 'n' }, { k: '4', name: 'Drop', tag: 'x' }, { k: 'R', name: 'Playback', tag: 'p' }],
     awkName: 'LIVE SET', awkLine: 'Make some noise!', awkColor: EPINK,
     awkSlots: [{ k: '1', name: 'Tap Tempo', tag: 'b' }, { k: '2', name: 'Feedback', tag: 'x' }, { k: '3', name: 'Skip', tag: 'n' }, { k: '4', name: 'Encore', tag: 'u' }, { k: 'R', name: 'Playback', tag: 'p' }] };
@@ -7352,7 +7359,7 @@ function makeEchoKit() {
   K.view = (k) => {
     if (k === 'R') return { name: tape.length ? 'Playback (' + tape.length + ')' : 'Playback', tag: 'p', remain: cd.R, max: MAX.R, glow: tape.length >= cap(), fill: tape.length / cap() * 100 };
     if (awakened && k === '4') return { name: 'Encore', tag: 'u', remain: 0, max: 1, glow: true };
-    if (k === '4' && player.move && player.move.name === 'drop') return { name: player.move.phase === 'ready' ? 'DROP IT!' : 'Counting…', tag: 'x', remain: 0, max: 1, glow: player.move.phase === 'ready' };
+    if (k === '4' && player.move && player.move.name === 'drop') return { name: 'DROP IT!', tag: 'x', remain: 0, max: 1, glow: true };
     const s = K.slots.find((x) => x.k === k); return { name: s.name, tag: s.tag, remain: cd[k], max: MAX[k] };
   };
   // a move started on the beat records its first landed hit
@@ -7376,7 +7383,7 @@ function makeEchoKit() {
   }
   K.press = (k) => {
     // Drop: the slam is the second press of 4, judged against the beat
-    if (k === '4' && player.move && player.move.name === 'drop' && player.move.phase === 'ready') { slam(player.move, onBeatNow() || awakened); return; }
+    if (k === '4' && player.move && player.move.name === 'drop' && player.move.phase === 'ready') { const off = Math.abs(clock - player.move.target); slam(player.move, awakened || off <= 0.1 ? 'perfect' : off <= 0.25 ? 'good' : 'miss'); return; }
     if (busy() || player.blocking) return;
     if (k === 'R') {
       if (cd.R > 0) return;
@@ -7401,17 +7408,27 @@ function makeEchoKit() {
       for (let i = 0; i < 6; i++) P({ tex: 'glow', color: i % 2 ? ETEAL : EPINK, pos: from.clone().lerp(player.pos, i / 5).add(new THREE.Vector3(0, 1.2, 0)), life: 0.3, s0: 0.5, s1: 0.05 });
       netOnly('ebeat', [from, 0]); cd[3] = MAX[3]; return;
     }
-    if (k === '4') { aimFace14(6); startMove('drop', 3.2, 'raise', { phase: 'count', n: 0, cast, t0beat: Math.ceil(clock / BEAT) * BEAT }); cd[4] = MAX[4]; }
+    if (k === '4') {
+      aimFace14(6); let target = Math.ceil(clock / BEAT) * BEAT; if (target - clock < 0.3) target += BEAT;
+      const lead = target - clock; startMove('drop', lead + 0.8, 'raise', { phase: 'ready', cast, target, lead });
+      vfxDropRing(player.pos.clone(), lead); netOnly('edrop', [player.pos.clone(), lead]); floatText('DROP IT!', player.pos.clone().add(new THREE.Vector3(0, 3.2, 0)), 'big');
+      cd[4] = MAX[4];
+    }
     if (ghost) later(0.15, ghostStrike);
   };
   K.release = () => {};
-  function slam(mv, good) {
-    mv.phase = 'done'; mv.dur = mv.t + 0.5; playAnim('slam', 1.4); echoBass(good);
-    const at = player.pos.clone(); vfxBeatRing(at, good); netOnly('ebeat', [at, good ? 1 : 0]);
-    if (good) {
+  function slam(mv, tier) {
+    mv.phase = 'done'; mv.dur = mv.t + 0.45; playAnim('slam', 1.4); echoBass(tier !== 'miss');
+    const at = player.pos.clone(); vfxBeatRing(at, tier === 'perfect'); netOnly('ebeat', [at, tier === 'perfect' ? 1 : 0]);
+    if (tier === 'perfect') {
+      floatText('PERFECT', at.clone().add(new THREE.Vector3(0, 3.4, 0)), 'big');
       addShake(0.9); impactFrame(0.1); ring(at.clone(), ETEAL, 9, true); dust(at.clone().add(new THREE.Vector3(0, 0.2, 0)), 14, 9);
       for (let i = 0; i < 3; i++) later(i * 0.07, () => ring(at.clone().add(new THREE.Vector3(0, 0.3 + i * 0.5, 0)), i % 2 ? EPINK : ETEAL, 5 + i * 2));
       bigHitAll(at, 5.2, { dmg: 14, type: 'x', kbOut: 6, kbUp: 13, down: 1.2, big: true, mats: [fxBlue], spark: ETEAL, ringColor: EPINK, label: 'DROP!', awk: 6, beat: true, cast: mv.cast });
+    } else if (tier === 'good') {
+      floatText('GOOD', at.clone().add(new THREE.Vector3(0, 3.2, 0)), 'ink');
+      addShake(0.5); ring(at.clone(), ETEAL, 6, true);
+      bigHitAll(at, 4.4, { dmg: 10, type: 'x', kbOut: 9, kbUp: 6, down: 0.8, big: true, mats: [fxBlue], spark: ETEAL, ringColor: ETEAL, label: 'DROP', awk: 4, beat: true, cast: mv.cast });
     } else {
       floatText('off beat…', at.clone().add(new THREE.Vector3(0, 2.8, 0)), 'ink');
       bigHitAll(at, 2.6, { dmg: 4, type: 'b', kbOut: 4, kbUp: 2, mats: [fxBlue], spark: ETEAL, awk: 2 });
@@ -7449,11 +7466,12 @@ function makeEchoKit() {
         applySlow(d, 2.5); if (d.remote) netSend({ t: 'ringing', to: d.id, dur: 2.5 });
       }
     } else if (mv.name === 'drop') {
-      if (mv.phase === 'count') {
-        const n = Math.floor((clock - mv.t0beat) / BEAT) + 1;
-        if (clock >= mv.t0beat && n > mv.n && n <= 3) { mv.n = n; vfxCount(player.pos, 4 - n); netOnly('ecount', [player.pos.clone(), 4 - n]); echoClick(true); }
-        if (clock >= mv.t0beat + 3 * BEAT - 0.15) { mv.phase = 'ready'; mv.readyT = mv.t; floatText('DROP IT!', player.pos.clone().add(new THREE.Vector3(0, 3.2, 0)), 'big'); }
-      } else if (mv.phase === 'ready' && mv.t - mv.readyT > 1.0) slam(mv, false);
+      if (mv.phase === 'ready') {
+        // bass pull: anyone close is slowed (and dummies are dragged in) so they can't just walk out of it
+        mv.pullT = (mv.pullT || 0) - dt;
+        if (mv.pullT <= 0) { mv.pullT = 0.2; for (const d of aliveDummies()) if (d.pos.distanceTo(player.pos) < 6.5) { applySlow(d, 0.45); if (!d.remote) { const v = player.pos.clone().sub(d.pos).setY(0); if (v.length() > 1.6) { v.normalize(); d.vel.x += v.x * 2.2; d.vel.z += v.z * 2.2; } } } }
+        if (clock > mv.target + 0.3) slam(mv, 'miss');
+      }
     } else if (mv.name === 'playback') {
       const t = mv.tg;
       while (mv.n < mv.list.length && mv.t >= 0.12 + mv.n * 0.1) {
@@ -7514,7 +7532,7 @@ function makeEchoKit() {
 let ringEndT = 0;
 function ringMyEars(dur) { document.body.classList.add('ringing'); ringEndT = Math.max(ringEndT, clock + dur); player.slowT = Math.max(player.slowT || 0, dur); }
 function ringTick() { if (ringEndT && clock >= ringEndT) { ringEndT = 0; document.body.classList.remove('ringing'); } }
-Object.assign(FXF, { eghost: vfxSoundGhost, ebeat: (p, b) => vfxBeatRing(p, !!b), ecount: vfxCount, encore: vfxEncore });
+Object.assign(FXF, { edrop: vfxDropRing, eghost: vfxSoundGhost, ebeat: (p, b) => vfxBeatRing(p, !!b), ecount: vfxCount, encore: vfxEncore });
 KITS.echo = makeEchoKit;
 
 // ---------- 1v1 duel vs the Sparring Master ----------
