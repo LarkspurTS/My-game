@@ -7272,16 +7272,21 @@ function buildEcho() {
   const chain = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(chainPts), 40, 0.013, 6), gold); chain.userData.noOutline = true; rig.chest.add(chain);
   const medal = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.015, 20), gold); medal.rotation.x = Math.PI / 2; medal.position.set(0, 0.23, 0.21); medal.userData.noOutline = true; rig.chest.add(medal);
   const hole = new THREE.Mesh(new THREE.CircleGeometry(0.016, 12), new THREE.MeshBasicMaterial({ color: EPINK })); hole.position.set(0, 0.23, 0.219); rig.chest.add(hole);
-  // ---- headphones resting on the shoulders: the band wraps behind the neck, outside the head ----
-  const hpMat = SM(0x1b1b20);
+  // ---- headphones around his neck: cups rest on the shoulders just under the jaw, band wraps behind ----
   const P3 = (x, y, z) => new THREE.Vector3(x, y, z);
-  const path = [P3(-0.2, 0.46, 0.3), P3(-0.27, 0.53, 0.24), P3(-0.33, 0.57, 0.08), P3(-0.33, 0.57, -0.1), P3(-0.22, 0.57, -0.29), P3(0, 0.57, -0.34), P3(0.22, 0.57, -0.29), P3(0.33, 0.57, -0.1), P3(0.33, 0.57, 0.08), P3(0.27, 0.53, 0.24), P3(0.2, 0.46, 0.3)];
-  const band = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(path), 48, 0.024, 8), hpMat); band.userData.noOutline = true; rig.chest.add(band);
+  const hpShell = SM(0x1b1b20), hpCush = SM(0x3a3a44), hpMetal = SM(0xb8bcc8, { emissive: 0x222222 });
+  const HY = 0.6, HR = 0.33, AZ = 1.2;                 // height (chest space), radius around the neck, cup angle from the front
+  const bandPts = []; for (let i = 0; i <= 24; i++) { const az = AZ + (i / 24) * (PI2 - 2 * AZ); const k = Math.sin(Math.PI * i / 24), rr = HR + 0.03 * k; bandPts.push(P3(Math.sin(az) * rr, HY + 0.095 - 0.08 * k, Math.cos(az) * rr)); }
+  const band = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(bandPts), 40, 0.022, 8), hpShell); band.userData.noOutline = true; rig.chest.add(band);
   const lights = [];
   for (const sd of [-1, 1]) {
-    const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.07, 20), hpMat); cup.rotation.x = Math.PI / 2; cup.rotation.z = sd * 0.25; cup.position.set(sd * 0.2, 0.43, 0.32); rig.chest.add(cup);
-    const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.02, 20), SM(0x3a3a42)); pad.rotation.x = Math.PI / 2; pad.position.set(sd * 0.2, 0.43, 0.282); rig.chest.add(pad);
-    const glow = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.014, 8, 24), new THREE.MeshBasicMaterial({ color: ETEAL })); glow.position.set(sd * 0.2, 0.43, 0.357); glow.userData.noOutline = true; rig.chest.add(glow); lights.push(glow);
+    const az = sd * AZ, cup = new THREE.Group(); cup.position.set(Math.sin(az) * HR, HY, Math.cos(az) * HR); cup.rotation.set(0, az, 0); rig.chest.add(cup);
+    const tilt = new THREE.Group(); tilt.rotation.x = -0.35; cup.add(tilt);   // outer face tips up a little, like they're resting
+    const shell = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.092, 0.06, 24), hpShell); shell.rotation.x = Math.PI / 2; tilt.add(shell);
+    const cushion = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.026, 8, 24), hpCush); cushion.position.z = -0.04; cushion.userData.noOutline = true; tilt.add(cushion);
+    const yoke = new THREE.Mesh(new THREE.TorusGeometry(0.105, 0.012, 6, 20, Math.PI), hpMetal); yoke.rotation.y = Math.PI / 2; yoke.userData.noOutline = true; tilt.add(yoke);
+    const glow = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.014, 8, 24), new THREE.MeshBasicMaterial({ color: ETEAL })); glow.position.z = 0.032; glow.userData.noOutline = true; tilt.add(glow); lights.push(glow);
+    const logo = new THREE.Mesh(new THREE.CircleGeometry(0.03, 16), new THREE.MeshBasicMaterial({ color: EPINK })); logo.position.z = 0.0315; tilt.add(logo);
   }
   rig.echoLights = lights;
   // ---- sunglasses ----
