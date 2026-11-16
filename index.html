@@ -7275,13 +7275,13 @@ function buildEcho() {
   // ---- headphones resting on the shoulders: the band wraps behind the neck, outside the head ----
   const hpMat = SM(0x1b1b20);
   const P3 = (x, y, z) => new THREE.Vector3(x, y, z);
-  const path = [P3(-0.2, 0.47, 0.215), P3(-0.29, 0.52, 0.1), P3(-0.3, 0.535, -0.06), P3(-0.2, 0.535, -0.24), P3(0, 0.535, -0.31), P3(0.2, 0.535, -0.24), P3(0.3, 0.535, -0.06), P3(0.29, 0.52, 0.1), P3(0.2, 0.47, 0.215)];
+  const path = [P3(-0.2, 0.46, 0.3), P3(-0.27, 0.53, 0.24), P3(-0.33, 0.57, 0.08), P3(-0.33, 0.57, -0.1), P3(-0.22, 0.57, -0.29), P3(0, 0.57, -0.34), P3(0.22, 0.57, -0.29), P3(0.33, 0.57, -0.1), P3(0.33, 0.57, 0.08), P3(0.27, 0.53, 0.24), P3(0.2, 0.46, 0.3)];
   const band = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(path), 48, 0.024, 8), hpMat); band.userData.noOutline = true; rig.chest.add(band);
   const lights = [];
   for (const sd of [-1, 1]) {
-    const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.07, 20), hpMat); cup.rotation.x = Math.PI / 2; cup.rotation.z = sd * 0.25; cup.position.set(sd * 0.2, 0.43, 0.245); rig.chest.add(cup);
-    const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.02, 20), SM(0x3a3a42)); pad.rotation.x = Math.PI / 2; pad.position.set(sd * 0.2, 0.43, 0.21); rig.chest.add(pad);
-    const glow = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.014, 8, 24), new THREE.MeshBasicMaterial({ color: ETEAL })); glow.position.set(sd * 0.2, 0.43, 0.282); glow.userData.noOutline = true; rig.chest.add(glow); lights.push(glow);
+    const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.07, 20), hpMat); cup.rotation.x = Math.PI / 2; cup.rotation.z = sd * 0.25; cup.position.set(sd * 0.2, 0.43, 0.32); rig.chest.add(cup);
+    const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.02, 20), SM(0x3a3a42)); pad.rotation.x = Math.PI / 2; pad.position.set(sd * 0.2, 0.43, 0.282); rig.chest.add(pad);
+    const glow = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.014, 8, 24), new THREE.MeshBasicMaterial({ color: ETEAL })); glow.position.set(sd * 0.2, 0.43, 0.357); glow.userData.noOutline = true; rig.chest.add(glow); lights.push(glow);
   }
   rig.echoLights = lights;
   // ---- sunglasses ----
@@ -7331,6 +7331,13 @@ function vfxDropRing(pos, lead) {
   tempMesh(target, lead + 0.3, (m, k) => { m.material.opacity = 0.9 * (k > 0.8 ? (1 - k) * 5 : 1); });
   tempMesh(shrink, lead, (m, k) => { m.scale.setScalar(1.25 + (1 - k) * 4.5); m.material.opacity = 0.4 + 0.55 * k; });
   later(lead, () => flash(pos.clone().add(new THREE.Vector3(0, 0.4, 0)), EPINK, 2));
+}
+function vfxBassWave(pos) {
+  for (let i = 0; i < 2; i++) {
+    const m = new THREE.Mesh(new THREE.TorusGeometry(1, 0.08, 6, 48), new THREE.MeshBasicMaterial({ color: i ? EPINK : ETEAL, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false })); m.material.userData.lin = true; m.rotation.x = Math.PI / 2;
+    tempMesh(m, 0.45, (mm, k) => { mm.position.copy(pos).add(new THREE.Vector3(0, 0.3 + i * 0.25, 0)); mm.scale.setScalar(3.2 + k * 5.2 - i * 0.4); mm.material.opacity = 1 - k; });
+  }
+  dust(pos.clone().add(new THREE.Vector3(0, 0.2, 0)), 16, 12);
 }
 function vfxBeatRing(pos, big) { ring(pos.clone(), big ? EPINK : ETEAL, big ? 7 : 2.6, true); }
 function vfxCount(pos, n) { floatText(String(n), pos.clone().add(new THREE.Vector3(0, 3.2, 0)), 'big'); ring(pos.clone().add(new THREE.Vector3(0, 0.1, 0)), EPINK, 2 + (3 - n) * 0.8, true); }
@@ -7383,7 +7390,7 @@ function makeEchoKit() {
   }
   K.press = (k) => {
     // Drop: the slam is the second press of 4, judged against the beat
-    if (k === '4' && player.move && player.move.name === 'drop' && player.move.phase === 'ready') { const off = Math.abs(clock - player.move.target); slam(player.move, awakened || off <= 0.1 ? 'perfect' : off <= 0.25 ? 'good' : 'miss'); return; }
+    if (k === '4' && player.move && player.move.name === 'drop' && player.move.phase === 'ready') { const mv = player.move, off = Math.abs(clock - mv.target), tier = awakened || off <= 0.1 ? 'perfect' : off <= 0.25 ? 'good' : 'miss'; if (tier === 'miss' && !mv.second) dropAgain(mv); else slam(mv, tier); return; }
     if (busy() || player.blocking) return;
     if (k === 'R') {
       if (cd.R > 0) return;
@@ -7417,6 +7424,12 @@ function makeEchoKit() {
     if (ghost) later(0.15, ghostStrike);
   };
   K.release = () => {};
+  // missed the first beat: one more ring for the next beat
+  function dropAgain(mv) {
+    mv.second = true; let t2 = mv.target + BEAT; while (t2 - clock < 0.25) t2 += BEAT; mv.target = t2;
+    const lead = t2 - clock; mv.dur = mv.t + lead + 0.6;
+    vfxDropRing(player.pos.clone(), lead); netOnly('edrop', [player.pos.clone(), lead]); floatText('AGAIN!', player.pos.clone().add(new THREE.Vector3(0, 3.2, 0)), 'ink');
+  }
   function slam(mv, tier) {
     mv.phase = 'done'; mv.dur = mv.t + 0.45; playAnim('slam', 1.4); echoBass(tier !== 'miss');
     const at = player.pos.clone(); vfxBeatRing(at, tier === 'perfect'); netOnly('ebeat', [at, tier === 'perfect' ? 1 : 0]);
@@ -7424,7 +7437,12 @@ function makeEchoKit() {
       floatText('PERFECT', at.clone().add(new THREE.Vector3(0, 3.4, 0)), 'big');
       addShake(0.9); impactFrame(0.1); ring(at.clone(), ETEAL, 9, true); dust(at.clone().add(new THREE.Vector3(0, 0.2, 0)), 14, 9);
       for (let i = 0; i < 3; i++) later(i * 0.07, () => ring(at.clone().add(new THREE.Vector3(0, 0.3 + i * 0.5, 0)), i % 2 ? EPINK : ETEAL, 5 + i * 2));
-      bigHitAll(at, 5.2, { dmg: 14, type: 'x', kbOut: 6, kbUp: 13, down: 1.2, big: true, mats: [fxBlue], spark: ETEAL, ringColor: EPINK, label: 'DROP!', awk: 6, beat: true, cast: mv.cast });
+      cd[4] = MAX[4] * 0.5;
+      const o = { dmg: 14, type: 'x', kbOut: 6, kbUp: 13, down: 1.2, big: true, mats: [fxBlue], spark: ETEAL, ringColor: EPINK, label: 'DROP!', awk: 6, beat: true, cast: mv.cast };
+      const hitSet = new Set(bigHitAll(at, 3.2, o));
+      vfxBassWave(at); netOnly('ewave', [at]);
+      // the bass wave rolls outward and catches anyone who backed off
+      tempMesh(new THREE.Object3D(), 0.38, (m, k) => { const r = 3.2 + k * 5; for (const d of bigHitAll(at, r, Object.assign({}, o, { dmg: 10, kbUp: 9, label: 'BASS WAVE' }), (d) => !hitSet.has(d))) hitSet.add(d); });
     } else if (tier === 'good') {
       floatText('GOOD', at.clone().add(new THREE.Vector3(0, 3.2, 0)), 'ink');
       addShake(0.5); ring(at.clone(), ETEAL, 6, true);
@@ -7470,7 +7488,7 @@ function makeEchoKit() {
         // bass pull: anyone close is slowed (and dummies are dragged in) so they can't just walk out of it
         mv.pullT = (mv.pullT || 0) - dt;
         if (mv.pullT <= 0) { mv.pullT = 0.2; for (const d of aliveDummies()) if (d.pos.distanceTo(player.pos) < 6.5) { applySlow(d, 0.45); if (!d.remote) { const v = player.pos.clone().sub(d.pos).setY(0); if (v.length() > 1.6) { v.normalize(); d.vel.x += v.x * 2.2; d.vel.z += v.z * 2.2; } } } }
-        if (clock > mv.target + 0.3) slam(mv, 'miss');
+        if (clock > mv.target + 0.3) { if (!mv.second) dropAgain(mv); else slam(mv, 'miss'); }
       }
     } else if (mv.name === 'playback') {
       const t = mv.tg;
@@ -7532,7 +7550,7 @@ function makeEchoKit() {
 let ringEndT = 0;
 function ringMyEars(dur) { document.body.classList.add('ringing'); ringEndT = Math.max(ringEndT, clock + dur); player.slowT = Math.max(player.slowT || 0, dur); }
 function ringTick() { if (ringEndT && clock >= ringEndT) { ringEndT = 0; document.body.classList.remove('ringing'); } }
-Object.assign(FXF, { edrop: vfxDropRing, eghost: vfxSoundGhost, ebeat: (p, b) => vfxBeatRing(p, !!b), ecount: vfxCount, encore: vfxEncore });
+Object.assign(FXF, { ewave: vfxBassWave, edrop: vfxDropRing, eghost: vfxSoundGhost, ebeat: (p, b) => vfxBeatRing(p, !!b), ecount: vfxCount, encore: vfxEncore });
 KITS.echo = makeEchoKit;
 
 // ---------- 1v1 duel vs the Sparring Master ----------
