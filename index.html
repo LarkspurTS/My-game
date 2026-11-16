@@ -7240,23 +7240,31 @@ function buildEcho() {
   }
   // ---- vintage tour tee (shows through the open jacket) ----
   const tee = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.4), toon(0xffffff, { map: TEE_TEX })); tee.position.set(0, 0.26, 0.182); rig.chest.add(tee);
-  // ---- open bomber jacket: teal with cream ribbing and a pink stripe ----
-  const jk = SM(0x1f6f78), rib = SM(0xefe6d2), pinkT = SM(0xff4fa8);
+  // ---- oversized open bomber: teal, cream ribbing, pink sleeve stripes; hangs past the waist ----
+  const jk = SM(0x1f6f78), jk2 = SM(0x1b636b), rib = SM(0xefe6d2), pinkT = SM(0xff4fa8);
   for (const sd of [-1, 1]) {
-    rig.chest.add(part(0.2, 0.52, 0.045, jk, sd * 0.255, 0.25, 0.195));              // front panel, open in the middle
-    rig.chest.add(part(0.045, 0.52, 0.4, jk, sd * 0.37, 0.25, 0));                   // side
-    rig.chest.add(part(0.03, 0.5, 0.05, rib, sd * 0.152, 0.25, 0.205));             // ribbed zipper edge
-    const lap = part(0.07, 0.05, 0.24, rib, sd * 0.2, 0.505, 0.07); lap.rotation.y = sd * -0.35; rig.chest.add(lap); // collar
-    rig.chest.add(part(0.2, 0.06, 0.05, rib, sd * 0.255, 0.01, 0.198));             // waistband
+    const fp = part(0.23, 0.68, 0.065, jk, sd * 0.275, 0.18, 0.215); fp.rotation.y = sd * -0.14; fp.rotation.z = sd * 0.03; rig.chest.add(fp); // front panel, hanging open
+    rig.chest.add(part(0.07, 0.68, 0.48, jk2, sd * 0.41, 0.18, 0));                       // roomy sides
+    const zip = part(0.035, 0.64, 0.07, rib, sd * 0.163, 0.18, 0.232); zip.rotation.y = sd * -0.14; rig.chest.add(zip); // ribbed edge
+    const lap = part(0.08, 0.06, 0.26, rib, sd * 0.2, 0.515, 0.08); lap.rotation.y = sd * -0.35; rig.chest.add(lap);   // collar
+    const hem = part(0.23, 0.08, 0.08, rib, sd * 0.275, -0.15, 0.222); hem.rotation.y = sd * -0.14; rig.chest.add(hem); // bunched hem
+    rig.chest.add(part(0.08, 0.08, 0.5, rib, sd * 0.41, -0.15, 0));
+    // a couple of soft folds so it reads as fabric, not a box
+    rig.chest.add(part(0.02, 0.4, 0.02, jk2, sd * 0.3, 0.12, 0.252));
   }
-  rig.chest.add(part(0.76, 0.52, 0.045, jk, 0, 0.25, -0.198));                       // back
-  rig.chest.add(part(0.76, 0.06, 0.05, rib, 0, 0.01, -0.2));
-  rig.chest.add(part(0.4, 0.06, 0.08, rib, 0, 0.51, -0.17));                          // back collar
-  const backArt = new THREE.Mesh(new THREE.PlaneGeometry(0.46, 0.18), new THREE.MeshBasicMaterial({ map: WAVETEX })); backArt.position.set(0, 0.3, -0.222); backArt.rotation.y = Math.PI; rig.chest.add(backArt); rig.echoStripe = backArt;
+  rig.chest.add(part(0.88, 0.68, 0.065, jk, 0, 0.18, -0.235));                            // back
+  rig.chest.add(part(0.88, 0.08, 0.08, rib, 0, -0.15, -0.24));
+  rig.chest.add(part(0.44, 0.07, 0.09, rib, 0, 0.52, -0.18));                             // back collar
+  for (const x of [-0.18, 0.18]) rig.chest.add(part(0.02, 0.36, 0.02, jk2, x, 0.0, -0.27)); // back folds
+  const backArt = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.2), new THREE.MeshBasicMaterial({ map: WAVETEX })); backArt.position.set(0, 0.3, -0.27); backArt.rotation.y = Math.PI; rig.chest.add(backArt); rig.echoStripe = backArt;
+  // baggy sleeves: big shells that overlap at the elbow so the joint never shows, bunched at the cuff
   for (const [sh, el, sd] of [[rig.j.shL, rig.j.elL, -1], [rig.j.shR, rig.j.elR, 1]]) {
-    sh.add(part(0.235, 0.08, 0.25, jk, 0, 0.02, 0));                                 // shoulder
-    sh.add(part(0.04, 0.3, 0.06, pinkT, sd * 0.105, -0.16, 0));                      // sleeve stripe
-    el.add(part(0.215, 0.07, 0.23, rib, 0, -0.29, 0));                                // cuff
+    sh.add(part(0.3, 0.12, 0.32, jk, 0, 0.02, 0));                                        // dropped shoulder
+    sh.add(part(0.29, 0.44, 0.31, jk, 0, -0.17, 0));                                      // upper sleeve
+    sh.add(part(0.04, 0.36, 0.07, pinkT, sd * 0.145, -0.16, 0));                         // stripe
+    el.add(part(0.28, 0.34, 0.3, jk, 0, -0.1, 0));                                        // lower sleeve (overlaps the elbow)
+    el.add(part(0.04, 0.26, 0.07, pinkT, sd * 0.14, -0.1, 0));
+    el.add(part(0.25, 0.09, 0.27, rib, 0, -0.28, 0));                                     // bunched cuff
   }
   // ---- gold chain with a little gold record ----
   const gold = new THREE.MeshStandardMaterial({ color: 0xffcf5a, metalness: 0.9, roughness: 0.25, emissive: 0x3a2400 });
@@ -7301,7 +7309,7 @@ function buildEcho() {
     kn.add(part(0.3, 0.035, 0.18, SM(0x1f6f78), 0, -0.42, 0.09));
   }
   // cassette recorder on the belt
-  const cas = new THREE.Group(); cas.position.set(0.33, -0.05, 0.08); rig.waist.add(cas);
+  const cas = new THREE.Group(); cas.position.set(0.37, -0.14, 0.1); rig.waist.add(cas);
   cas.add(part(0.06, 0.22, 0.3, SM(0x2a2a30), 0, 0, 0));
   const win = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.08), new THREE.MeshBasicMaterial({ color: EPINK })); win.position.set(0.032, 0.02, 0); win.rotation.y = Math.PI / 2; cas.add(win); rig.echoTape = win;
   // fingerless gloves: skin fingertips peeking out
