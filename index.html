@@ -7196,14 +7196,34 @@ function echoFace(kind, g, ell) {
   g.strokeStyle = '#1a0c08'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(53, 88); g.quadraticCurveTo(64, 95, 76, 87); g.stroke();
   return true;
 }
+// hair textures for Echo's flat top
+const FLATTOP_TEX = canvasTex(128, (g, S) => {
+  g.fillStyle = '#1a120d'; g.fillRect(0, 0, S, S);
+  for (let i = 0; i < 900; i++) { const x = Math.random() * S, y = Math.random() * S; g.fillStyle = Math.random() < 0.5 ? 'rgba(70,52,40,.55)' : 'rgba(5,3,2,.7)'; g.fillRect(x, y, 1.2, 2.2 + Math.random() * 2); }
+});
+const FLATTOP_TOP = canvasTex(128, (g, S) => {
+  g.fillStyle = '#21170f'; g.fillRect(0, 0, S, S);
+  for (let i = 0; i < 1200; i++) { const x = Math.random() * S, y = Math.random() * S, r = 0.6 + Math.random(); g.fillStyle = Math.random() < 0.5 ? 'rgba(90,68,52,.5)' : 'rgba(6,4,3,.7)'; g.beginPath(); g.arc(x, y, r, 0, PI2); g.fill(); }
+});
+const FLATTOP_FADE = canvasTex(256, (g, S) => {
+  // top of the canvas = top of the head: dense dark hair that thins to bare skin at the bottom (painted over his skin tone)
+  g.fillStyle = '#7a4a2e'; g.fillRect(0, 0, S, S);
+  for (let y = 0; y < S; y++) { const k = y / S, a = Math.max(0, 1 - Math.pow(k / 0.82, 1.6)); g.fillStyle = 'rgba(22,15,10,' + (a * 0.9).toFixed(3) + ')'; g.fillRect(0, y, S, 1); }
+  for (let i = 0; i < 9000; i++) { const x = Math.random() * S, y = Math.pow(Math.random(), 1.4) * S * 0.95, k = y / S; if (Math.random() > 1 - k * 0.9) continue; g.fillStyle = 'rgba(10,6,4,' + (0.35 + Math.random() * 0.4).toFixed(2) + ')'; g.fillRect(x, y, 1.5, 1.5); }
+});
 function buildEcho() {
   const rig = makeRig({ skin: 0x7a4a2e, upper: 0x1f6f78, armU: 0x1f6f78, armL: 0x1f6f78, lower: 0x17171c, hand: 0x2a2a30, leg: 0x17171c, foot: 0xf2f2f2, face: 'echo' });
   const teal = SM(0x1f6f78), dark = SM(0x17171c), hair = SM(0x1d1612);
-  // flat top: short faded sides, tall squared-off top
-  const fade = SM(0x2a2019);
-  { const sides = new THREE.Mesh(new THREE.CylinderGeometry(0.257, 0.257, 0.12, 24, 1, true, 1.0, PI2 - 2.0), fade); sides.material = toon(0x2a2019); sides.material.side = THREE.DoubleSide; sides.position.y = 0.41; rig.neck.add(sides); }
-  rig.neck.add(part(0.48, 0.27, 0.46, hair, 0, 0.585, -0.01));
-  rig.neck.add(part(0.44, 0.03, 0.42, SM(0x241a14), 0, 0.72, -0.01));
+  // flat top: a skin fade on the sides (skin at the bottom, dark at the top) and a squared, textured top
+  {
+    const fadeMat = toon(0xffffff, { map: FLATTOP_FADE });
+    const sides = new THREE.Mesh(new THREE.CylinderGeometry(0.2565, 0.2565, 0.3, 32, 1, true, 0.85, PI2 - 1.7), fadeMat); sides.position.y = 0.315; sides.userData.noOutline = true; rig.neck.add(sides);
+    const brow = new THREE.Mesh(new THREE.CylinderGeometry(0.2565, 0.2565, 0.06, 32, 1, true, -0.85, 1.7), fadeMat); brow.position.y = 0.44; brow.userData.noOutline = true; rig.neck.add(brow);
+    const topMat = toon(0xffffff, { map: FLATTOP_TEX });
+    const block = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.325, 0.25, 4, 1), topMat); block.rotation.y = Math.PI / 4; block.position.y = 0.575; rig.neck.add(block);
+    const lip = new THREE.Mesh(new THREE.CylinderGeometry(0.33, 0.35, 0.03, 4, 1), topMat); lip.rotation.y = Math.PI / 4; lip.position.y = 0.705; rig.neck.add(lip);
+    const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.44, 0.44), toon(0xffffff, { map: FLATTOP_TOP })); plate.rotation.x = -Math.PI / 2; plate.position.y = 0.722; rig.neck.add(plate);
+  }
   // headphones resting around his neck, lights pulse to the beat
   const hp = new THREE.Group(); hp.position.set(0, 0.5, 0.02); rig.chest.add(hp);
   const band = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.026, 8, 24, Math.PI), dark); band.rotation.x = -Math.PI / 2; hp.add(band);
