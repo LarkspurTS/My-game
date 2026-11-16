@@ -7272,21 +7272,27 @@ function buildEcho() {
   const chain = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(chainPts), 40, 0.013, 6), gold); chain.userData.noOutline = true; rig.chest.add(chain);
   const medal = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.015, 20), gold); medal.rotation.x = Math.PI / 2; medal.position.set(0, 0.23, 0.21); medal.userData.noOutline = true; rig.chest.add(medal);
   const hole = new THREE.Mesh(new THREE.CircleGeometry(0.016, 12), new THREE.MeshBasicMaterial({ color: EPINK })); hole.position.set(0, 0.23, 0.219); rig.chest.add(hole);
-  // ---- headphones worn around the neck like real life: band sits against the back of the neck,
-  //      cups rest on the top of the chest facing up. No outlines, and kept clear of the body's outline shells ----
+  // ---- over-ear studio headphones worn around the neck (original design, no brand marks):
+  //      thick padded band against the back of the neck, oval cups resting on the chest. No outlines. ----
   const P3 = (x, y, z) => new THREE.Vector3(x, y, z);
-  const hpShell = toon(0x1b1b20), hpCush = toon(0x3a3a44), hpMetal = toon(0xb8bcc8, { emissive: 0x222222 });
+  const hpShell = new THREE.MeshStandardMaterial({ color: 0x18181d, roughness: 0.35, metalness: 0.15 }), hpPad = toon(0x2e2e36), hpMetal = new THREE.MeshStandardMaterial({ color: 0xc9ccd6, roughness: 0.25, metalness: 0.85 });
   const noOL = (m) => { m.userData.noOutline = true; m.castShadow = false; return m; };
-  const bandPath = [P3(-0.16, 0.5, 0.36), P3(-0.2, 0.57, 0.28), P3(-0.27, 0.6, 0.14), P3(-0.305, 0.6, -0.02), P3(-0.23, 0.6, -0.2), P3(0, 0.6, -0.305), P3(0.23, 0.6, -0.2), P3(0.305, 0.6, -0.02), P3(0.27, 0.6, 0.14), P3(0.2, 0.57, 0.28), P3(0.16, 0.5, 0.36)];
-  rig.chest.add(noOL(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(bandPath), 56, 0.022, 8), hpShell)));
+  const bandPts = (r, y0, inset) => [P3(-0.18, 0.53, 0.37 - inset), P3(-0.22, 0.585, 0.29 - inset), P3(-(r - 0.03), 0.61, 0.14), P3(-r, 0.61, -0.02), P3(-(r - 0.08), 0.61, -(r - 0.1)), P3(0, y0, -r), P3(r - 0.08, 0.61, -(r - 0.1)), P3(r, 0.61, -0.02), P3(r - 0.03, 0.61, 0.14), P3(0.22, 0.585, 0.29 - inset), P3(0.18, 0.53, 0.37 - inset)];
+  rig.chest.add(noOL(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(bandPts(0.33, 0.615, 0)), 64, 0.036, 10), hpShell)));      // thick outer band
+  rig.chest.add(noOL(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(bandPts(0.305, 0.6, 0.02)), 64, 0.026, 8), hpPad)));        // padded cushion underneath
   const lights = [];
   for (const sd of [-1, 1]) {
-    const cup = new THREE.Group(); cup.position.set(sd * 0.16, 0.44, 0.355); cup.rotation.set(-0.95, sd * 0.25, 0); rig.chest.add(cup);
-    const shell = noOL(new THREE.Mesh(new THREE.CylinderGeometry(0.095, 0.088, 0.055, 24), hpShell)); shell.rotation.x = Math.PI / 2; cup.add(shell);
-    const cush = noOL(new THREE.Mesh(new THREE.TorusGeometry(0.072, 0.024, 8, 24), hpCush)); cush.position.z = -0.035; cup.add(cush);
-    const yoke = noOL(new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.011, 6, 20, Math.PI), hpMetal)); yoke.rotation.z = Math.PI / 2 - sd * 0.0; yoke.rotation.y = 0; cup.add(yoke);
-    const glow = noOL(new THREE.Mesh(new THREE.TorusGeometry(0.058, 0.013, 8, 24), new THREE.MeshBasicMaterial({ color: ETEAL }))); glow.position.z = 0.029; cup.add(glow); lights.push(glow);
-    const logo = noOL(new THREE.Mesh(new THREE.CircleGeometry(0.028, 16), new THREE.MeshBasicMaterial({ color: EPINK }))); logo.position.z = 0.0285; cup.add(logo);
+    const cup = new THREE.Group(); cup.position.set(sd * 0.18, 0.43, 0.37); cup.rotation.set(-0.95, sd * 0.28, 0); rig.chest.add(cup);
+    // oval shell with a rounded back
+    const shell = noOL(new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.1, 0.06, 32), hpShell)); shell.rotation.x = Math.PI / 2; shell.scale.set(0.82, 1, 1); cup.add(shell);
+    const dome = noOL(new THREE.Mesh(new THREE.SphereGeometry(0.1, 24, 12, 0, PI2, 0, Math.PI / 2), hpShell)); dome.rotation.x = Math.PI / 2; dome.scale.set(0.82, 1, 0.28); dome.position.z = 0.03; cup.add(dome);
+    // thick oval ear cushion on the inside
+    const cush = noOL(new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.034, 10, 32), hpPad)); cush.scale.set(0.82, 1, 1); cush.position.z = -0.045; cup.add(cush);
+    // silver slider fork that holds the cup and meets the band
+    const fork = noOL(new THREE.Mesh(new THREE.TorusGeometry(0.118, 0.012, 6, 24, Math.PI), hpMetal)); fork.scale.set(0.82, 1, 1); fork.position.z = -0.01; cup.add(fork);
+    const slider = noOL(new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.08, 0.018), hpMetal)); slider.position.set(0, 0.15, -0.01); cup.add(slider);
+    // teal beat ring around the outer face
+    const glow = noOL(new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.011, 8, 32), new THREE.MeshBasicMaterial({ color: ETEAL }))); glow.scale.set(0.82, 1, 1); glow.position.z = 0.055; cup.add(glow); lights.push(glow);
   }
   rig.echoLights = lights;
   // ---- sunglasses ----
