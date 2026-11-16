@@ -344,7 +344,7 @@ body.curtains #curL, body.curtains #curR { transform: translateX(0); }
       <button class="fcard" data-id="chef" type="button"><span class="sw chef"></span><span class="fn">Chef Toma</span><span class="fs">Kitchen · Easy</span></button>
       <button class="fcard" data-id="reed" type="button"><span class="sw reed"></span><span class="fn">Reed</span><span class="fs">Duck Style · Medium</span></button>
       <button class="fcard" data-id="nang" type="button"><span class="sw nang"></span><span class="fn">Nang</span><span class="fs">Blade · Hard</span></button>
-      <button class="fcard" data-id="mira" type="button"><span class="sw mira"></span><span class="fn">Mira</span><span class="fs">Mirrors · Hard</span></button>
+      <button class="fcard" data-id="mira" type="button"><span class="sw mira"></span><span class="fn">Mira</span><span class="fs">Looking Glass · Hard</span></button>
       <button class="fcard" data-id="tock" type="button"><span class="sw tock"></span><span class="fn">Professor Tock</span><span class="fs">Time · Hard</span></button>
       <button class="fcard" data-id="maple" type="button"><span class="sw maple"></span><span class="fn">Maple</span><span class="fs">Axe · Easy</span></button>
       <button class="fcard" data-id="rook" type="button"><span class="sw rook"></span><span class="fn">Rook</span><span class="fs">Chess · Medium</span></button>
@@ -4698,6 +4698,10 @@ function handleMsg(m) {
     const p = player; p.seized = m.dur; p.blocking = false; p.iframes = 0; p.dashT = 0; p.hidden = false;
     if (p.move) { if (kit.cancel) kit.cancel(); p.move = null; }
     if (!m.quiet) letterbox(true); callout(m.title || 'MOON SPLITTER', m.sub || 'There is no escape');
+  } else if (m.t === 'flip') {
+    flipMyScreen(m.dur);
+  } else if (m.t === 'crack') {
+    crackMyScreen(m.dur);
   } else if (m.t === 'slow') {
     player.slowT = Math.max(player.slowT || 0, m.dur);
   } else if (m.t === 'pos') {
@@ -5424,20 +5428,20 @@ function vfxBigDuck(tg, from, facing) {
 }
 function makeReedKit() {
   const K = { id: 'reed', name: 'REED', sub: 'The Quackmaster', color: 0xffc83a, accent: '#b8862a',
-    desc: 'Duck Style kung fu. Duck Barrage fires a stream of glowing spirit ducks (hold 1 to keep firing; land most of them and the last one explodes). Water Step glides through attacks like a duck on a pond, Duck Dive drops on the target from above, and R lets out a QUACK that stuns.',
-    slots: [{ k: '1', name: 'Duck Barrage', tag: 'p' }, { k: '2', name: 'Water Step', tag: 'n' }, { k: '3', name: 'Feather Storm', tag: 'x' }, { k: '4', name: 'Duck Dive', tag: 'b' }, { k: 'R', name: 'Quack Shout', tag: 'u' }],
+    desc: 'Duck Style kung fu. Feather Storm spins up a whirlwind of feathers. Ripple Rush (2) glides through attacks, and if he runs into someone he grabs them for a flurry of palm strikes and one big punch that sends them flying. Duck Barrage (3) fires glowing spirit ducks (hold 3 to keep firing; land most of them and the last one explodes), Duck Dive drops on the target from above, and R lets out a QUACK that stuns.',
+    slots: [{ k: '1', name: 'Feather Storm', tag: 'x' }, { k: '2', name: 'Ripple Rush', tag: 'g' }, { k: '3', name: 'Duck Barrage', tag: 'p' }, { k: '4', name: 'Duck Dive', tag: 'b' }, { k: 'R', name: 'Quack Shout', tag: 'u' }],
     awkName: 'GRAND POND MASTER', awkLine: 'The pond is mine.', awkColor: 0xffc83a,
-    awkSlots: [{ k: '1', name: 'Mega Duck Barrage', tag: 'p' }, { k: '2', name: 'Lily Pad Leap', tag: 'b' }, { k: '3', name: 'Pond Splash', tag: 'x' }, { k: '4', name: 'Spirit of the Pond', tag: 'u' }, { k: 'R', name: 'Quack Shout', tag: 'u' }] };
-  const cd = { 1: 0, 2: 0, 3: 0, 4: 0, R: 0 }, MAX = { 1: 7, 2: 6, 3: 8, 4: 9, R: 10 }, acd = { 1: 0, 2: 0, 3: 0 }, AMAX = { 1: 8, 2: 8, 3: 7 };
-  let rippleT = 0, wave = null;
+    awkSlots: [{ k: '1', name: 'Pond Splash', tag: 'x' }, { k: '2', name: 'Lily Pad Leap', tag: 'b' }, { k: '3', name: 'Mega Duck Barrage', tag: 'p' }, { k: '4', name: 'Spirit of the Pond', tag: 'u' }, { k: 'R', name: 'Quack Shout', tag: 'u' }] };
+  const cd = { 1: 0, 2: 0, 3: 0, 4: 0, R: 0 }, MAX = { 1: 8, 2: 7, 3: 7, 4: 9, R: 10 }, acd = { 1: 0, 2: 0, 3: 0 }, AMAX = { 1: 7, 2: 8, 3: 8 };
+  let rippleT = 0, wave = null, rush = 0;
   K.reset = () => { for (const k in cd) cd[k] = 0; wave = null; };
   K.slotsNow = () => (awakened ? K.awkSlots : K.slots);
   K.resLabel = () => (awakened ? 'Pond Master' : 'Duck Style');
-  K.resPct = () => 100 - cd[1] / MAX[1] * 100;
+  K.resPct = () => 100 - cd[3] / MAX[3] * 100;
   K.view = (k) => {
     if (k === 'R') return { name: 'Quack Shout', tag: 'u', remain: cd.R, max: MAX.R };
     if (awakened) { if (k === '4') return { name: 'Spirit of the Pond', tag: 'u', remain: 0, max: 1, glow: true }; const s = K.awkSlots.find((x) => x.k === k); return { name: s.name, tag: s.tag, remain: acd[k], max: AMAX[k] }; }
-    const s = K.slots.find((x) => x.k === k); return { name: s.name, tag: s.tag, remain: cd[k], max: MAX[k], active: !!(k === '1' && player.move && player.move.name === 'barrage') };
+    const s = K.slots.find((x) => x.k === k); return { name: s.name, tag: s.tag, remain: cd[k], max: MAX[k], active: !!(k === '3' && player.move && player.move.name === 'barrage') };
   };
   function aimTarget(range) { return nearestDummy(player.pos, range, shiftLock ? camForward() : facingVec()) || nearestDummy(player.pos, range * 0.5); }
   K.press = (k) => {
@@ -5445,24 +5449,24 @@ function makeReedKit() {
     if (k === 'R') { if (cd.R > 0) return; const t = aimTarget(8); if (t) faceToward(t.pos); else if (shiftLock) player.facing = yaw + Math.PI; startMove('quack', 0.5, 'cast', { hit: false }); cd.R = MAX.R; return; }
     if (awakened) {
       if (k !== '4' && acd[k] > 0) return;
-      if (k === '1') { const t = aimTarget(24); if (t) faceToward(t.pos); startMove('barrage', 1.15, null, { a: true, mega: true, held: true, shots: 0, landed: 0, tgt: t }); acd[1] = AMAX[1]; }
+      if (k === '3') { const t = aimTarget(24); if (t) faceToward(t.pos); startMove('barrage', 1.15, null, { a: true, mega: true, held: true, shots: 0, landed: 0, tgt: t }); acd[3] = AMAX[3]; }
       if (k === '2') lilyLeap();
-      if (k === '3') { startMove('splash', 0.55, 'cast', { a: true }); acd[3] = AMAX[3]; }
+      if (k === '1') { startMove('splash', 0.55, 'cast', { a: true }); acd[1] = AMAX[1]; }
       if (k === '4') spiritPond();
       return;
     }
     if (cd[k] > 0) return;
-    if (k === '1') { const t = aimTarget(22); if (t) faceToward(t.pos); startMove('barrage', 1.2, null, { held: true, shots: 0, landed: 0, tgt: t }); cd[1] = MAX[1]; }
+    if (k === '3') { const t = aimTarget(22); if (t) faceToward(t.pos); startMove('barrage', 1.2, null, { held: true, shots: 0, landed: 0, tgt: t }); cd[3] = MAX[3]; }
     if (k === '2') {
       const mv = moveInput(); let dir = mv.lengthSq() > 0.01 ? mv.normalize() : (shiftLock ? camForward() : facingVec());
       const t = nearestDummy(player.pos, 9, dir); if (t && mv.lengthSq() < 0.01) { dir = t.pos.clone().sub(player.pos).setY(0).normalize(); }
-      player.dashDir.copy(dir); player.dashT = 0.34; player.iframes = 0.38; player.facing = Math.atan2(dir.x, dir.z);
+      player.dashDir.copy(dir); player.dashT = 0.34; player.iframes = 0.38; rush = 0.4; player.facing = Math.atan2(dir.x, dir.z);
       ring(player.pos.clone(), 0x7cc8ff, 2.5, true); vfxSplash(player.pos.clone(), 10); netOnly('splash', [player.pos.clone(), 10]); cd[2] = MAX[2];
     }
-    if (k === '3') { startMove('storm', 0.6, 'spin', { hit: false }); cd[3] = MAX[3]; }
+    if (k === '1') { startMove('storm', 0.6, 'spin', { hit: false }); cd[1] = MAX[1]; }
     if (k === '4') duckDive();
   };
-  K.release = (k) => { if (k === '1' && player.move && player.move.name === 'barrage') player.move.held = false; };
+  K.release = (k) => { if (k === '3' && player.move && player.move.name === 'barrage') player.move.held = false; };
   function duckDive() {
     const t = aimTarget(13);
     let to = t ? t.pos.clone() : player.pos.clone().addScaledVector(shiftLock ? camForward() : facingVec(), 7);
@@ -5506,7 +5510,23 @@ function makeReedKit() {
   }
   K.moveTick = (mv, dt) => {
     const f = facingVec();
-    if (mv.name === 'barrage') {
+    if (mv.name === 'ripple') {
+      // Ripple Rush: caught in the dash -> a flurry of palm strikes -> one big punch that sends them flying
+      const d = mv.d;
+      if (!mv.done && !d.dead) { d.pos.copy(player.pos).addScaledVector(f, 1.05); d.vel.set(0, 0, 0); }
+      while (!mv.done && mv.n < 8 && mv.t >= 0.12 + mv.n * 0.085) {
+        const i = mv.n++; playAnim(i % 2 ? 'm1b' : 'm1a', 3);
+        const at = (i % 2 ? rig.handL : rig.handR).getWorldPosition(new THREE.Vector3());
+        hitDummy(d, { dmg: 1, type: 'g', stun: 1, mats: [fxBlue], spark: 0x9adcff, awk: 1.2 });
+        P({ tex: 'glow', add: false, color: 0xdff4ff, pos: at, vel: f.clone().multiplyScalar(4).add(new THREE.Vector3(rv(2), 1 + Math.random() * 2, rv(2))), life: 0.4, s0: 0.3, s1: 0.1, grav: 12 });
+        if (i % 2) ring(at.clone(), 0x9adcff, 1.2);
+      }
+      if (!mv.done && mv.t >= 0.95) {
+        mv.done = true; d.grabbed = 0; playAnim('haymaker', 1.6);
+        hitDummy(d, { dmg: 8, type: 'g', heavy: true, kb: new THREE.Vector3(f.x * 16, 5, f.z * 16), set: true, down: 1.2, big: true, mats: [fxBlue, fxFeather], spark: 0x9adcff, ringColor: 0x9adcff, label: 'RIPPLE RUSH', awk: 5 });
+        vfxSplash(d.pos.clone(), 26); netOnly('splash', [d.pos.clone(), 26]); addShake(0.6); impactFrame(0.08);
+      }
+    } else if (mv.name === 'barrage') {
       const cap = mv.mega ? 8 : (mv.held ? 8 : Math.max(5, mv.shots));
       while (mv.shots < cap && mv.t >= 0.1 + mv.shots * 0.1) fireDuck(mv);
       if (!mv.mega && !mv.held && mv.shots >= 5 && !mv.cut) { mv.cut = true; mv.dur = Math.min(mv.dur, mv.t + 0.3); }
@@ -5583,6 +5603,18 @@ function makeReedKit() {
     for (const k in cd) cd[k] = Math.max(0, cd[k] - dt);
     for (const k in acd) acd[k] = Math.max(0, acd[k] - dt);
     if (player.dashT > 0 && Math.random() < 0.8) ring(player.pos.clone(), 0x7cc8ff, 1.6, true);
+    if (rush > 0) {
+      rush -= dt;
+      const f = facingVec();
+      const d = !player.move && aliveDummies().find((x) => { const v = x.pos.clone().sub(player.pos); const dist = Math.hypot(v.x, v.z); return dist < 1.9 && Math.abs(v.y) < 2.2 && (dist < 0.5 || (v.x * f.x + v.z * f.z) / dist > 0.2); });
+      if (d) {
+        rush = 0; player.dashT = 0; player.vel.set(0, 0, 0); faceToward(d.pos);
+        startMove('ripple', 1.35, null, { a: true, lockPos: true, d, n: 0, done: false });
+        d.grabbed = 1.3; d.stun = 1.7; if (d.ai) d.ai.wind = 0;
+        if (d.remote) netSend({ t: 'seize', to: d.id, dur: 1.2, title: 'RIPPLE RUSH', sub: 'Caught!', quiet: true });
+        vfxSplash(d.pos.clone(), 12); floatText('CAUGHT', d.pos.clone().add(new THREE.Vector3(0, 3, 0)), 'ink');
+      }
+    }
     if (wave) {
       wave.r += dt * 20; wave.mesh.position.set(wave.at.x, wave.at.y + 0.1, wave.at.z); wave.mesh.scale.setScalar(wave.r); wave.mesh.material.opacity = Math.max(0, 1 - wave.r / 9);
       for (const d of aliveDummies()) {
@@ -5955,10 +5987,17 @@ function makeNangKit() {
       if (mv.phase === 'wind') {
         // telegraph: he draws back with a red glint, enemies get a moment to get out of the way
         if (Math.random() < 0.8) P({ tex: 'star', color: NRED, pos: handPos(), life: 0.15, s0: 0.5, s1: 1.4 });
-        if (mv.t >= 0.45) { mv.phase = 'dash'; mv.dir = facingVec(); mv.td = mv.t; playAnim('stab', 1.4); vfxSmokeBomb(player.pos.clone()); }
+        if (mv.t >= 0.25) { mv.phase = 'dash'; mv.dir = facingVec(); mv.td = mv.t; playAnim('stab', 1.4); vfxSmokeBomb(player.pos.clone()); }
         return;
       }
       if (mv.phase === 'dash') {
+        // light tracking: the dash bends a little toward the target, so a real sidestep still dodges it
+        const near = nearestDummy(player.pos, 10, mv.dir);
+        if (near) {
+          const want = Math.atan2(near.pos.x - player.pos.x, near.pos.z - player.pos.z), cur = Math.atan2(mv.dir.x, mv.dir.z);
+          let da = want - cur; da = Math.atan2(Math.sin(da), Math.cos(da));
+          const a = cur + Math.max(-1.6 * dt, Math.min(1.6 * dt, da)); mv.dir.set(Math.sin(a), 0, Math.cos(a)); player.facing = a;
+        }
         const D = mv.dir, step = D.clone().multiplyScalar(30 * dt), to = player.pos.clone().add(step);
         if (spotFree(to.x, player.pos.y, to.z)) player.pos.copy(to);
         if (Math.random() < 0.9) P({ tex: 'streak', color: NRED, pos: player.pos.clone().add(new THREE.Vector3(0, 1.2, 0)), vel: D.clone().multiplyScalar(-8), life: 0.25, s0: 0.8, s1: 0.1, stretch: 1 });
@@ -6294,152 +6333,225 @@ function fxHall(tg) {
   });
   later(1.75, () => { ms.forEach((m) => { scene.remove(m); shards(m.position.clone(), 8, 0xd9c4ff, 7); }); flash(c.clone().add(new THREE.Vector3(0, 1.5, 0)), 0xc9a6ff, 4); });
 }
+// Mira, "The Looking Glass": mirrors the fight itself
+const MIRC = 0xc9a6ff;
+function makeGlassTwin(id, opacity) {
+  const r = buildFighter(id), mat = new THREE.MeshBasicMaterial({ color: 0xd9c4ff, transparent: true, opacity: opacity || 0.5, depthWrite: false, blending: THREE.AdditiveBlending });
+  mat.userData.lin = true;
+  r.root.traverse((o) => { if (!o.isMesh) return; if (o.userData.outline) o.visible = false; else if (o !== r.face) o.material = mat; });
+  r.face.visible = false; scene.add(r.root); return r;
+}
+function poseLike(dst, src) { for (const j in src.j) if (dst.j[j]) dst.j[j].rotation.copy(src.j[j].rotation); }
+// a glass copy that appears, strikes and shatters (also replayed on other screens)
+function vfxMirrorGhost(pos, facing) {
+  const t = makeGlassTwin('mira', 0.55); t.root.position.copy(pos); t.root.rotation.y = facing;
+  t.j.shR.rotation.set(-2.2, 0, 0.3); t.j.chest.rotation.set(0.1, -0.5, 0);
+  tempMesh(new THREE.Object3D(), 0.45, (o, k) => { t.j.shR.rotation.x = -2.2 + k * 3.2; t.j.chest.rotation.y = -0.5 + k * 1.1; if (k >= 1) { scene.remove(t.root); shards(pos.clone().add(new THREE.Vector3(0, 1.4, 0)), 10, 0xd9c4ff, 6); } });
+  slashArc(MIRC, 1.2, 0.3, true, 1.1, pos, facing);
+}
+function vfxMirrorPool(pos) {
+  const pool = new THREE.Mesh(new THREE.CircleGeometry(1.3, 32), new THREE.MeshBasicMaterial({ map: MIRTEX, transparent: true, depthWrite: false })); pool.rotation.x = -Math.PI / 2; pool.position.copy(pos).add(new THREE.Vector3(0, 0.05, 0));
+  tempMesh(pool, 0.9, (m, k) => { m.scale.setScalar(Math.min(1, k * 6) * (k > 0.7 ? (1 - k) / 0.3 : 1) + 0.01); m.rotation.z += 0.05; });
+  ring(pos.clone(), MIRC, 2.6, true); for (let i = 0; i < 10; i++) P({ tex: 'star', color: MIRC, pos: pos.clone().add(new THREE.Vector3(rv(1), 0.1, rv(1))), vel: new THREE.Vector3(0, 3 + Math.random() * 3, 0), life: 0.5, s0: 0.35, s1: 0.05 });
+}
+function vfxFlipWave(tg) {
+  if (!tg || !tg.pos) return;
+  const pane = makeMirror(1.4);
+  tempMesh(pane, 0.5, (m, k) => { m.position.copy(tg.pos).add(new THREE.Vector3((k - 0.5) * 5, 1.5, 0)); m.lookAt(camera.position.x, m.position.y, camera.position.z); m.scale.setScalar(1.4 * Math.sin(k * Math.PI) + 0.01); });
+  floatText('FLIPPED', tg.pos.clone().add(new THREE.Vector3(0, 3.2, 0)), 'ink');
+}
+function vfxReverse(from, tg) {
+  if (!tg || !tg.pos) return;
+  const pane = makeMirror(1.6); pane.position.copy(from).add(new THREE.Vector3(0, 1.5, 0)); pane.lookAt(tg.pos.x, from.y + 1.5, tg.pos.z);
+  tempMesh(pane, 0.6, (m, k) => { m.scale.setScalar(1.6 * Math.min(1, k * 5) * (k > 0.7 ? (1 - k) / 0.3 : 1) + 0.01); });
+  later(0.15, () => { const a = from.clone().add(new THREE.Vector3(0, 1.5, 0)), d = tg.pos.clone().add(new THREE.Vector3(0, 1.3, 0)).sub(a); beamFx(a, d.clone().normalize(), d.length(), MIRC, 0.35, 0.4); });
+}
+function vfxReflection(tg, facing) {
+  if (!tg || !tg.pos) return;
+  const F = new THREE.Vector3(Math.sin(facing), 0, Math.cos(facing)), m = makeMirror(3.4), c = tg.pos.clone();
+  m.position.copy(c).addScaledVector(F, 3).add(new THREE.Vector3(0, 2.6, 0)); m.lookAt(c.x, c.y + 2.6, c.z);
+  tempMesh(m, 1.75, (mm, k) => { mm.scale.setScalar(3.4 * Math.min(1, k * 4) + 0.01); mm.rotation.z = Math.sin(k * 30) * 0.02 * k; });
+  later(1.7, () => { flash(m.position.clone(), 0xffffff, 6); for (let i = 0; i < 4; i++) shards(m.position.clone().add(new THREE.Vector3(rv(1.5), rv(2), 0)), 14, 0xd9c4ff, 10); });
+}
+// effects that land on the person Mira hits
+function applyFlip(d, dur) {
+  if (d.remote) { netSend({ t: 'flip', to: d.id, dur }); return; }
+  if (d.ai) { d.ai.cd += dur * 0.6; d.ai.wind = 0; } d.stun = Math.max(d.stun, 0.4); d.flipT = dur;
+}
+function applyCrack(d, dur) { if (d.remote) netSend({ t: 'crack', to: d.id, dur }); }
+{
+  const st = document.createElement('style');
+  st.textContent = 'body.flipped #game { transform: scaleX(-1); } #crackFx { position: fixed; inset: 0; pointer-events: none; z-index: 7; opacity: 0; transition: opacity .25s; } #crackFx.on { opacity: 1; }';
+  document.head.appendChild(st);
+  const cv = document.createElement('canvas'); cv.id = 'crackFx'; cv.width = 1024; cv.height = 768; document.body.appendChild(cv);
+  const g = cv.getContext('2d'); g.strokeStyle = 'rgba(255,255,255,.85)'; g.lineCap = 'round';
+  const cx = 600, cy = 330;
+  for (let i = 0; i < 16; i++) { let x = cx, y = cy, a = i / 16 * PI2 + Math.random() * 0.3; g.lineWidth = 2.5; g.beginPath(); g.moveTo(x, y); for (let s = 0; s < 9; s++) { a += (Math.random() - 0.5) * 0.6; const L = 30 + Math.random() * 60; x += Math.cos(a) * L; y += Math.sin(a) * L; g.lineTo(x, y); } g.stroke(); }
+  for (let r = 1; r < 5; r++) { g.lineWidth = 1.5; g.beginPath(); for (let i = 0; i <= 18; i++) { const a = i / 18 * PI2, rr = r * 60 + Math.random() * 25; const x = cx + Math.cos(a) * rr, y = cy + Math.sin(a) * rr; if (i) g.lineTo(x, y); else g.moveTo(x, y); } g.stroke(); }
+  g.fillStyle = 'rgba(220,210,255,.12)'; g.beginPath(); g.arc(cx, cy, 300, 0, PI2); g.fill();
+  cv.style.width = '100vw'; cv.style.height = '100vh'; cv.style.objectFit = 'cover';
+}
+let flipEndT = 0, crackEndT = 0;
+function flipMyScreen(dur) { document.body.classList.add('flipped'); flipEndT = Math.max(flipEndT, clock + dur); toast('Your screen got flipped!'); }
+function crackMyScreen(dur) { $('crackFx').classList.add('on'); crackEndT = Math.max(crackEndT, clock + dur); }
+function screenFxTick() {
+  if (flipEndT && clock >= flipEndT) { flipEndT = 0; document.body.classList.remove('flipped'); }
+  if (crackEndT && clock >= crackEndT) { crackEndT = 0; $('crackFx').classList.remove('on'); }
+}
+
 function makeMiraKit() {
-  const K = { id: 'mira', name: 'MIRA', sub: 'The Mirror Witch', color: 0xc9a6ff, accent: '#6a4ab0',
-    desc: 'Mirror magic. Place up to 3 mirrors (2): her Mirror Shards (1) bounce off them toward enemies and hit harder each bounce. Swap (3) trades places with a mirror, Shatter (4) blows all of them up, and Reflect (R) bounces an attack back at whoever threw it.',
-    slots: [{ k: '1', name: 'Mirror Shard', tag: 'p' }, { k: '2', name: 'Place Mirror', tag: 'n' }, { k: '3', name: 'Swap', tag: 'n' }, { k: '4', name: 'Shatter', tag: 'x' }, { k: 'R', name: 'Reflect', tag: 'n' }],
-    awkName: 'HALL OF MIRRORS', awkLine: 'Which one of me is real?', awkColor: 0xc9a6ff,
-    awkSlots: [{ k: '1', name: 'Prism Volley', tag: 'p' }, { k: '2', name: 'Mirror Step', tag: 'n' }, { k: '3', name: 'Kaleidoscope', tag: 'x' }, { k: '4', name: 'Hall of Mirrors', tag: 'u' }, { k: 'R', name: 'Reflect', tag: 'n' }] };
-  const cd = { 1: 0, 2: 0, 3: 0, 4: 0, R: 0 }, MAX = { 1: 5, 2: 2.5, 3: 6, 4: 9, R: 9 }, acd = { 1: 0, 2: 0, 3: 0 }, AMAX = { 1: 5, 2: 2.5, 3: 8 };
-  let mirrors = [], mid = 0;
-  function addMirror(pos) {
-    if (mirrors.length >= 3) removeMirror(mirrors[0]);
-    const id = (NET.myId || 'me') + ':' + (++mid), g = makeMirror(1), p = groundAt(pos);
-    g.position.copy(p).add(new THREE.Vector3(0, 1.4, 0)); g.scale.setScalar(0.01); scene.add(g);
-    const m = { id, g, pos: p, life: 14, born: clock }; mirrors.push(m);
-    ring(p.clone(), 0xc9a6ff, 2.5, true); sparks(g.position.clone(), 10, 0xc9a6ff, 1.2); netOnly('mirOn', [id, p.clone()]);
-    return m;
-  }
-  function removeMirror(m, quiet) { scene.remove(m.g); mirrors = mirrors.filter((x) => x !== m); if (!quiet) shards(m.g.position.clone(), 10, 0xd9c4ff, 6); netOnly('mirOff', [m.id]); }
-  K.reset = () => { for (const k in cd) cd[k] = 0; for (const m of mirrors.slice()) removeMirror(m, true); };
+  const K = { id: 'mira', name: 'MIRA', sub: 'The Looking Glass', color: MIRC, accent: '#6a4ab0',
+    desc: 'She turns the fight into its reflection. Mirror Strike ends with a glass copy of her hitting from behind. Flip mirrors the target\'s screen left-to-right, Through the Glass pops her out behind someone, and Reverse sends the last hit she took right back. R is Cracked Glass: hit her during it and your screen cracks.',
+    slots: [{ k: '1', name: 'Mirror Strike', tag: 'b' }, { k: '2', name: 'Flip', tag: 'n' }, { k: '3', name: 'Through the Glass', tag: 'b' }, { k: '4', name: 'Reverse', tag: 'x' }, { k: 'R', name: 'Cracked Glass', tag: 'n' }],
+    awkName: 'OTHER SIDE', awkLine: 'Which one of me is real?', awkColor: MIRC,
+    awkSlots: [{ k: '1', name: 'Twin Strike', tag: 'b' }, { k: '2', name: 'Mass Flip', tag: 'n' }, { k: '3', name: 'Through the Glass', tag: 'b' }, { k: '4', name: 'Shattered Reflection', tag: 'u' }, { k: 'R', name: 'Cracked Glass', tag: 'n' }] };
+  const cd = { 1: 0, 2: 0, 3: 0, 4: 0, R: 0 }, MAX = { 1: 3.5, 2: 10, 3: 7, 4: 9, R: 9 }, acd = { 1: 0, 2: 0, 3: 0 }, AMAX = { 1: 3.5, 2: 12, 3: 3 };
+  let last = null, twin = null;
+  function dropTwin() { if (twin) { shards(twin.root.position.clone().add(new THREE.Vector3(0, 1.4, 0)), 14, 0xd9c4ff, 7); scene.remove(twin.root); twin = null; } }
+  K.reset = () => { for (const k in cd) cd[k] = 0; last = null; dropTwin(); };
   K.slotsNow = () => (awakened ? K.awkSlots : K.slots);
-  K.resLabel = () => 'Mirrors ' + mirrors.length + '/3';
-  K.resPct = () => mirrors.length / 3 * 100;
+  K.resLabel = () => (last && clock - last.at < 12 ? 'Reflection ready' : 'Nothing to reverse');
+  K.resPct = () => (last && clock - last.at < 12 ? 100 - (clock - last.at) / 12 * 100 : 0);
   K.view = (k) => {
-    if (k === 'R') return { name: 'Reflect', tag: 'n', remain: cd.R, max: MAX.R, active: !!(player.move && player.move.name === 'reflect') };
-    if (awakened) { if (k === '4') return { name: 'Hall of Mirrors', tag: 'u', remain: 0, max: 1, glow: true }; const s = K.awkSlots.find((x) => x.k === k); return { name: s.name, tag: s.tag, remain: acd[k], max: AMAX[k] }; }
-    const s = K.slots.find((x) => x.k === k); return { name: s.name, tag: s.tag, remain: cd[k], max: MAX[k], glow: (k === '3' || k === '4') && mirrors.length > 0 };
+    if (k === 'R') return { name: 'Cracked Glass', tag: 'n', remain: cd.R, max: MAX.R, active: !!(player.move && player.move.name === 'crackst') };
+    if (awakened) { if (k === '4') return { name: 'Shattered Reflection', tag: 'u', remain: 0, max: 1, glow: true }; const s = K.awkSlots.find((x) => x.k === k); return { name: s.name, tag: s.tag, remain: acd[k], max: AMAX[k] }; }
+    const s = K.slots.find((x) => x.k === k); return { name: s.name, tag: s.tag, remain: cd[k], max: MAX[k], glow: k === '4' && !!(last && clock - last.at < 12) };
   };
-  function fireShard(from, dir, dmg, bounces, label) {
-    const o = { mesh: makeShard(), vis: 'shard', pos: from.clone(), vel: dir.clone().multiplyScalar(34), grav: 0, life: 0.9, radius: 1.1, orient: true, dmg, bounces, used: new Set(),
-      tick: (pr) => {
-        if (pr.bounces <= 0) return;
-        for (const m of mirrors) {
-          if (pr.used.has(m) || m.g.position.distanceTo(pr.pos) > 1.4) continue;
-          pr.used.add(m); pr.bounces--; pr.dmg += 2; pr.life = 0.9;
-          const t = nearestDummy(m.pos, 20); const nd = t ? t.pos.clone().add(new THREE.Vector3(0, 1.3, 0)).sub(pr.pos).normalize() : pr.vel.clone().normalize().negate();
-          pr.vel.copy(nd).multiplyScalar(38); flash(pr.pos.clone(), 0xc9a6ff, 1.4); sparks(pr.pos.clone(), 6, 0xffffff, 1);
-          m.g.rotation.y += 0.6; break;
-        }
-      },
-      onHit: (d) => hitDummy(d, { dmg: o.dmg, type: 'p', stun: 0.5, kb: o.vel.clone().normalize().multiplyScalar(2), mats: [fxPaper], spark: 0xc9a6ff, label: o.dmg > dmg ? (label || 'BOUNCE') : null, awk: 2 }),
-      onWorld: (p) => sparks(p, 4, 0xc9a6ff, 0.7), noExpire: true };
-    spawnProj(o);
-  }
-  function shatterAll(dmg) {
-    const list = mirrors.slice();
-    list.forEach((m, i) => later(i * 0.08, () => {
-      const c = m.g.position.clone(); removeMirror(m);
-      flash(c, 0xc9a6ff, 2.4); ring(m.pos.clone(), 0xc9a6ff, 4.5, true); addShake(0.35);
-      bigHitAll(m.pos, 3.2, { dmg, type: 'x', kbOut: 10, kbUp: 5, down: 1, big: true, mats: [fxPaper], spark: 0xc9a6ff, ringColor: 0xc9a6ff, label: 'SHATTER', awk: 4 });
-    }));
-  }
-  function swapTo(leaveMirror) {
-    if (!mirrors.length) { toast('No mirrors to swap with'); return false; }
-    const t = nearestDummy(player.pos, 30);
-    let best = mirrors[0]; if (t) for (const m of mirrors) if (m.pos.distanceTo(t.pos) < best.pos.distanceTo(t.pos)) best = m;
-    const old = player.pos.clone(); vfxSmokeBomb(old.clone()); sparks(old.clone().add(new THREE.Vector3(0, 1.2, 0)), 12, 0xc9a6ff, 1.4);
-    player.pos.copy(best.pos); player.vel.set(0, 0, 0); player.iframes = Math.max(player.iframes, 0.35);
-    best.pos = groundAt(old); best.g.position.copy(best.pos).add(new THREE.Vector3(0, 1.4, 0)); netOnly('mirOff', [best.id]); netOnly('mirOn', [best.id + 's' + mid, best.pos.clone()]); best.id += 's' + mid;
-    if (t) faceToward(t.pos);
-    flash(player.pos.clone().add(new THREE.Vector3(0, 1.2, 0)), 0xc9a6ff, 2); ring(player.pos.clone(), 0xc9a6ff, 3, true);
-    if (leaveMirror && mirrors.length < 3) addMirror(old);
-    return true;
-  }
+  function srcAlive(s) { return s && s.pos && !s.dead && (s.remote || dummies.includes(s)); }
   K.press = (k) => {
     if (busy() || player.blocking) return;
-    if (k === 'R') { if (cd.R > 0) return; startMove('reflect', 0.8, 'pose', {}); cd.R = MAX.R; ring(player.pos.clone().add(new THREE.Vector3(0, 1.2, 0)), 0xc9a6ff, 2.5); return; }
+    if (k === 'R') { if (cd.R > 0) return; startMove('crackst', 1.0, 'pose', {}); cd.R = MAX.R; ring(player.pos.clone().add(new THREE.Vector3(0, 1.2, 0)), MIRC, 2.5); return; }
     if (awakened) {
       if (k !== '4' && acd[k] > 0) return;
-      if (k === '1') { const t = aimFace14(24); startMove('volley', 0.5, 'cast', { a: true, tg: t, fired: false }); acd[1] = AMAX[1]; }
-      if (k === '2') { if (swapTo(true)) acd[2] = AMAX[2]; }
-      if (k === '3') { const t = aimFace14(16); if (!t) { toast('No target in range'); return; } startMove('kalei', 0.9, 'cast', { a: true, tg: t, stage: 0 }); acd[3] = AMAX[3]; }
-      if (k === '4') hallOfMirrors();
+      if (k === '1') { aimFace14(5); startMove('mstrike', 0.75, null, { a: true, hits: 0, power: 1.4 }); acd[1] = AMAX[1]; }
+      if (k === '2') { const list = aliveDummies().filter((d) => d.pos.distanceTo(player.pos) < 18); if (!list.length) { toast('No one in range'); return; } startMove('flip', 0.45, 'cast', { a: true, list, done: false }); acd[2] = AMAX[2]; }
+      if (k === '3') { const d = nearestDummy(player.pos, 16); if (!d) { toast('No target in range'); return; } startMove('glass', 0.7, 'crouch', { a: true, d, stage: 0 }); acd[3] = AMAX[3]; }
+      if (k === '4') shatteredReflection();
       return;
     }
     if (cd[k] > 0) return;
-    if (k === '1') { const t = aimFace14(22); startMove('shards', 0.55, 'flick', { tg: t, n: 0 }); cd[1] = MAX[1]; }
-    if (k === '2') { const t = aim14(18); const dir = aimDir14(t); const at = player.pos.clone().addScaledVector(dir, 5); if (t) at.addScaledVector(new THREE.Vector3(dir.z, 0, -dir.x), 2.5); startMove('place', 0.35, 'point', {}); addMirror(at); cd[2] = MAX[2]; }
-    if (k === '3') { if (swapTo(false)) cd[3] = MAX[3]; }
-    if (k === '4') { if (!mirrors.length) { toast('Place a mirror first'); return; } startMove('shatter', 0.4, 'point', {}); shatterAll(9); cd[4] = MAX[4]; }
+    if (k === '1') { aimFace14(5); startMove('mstrike', 0.75, null, { hits: 0, power: 1 }); cd[1] = MAX[1]; }
+    if (k === '2') { const t = aimFace14(14); if (!t) { toast('No target in range'); return; } startMove('flip', 0.45, 'point', { list: [t], done: false }); cd[2] = MAX[2]; }
+    if (k === '3') { const d = nearestDummy(player.pos, 16); if (!d) { toast('No target in range'); return; } startMove('glass', 0.7, 'crouch', { d, stage: 0 }); cd[3] = MAX[3]; }
+    if (k === '4') {
+      if (!last || clock - last.at > 12) { toast('Nothing to reverse yet. Take a hit first'); return; }
+      if (!srcAlive(last.src) || last.src.pos.distanceTo(player.pos) > 24) { toast('Whoever hit you is out of reach'); return; }
+      faceToward(last.src.pos); startMove('reverse', 0.6, 'cast', { src: last.src, dmg: last.dmg, done: false }); last = null; cd[4] = MAX[4];
+    }
   };
   K.release = () => {};
+  // remember the last hit (for Reverse), and Cracked Glass punishes hitting her
   K.onPlayerHit = (o, src) => {
     const mv = player.move;
-    if (!mv || mv.name !== 'reflect' || mv.t > 0.8 || o.type === 'u') return null;
-    player.move = null; player.iframes = 0.4;
-    const at = player.pos.clone().add(new THREE.Vector3(0, 1.4, 0));
-    floatText('REFLECT', at.clone().add(new THREE.Vector3(0, 1, 0)), 'big'); flash(at, 0xc9a6ff, 2.5); shards(at, 10, 0xd9c4ff, 6); hitStop = 0.08;
-    if (src && src.pos && !src.dead && (src.remote || dummies.includes(src))) { const dir = src.pos.clone().add(new THREE.Vector3(0, 1.3, 0)).sub(at).normalize(); fireShard(at, dir, 6 + Math.round((o.dmg || 0) * 0.6), 0, 'REFLECTED'); }
-    return 'reflected';
+    if (mv && mv.name === 'crackst' && mv.t <= 1.0 && o.type !== 'u') {
+      player.move = null; player.iframes = 0.4;
+      const at = player.pos.clone().add(new THREE.Vector3(0, 1.4, 0));
+      floatText('CRACKED', at.clone().add(new THREE.Vector3(0, 1, 0)), 'big'); shards(at, 16, 0xd9c4ff, 8); flash(at, MIRC, 2.5); hitStop = 0.1;
+      if (srcAlive(src)) { hitDummy(src, { dmg: 8, type: 'x', stun: 1.1, kb: src.pos.clone().sub(player.pos).setY(0).normalize().multiplyScalar(8).setY(4), set: true, mats: [fxPaper], spark: MIRC, ringColor: MIRC, label: 'CRACKED GLASS', awk: 5 }); applyCrack(src, 2.5); }
+      return 'reflected';
+    }
+    if (src && o.dmg > 0) last = { dmg: o.dmg, src, at: clock };
+    return null;
   };
-  function hallOfMirrors() {
+  // in the awakening her twin echoes every hit she lands
+  K.onHit = (d, o) => {
+    if (!awakened || !twin || o.echo || o.type === 'u') return;
+    later(0.12, () => { if (!twin || d.dead) return; slashArc(MIRC, 1.1, rv(0.6), true, 0.9, twin.root.position.clone(), twin.root.rotation.y); hitDummy(d, { dmg: Math.max(1, Math.ceil(o.dmg * 0.5)), type: o.type === 'g' ? 'b' : o.type, stun: 0.4, echo: true, mats: [fxPaper], spark: MIRC, awk: 0 }); });
+  };
+  function shatteredReflection() {
     const d = nearestDummy(player.pos, 16);
-    if (!d) { toast('No target in range for Hall of Mirrors'); return; }
+    if (!d) { toast('No target in range for Shattered Reflection'); return; }
     faceToward(d.pos);
-    startMove('hall', 2.6, 'cast', { a: true, lockPos: true, d, base: d.pos.clone(), hit: false, ended: false, ticks: 0 });
-    player.iframes = 3; d.grabbed = 2.2; d.stun = 2.6; if (d.ai) d.ai.wind = 0;
-    if (d.remote) netSend({ t: 'seize', to: d.id, dur: 2.2, title: 'HALL OF MIRRORS', sub: 'Which one is real?' });
-    fxHall(d); netOnly('hall', [d]);
-    startCine({ focus: () => d.pos, dur: 2.5, dist: 10, height: 3.5, yaw: player.facing + 2.4, spin: 0.4 });
-    letterbox(true); callout('HALL OF MIRRORS');
+    startMove('shref', 2.5, 'cast', { a: true, lockPos: true, d, base: d.pos.clone(), hit: false, ended: false, dashed: false });
+    player.iframes = 3; d.grabbed = 2.1; d.stun = 2.6; if (d.ai) d.ai.wind = 0;
+    if (d.remote) netSend({ t: 'seize', to: d.id, dur: 2.1, title: 'SHATTERED REFLECTION', sub: 'Look in the mirror' });
+    vfxReflection(d, player.facing); netOnly('mreflect', [d, player.facing]);
+    startCine({ focus: () => d.pos, dur: 2.4, dist: 9, height: 2.6, yaw: player.facing + 2.2, spin: 0.25 });
+    letterbox(true); callout('SHATTERED REFLECTION');
   }
   K.moveTick = (mv, dt) => {
     const f = facingVec();
-    if (mv.name === 'shards') {
-      while (mv.n < 3 && mv.t >= 0.08 + mv.n * 0.12) { fireShardAt(handPos(), mv); mv.n++; }
-    } else if (mv.name === 'volley' && !mv.fired && mv.t >= 0.15) {
-      mv.fired = true; const t = mv.tg;
-      const shoot = (from) => { const dir = t && !t.dead ? t.pos.clone().add(new THREE.Vector3(0, 1.3, 0)).sub(from).normalize() : f.clone(); fireShard(from, dir, 4, 1, 'PRISM'); };
-      shoot(handPos()); for (const m of mirrors) { shoot(m.g.position.clone()); flash(m.g.position.clone(), 0xc9a6ff, 1.5); }
-    } else if (mv.name === 'kalei') {
-      const t = mv.tg;
-      if (mv.stage === 0 && mv.t >= 0.15 && t && !t.dead) {
-        mv.stage = 1;
-        for (const m of mirrors.slice()) removeMirror(m, true);
-        for (let i = 0; i < 3; i++) { const a = i / 3 * PI2 + player.facing; addMirror(t.pos.clone().add(new THREE.Vector3(Math.sin(a) * 3.6, 0, Math.cos(a) * 3.6))); }
+    if (mv.name === 'mstrike') {
+      const marks = [0.08, 0.24, 0.42], anims = ['m1a', 'm1b', 'm1c'];
+      if (mv.hits < 3 && mv.t >= marks[mv.hits]) {
+        const i = mv.hits++; playAnim(anims[i], 1.6); const last3 = i === 2, pw = mv.power;
+        slashArc(i === 1 ? 0xffffff : MIRC, 1.1 + i * 0.15, (i - 1) * 0.5, i === 1, last3 ? 1.2 : 0.9);
+        for (const d of meleeTargets(3.1, 0.2)) {
+          hitDummy(d, { dmg: Math.round((last3 ? 5 : 3) * pw), type: 'b', stun: 0.7, kb: f.clone().multiplyScalar(last3 ? 3 : 1), mats: [fxPaper], spark: MIRC, awk: 2.5 });
+          if (last3) {
+            // the reflection: a glass copy of her strikes from the other side
+            const behind = d.pos.clone().addScaledVector(f, 1.4), face = Math.atan2(-f.x, -f.z);
+            vfxMirrorGhost(behind, face); netOnly('mghost', [behind, face]);
+            later(0.1, () => hitDummy(d, { dmg: Math.round(5 * pw), type: 'b', stun: 0.9, kb: f.clone().multiplyScalar(-6).setY(3), set: true, big: true, mats: [fxPaper], spark: MIRC, ringColor: MIRC, label: 'MIRROR STRIKE', awk: 4 }));
+          }
+        }
       }
-      if (mv.stage === 1 && mv.t >= 0.45) {
-        mv.stage = 2;
-        for (let i = 0; i < 3; i++) { const a = mirrors[i], b = mirrors[(i + 1) % 3]; if (!a || !b) continue; const d = b.g.position.clone().sub(a.g.position); later(i * 0.08, () => beamFx(a.g.position.clone(), d.clone().normalize(), d.length(), 0xc9a6ff, 0.12, 0.4)); }
-        if (t && !t.dead) for (let i = 0; i < 3; i++) later(i * 0.08, () => hitDummy(t, { dmg: 6, type: 'x', stun: 0.9, kb: new THREE.Vector3(0, 3, 0), set: true, big: i === 2, mats: [fxPaper], spark: 0xc9a6ff, ringColor: 0xc9a6ff, label: i === 2 ? 'KALEIDOSCOPE' : null }));
+    } else if (mv.name === 'flip' && !mv.done && mv.t >= 0.15) {
+      mv.done = true;
+      for (const d of mv.list) { if (d.dead) continue; vfxFlipWave(d); netOnly('mflip', [d]); hitDummy(d, { dmg: 3, type: 'p', stun: 0.5, mats: [fxPaper], spark: MIRC, awk: 3 }); applyFlip(d, awakened ? 4 : 3); }
+    } else if (mv.name === 'glass') {
+      const d = mv.d;
+      if (mv.stage === 0) { vfxMirrorPool(player.pos.clone()); netOnly('mpool', [player.pos.clone()]); mv.stage = 1; player.iframes = Math.max(player.iframes, 0.8); }
+      if (mv.stage === 1) { player.sinkY = Math.min(2.2, mv.t / 0.25 * 2.2); if (mv.t >= 0.25) { mv.stage = 2; player.hidden = true; } }
+      if (mv.stage === 2 && mv.t >= 0.4) {
+        mv.stage = 3; player.hidden = false;
+        if (!d.dead) {
+          const away = d.pos.clone().sub(player.pos).setY(0); if (away.lengthSq() < 0.01) away.copy(f); away.normalize();
+          const behind = d.pos.clone().addScaledVector(away, 1.3);
+          if (spotFree(behind.x, d.pos.y, behind.z)) player.pos.set(behind.x, d.pos.y, behind.z);
+          faceToward(d.pos); rig.root.rotation.y = player.facing;
+        }
+        vfxMirrorPool(player.pos.clone()); netOnly('mpool', [player.pos.clone()]);
       }
-    } else if (mv.name === 'hall') {
+      if (mv.stage === 3) {
+        player.sinkY = Math.max(0, 2.2 - (mv.t - 0.4) / 0.15 * 2.2);
+        if (mv.t >= 0.55 && !mv.hit) {
+          mv.hit = true; player.sinkY = 0; playAnim('upper', 1.4); shards(player.pos.clone().add(new THREE.Vector3(0, 1, 0)), 14, 0xd9c4ff, 7);
+          const g = facingVec();
+          if (!d.dead && d.pos.distanceTo(player.pos) < 3) hitDummy(d, { dmg: 7, type: 'b', heavy: true, kb: new THREE.Vector3(g.x * 9, 7, g.z * 9), set: true, down: 1, big: true, mats: [fxPaper], spark: MIRC, ringColor: MIRC, label: 'THROUGH THE GLASS', awk: 5 });
+        }
+      }
+    } else if (mv.name === 'reverse' && !mv.done && mv.t >= 0.2) {
+      mv.done = true; const s = mv.src;
+      if (srcAlive(s)) {
+        vfxReverse(player.pos.clone(), s); netOnly('mreverse', [player.pos.clone(), s]);
+        later(0.15, () => { if (!s.dead) hitDummy(s, { dmg: Math.max(6, Math.min(24, Math.round(mv.dmg))), type: 'x', kb: s.pos.clone().sub(player.pos).setY(0).normalize().multiplyScalar(11).setY(5), set: true, down: 1, big: true, mats: [fxPaper], spark: MIRC, ringColor: MIRC, label: 'REVERSED', awk: 5 }); });
+      }
+    } else if (mv.name === 'crackst') {
+      if (Math.random() < 0.5) P({ tex: 'star', color: MIRC, pos: player.pos.clone().add(new THREE.Vector3(rv(0.8), 0.3 + Math.random() * 1.8, rv(0.8))), life: 0.3, s0: 0.35, s1: 0.05 });
+    } else if (mv.name === 'shref') {
       const d = mv.d;
       if (!mv.hit && !d.dead) { d.pos.copy(mv.base); d.vel.set(0, 0, 0); }
-      if (!mv.hit && mv.t > 0.5 && mv.t < 1.45 && mv.t >= 0.5 + mv.ticks * 0.16) { mv.ticks++; sparks(d.pos.clone().add(new THREE.Vector3(0, 1.4, 0)), 5, 0xc9a6ff, 1); }
-      if (!mv.hit && mv.t >= 1.75) {
+      if (!mv.dashed && mv.t >= 1.1) {
+        mv.dashed = true; playAnim('slash', 1.6);
+        for (let i = 0; i < 5; i++) later(i * 0.06, () => slashArc(i % 2 ? 0xffffff : MIRC, 0.8 + i * 0.3, rv(1.4), i % 2 === 0, 1.5, mv.base, player.facing + rv(1)));
+      }
+      if (!mv.hit && mv.t >= 1.7) {
         mv.hit = true; d.grabbed = 0;
-        hitDummy(d, { dmg: 30, type: 'u', otg: true, kb: new THREE.Vector3(0, 10, 0), set: true, down: 2, big: true, mats: [fxPaper], spark: 0xc9a6ff, ringColor: 0xc9a6ff, label: 'HALL OF MIRRORS', awk: 0 });
+        hitDummy(d, { dmg: 30, type: 'u', otg: true, kb: new THREE.Vector3(-f.x * 8, 9, -f.z * 8), set: true, down: 2, big: true, mats: [fxPaper], spark: MIRC, ringColor: MIRC, label: 'SHATTERED REFLECTION', awk: 0 });
         impactFrame(0.16); addShake(1.1); hitStop = 0.16;
       }
-      if (mv.t >= 2.4 && !mv.ended) { mv.ended = true; letterbox(false); later(0.1, endAwaken); }
+      if (mv.t >= 2.3 && !mv.ended) { mv.ended = true; letterbox(false); later(0.1, endAwaken); }
     }
   };
-  function fireShardAt(from, mv) { const t = mv.tg && !mv.tg.dead ? mv.tg : null; const dir = t ? t.pos.clone().add(new THREE.Vector3(0, 1.3, 0)).sub(from).normalize() : (shiftLock ? camForward() : facingVec()); playAnim(mv.n % 2 ? 'm1b' : 'm1a', 2); fireShard(from, dir, 3, 2); }
+  K.cancel = () => { if (player.move && player.move.name === 'glass') { player.hidden = false; player.sinkY = 0; } };
   K.update = (dt) => {
     for (const k in cd) cd[k] = Math.max(0, cd[k] - dt);
     for (const k in acd) acd[k] = Math.max(0, acd[k] - dt);
-    for (const m of mirrors.slice()) {
-      m.life -= dt; const s = Math.min(1, (clock - m.born) * 5);
-      m.g.scale.setScalar(Math.max(0.01, s)); m.g.position.y = m.pos.y + 1.4 + Math.sin(clock * 2 + m.born) * 0.08;
-      m.g.lookAt(camera.position.x, m.g.position.y, camera.position.z);
-      if (m.life <= 0) removeMirror(m);
+    if (twin) {
+      const side = new THREE.Vector3(Math.cos(player.facing), 0, -Math.sin(player.facing));
+      const want = player.pos.clone().addScaledVector(side, -1.6).addScaledVector(facingVec(), -0.4);
+      twin.root.position.lerp(want, 1 - Math.exp(-10 * dt)); twin.root.position.y = player.pos.y - (player.sinkY || 0);
+      twin.root.rotation.y = player.facing; poseLike(twin, rig); twin.root.visible = !player.hidden;
     }
-    if (awakened && Math.random() < 0.3) P({ tex: 'star', color: 0xc9a6ff, pos: player.pos.clone().add(new THREE.Vector3(rv(1), 0.3 + Math.random() * 1.8, rv(1))), life: 0.4, s0: 0.4, s1: 0.05 });
+    if (awakened && Math.random() < 0.3) P({ tex: 'star', color: MIRC, pos: player.pos.clone().add(new THREE.Vector3(rv(1), 0.3 + Math.random() * 1.8, rv(1))), life: 0.4, s0: 0.4, s1: 0.05 });
   };
-  K.awaken = () => { acd[1] = acd[2] = acd[3] = 0; for (let i = 0; i < 3; i++) { const a = i / 3 * PI2; addMirror(player.pos.clone().add(new THREE.Vector3(Math.sin(a) * 4, 0, Math.cos(a) * 4))); } };
-  K.unawaken = () => {};
+  K.awaken = () => {
+    acd[1] = acd[2] = acd[3] = 0;
+    twin = makeGlassTwin('mira', 0.45); twin.root.position.copy(player.pos);
+    for (const d of aliveDummies()) if (d.pos.distanceTo(player.pos) < 20) { applyFlip(d, 4); vfxFlipWave(d); }
+  };
+  K.unawaken = () => { dropTwin(); };
   return K;
 }
 
@@ -6483,8 +6595,8 @@ function fxMidnight(tg, facing) {
 }
 function makeTockKit() {
   const K = { id: 'tock', name: 'PROFESSOR TOCK', sub: 'The Clockmaker', color: 0x7fd4ff, accent: '#8a6a3a',
-    desc: 'Time tricks. Gears slow whoever they hit, Slow Field (2) drops a giant clock that slows everyone standing on it, and Rewind (3) snaps him back to where he was 3 seconds ago and gets back some of the HP he lost. Pendulum (4) swings a giant blade, and R throws an alarm clock that goes off.',
-    slots: [{ k: '1', name: 'Gear Throw', tag: 'p' }, { k: '2', name: 'Slow Field', tag: 'n' }, { k: '3', name: 'Rewind', tag: 'n' }, { k: '4', name: 'Pendulum', tag: 'x' }, { k: 'R', name: 'Alarm', tag: 'x' }],
+    desc: 'Time tricks. His Tick-Tock cane combo ends by freezing the target in time for a moment, Slow Field (2) drops a giant clock that slows everyone standing on it, and Rewind (3) snaps him back to where he was 3 seconds ago and gets back some of the HP he lost. Pendulum (4) swings a giant blade, and R throws an alarm clock that goes off.',
+    slots: [{ k: '1', name: 'Tick-Tock', tag: 'b' }, { k: '2', name: 'Slow Field', tag: 'n' }, { k: '3', name: 'Rewind', tag: 'n' }, { k: '4', name: 'Pendulum', tag: 'x' }, { k: 'R', name: 'Alarm', tag: 'x' }],
     awkName: 'ZERO HOUR', awkLine: 'Time is on my side.', awkColor: 0x7fd4ff,
     awkSlots: [{ k: '1', name: 'Gear Storm', tag: 'p' }, { k: '2', name: 'Grand Slow Field', tag: 'n' }, { k: '3', name: 'Rewind', tag: 'n' }, { k: '4', name: 'Midnight', tag: 'u' }, { k: 'R', name: 'Alarm', tag: 'x' }] };
   const cd = { 1: 0, 2: 0, 3: 0, 4: 0, R: 0 }, MAX = { 1: 5, 2: 11, 3: 14, 4: 8, R: 9 }, acd = { 1: 0, 2: 0, 3: 0 }, AMAX = { 1: 6, 2: 10, 3: 6 };
@@ -6531,7 +6643,7 @@ function makeTockKit() {
       return;
     }
     if (cd[k] > 0) return;
-    if (k === '1') { const t = aimFace14(22); startMove('gears', 0.45, 'throw', { tg: t, fired: false }); cd[1] = MAX[1]; }
+    if (k === '1') { aimFace14(5); startMove('tick', 0.8, null, { hits: 0 }); cd[1] = 4; }
     if (k === '2') { const t = aimFace14(18); slowField(groundAt(t ? t.pos : player.pos.clone().addScaledVector(facingVec(), 6)), 4, 4); startMove('cast2', 0.4, 'cast', {}); cd[2] = MAX[2]; }
     if (k === '3') { if (rewind(false)) cd[3] = MAX[3]; }
     if (k === '4') { aimFace14(6); startMove('pend', 0.8, 'raise', { hit: false }); fxPendulum(player.pos.clone(), player.facing); netOnly('pendulum', [player.pos.clone(), player.facing]); cd[4] = MAX[4]; }
@@ -6550,7 +6662,17 @@ function makeTockKit() {
   }
   K.moveTick = (mv, dt) => {
     const f = facingVec();
-    if (mv.name === 'gears' && !mv.fired && mv.t >= 0.12) {
+    if (mv.name === 'tick') {
+      const marks = [0.08, 0.26, 0.48];
+      if (mv.hits < 3 && mv.t >= marks[mv.hits]) {
+        const i = mv.hits++, last3 = i === 2; playAnim(['m1a', 'm1b', 'm1d'][i], 1.5);
+        floatText(i === 1 ? 'TOCK' : 'TICK', handPos().add(new THREE.Vector3(0, 0.7, 0)), 'ink'); ring(handPos(), 0x7fd4ff, last3 ? 2.6 : 1.2);
+        for (const d of meleeTargets(3.0, 0.2)) {
+          hitDummy(d, { dmg: last3 ? 6 : 3, type: 'b', stun: 0.7, kb: f.clone().multiplyScalar(last3 ? 2 : 1), mats: [fxGold], spark: 0x7fd4ff, ringColor: 0x7fd4ff, label: last3 ? 'TICK-TOCK' : null, awk: 2.5 });
+          if (last3 && !d.dead) { freezeTarget(d, 0.9, 'TICK-TOCK', 'Frozen in time'); fxSlowField(d.pos.clone(), 1.4, 0.9); }
+        }
+      }
+    } else if (mv.name === 'gears' && !mv.fired && mv.t >= 0.12) {
       mv.fired = true; const t = mv.tg && !mv.tg.dead ? mv.tg : null; const base = aimDir14(t);
       for (const s2 of [-0.12, 0.12]) { const a = Math.atan2(base.x, base.z) + s2; throwGear(handPos(), new THREE.Vector3(Math.sin(a), 0, Math.cos(a)), null, 5); }
     } else if (mv.name === 'storm') {
@@ -6800,8 +6922,8 @@ function fxMate(tg) {
 }
 function makeRookKit() {
   const K = { id: 'rook', name: 'ROOK', sub: 'The Chess Knight', color: 0xeeeae0, accent: '#2a2930',
-    desc: 'Plays chess with your face. Pawn March sends a row of pawns, Knight Hop jumps in an L and stomps, Bishop Beam fires a cross of lasers, and Castle drops a tower he can swap places with. R puts you in Check: his next hit on you stuns and does extra damage.',
-    slots: [{ k: '1', name: 'Pawn March', tag: 'b' }, { k: '2', name: 'Knight Hop', tag: 'b' }, { k: '3', name: 'Bishop Beam', tag: 'x' }, { k: '4', name: 'Castle', tag: 'n' }, { k: 'R', name: 'Check', tag: 'n' }],
+    desc: 'Plays chess with your face. En Passant slips past you on a diagonal and cuts you from the side, Knight Hop jumps in an L and stomps, Bishop Beam fires a cross of lasers, and Castle drops a tower he can swap places with. R puts you in Check: his next hit on you stuns and does extra damage.',
+    slots: [{ k: '1', name: 'En Passant', tag: 'b' }, { k: '2', name: 'Knight Hop', tag: 'b' }, { k: '3', name: 'Bishop Beam', tag: 'x' }, { k: '4', name: 'Castle', tag: 'n' }, { k: 'R', name: 'Check', tag: 'n' }],
     awkName: 'CHECKMATE', awkLine: 'Your move.', awkColor: 0xeeeae0,
     awkSlots: [{ k: '1', name: "Queen's Wrath", tag: 'x' }, { k: '2', name: 'Knight Charge', tag: 'b' }, { k: '3', name: 'Promotion', tag: 'b' }, { k: '4', name: 'Checkmate', tag: 'u' }, { k: 'R', name: 'Check', tag: 'n' }] };
   const cd = { 1: 0, 2: 0, 3: 0, 4: 0, R: 0 }, MAX = { 1: 7, 2: 7, 3: 9, 4: 2, R: 10 }, acd = { 1: 0, 2: 0, 3: 0 }, AMAX = { 1: 8, 2: 8, 3: 8 };
@@ -6857,7 +6979,11 @@ function makeRookKit() {
       return;
     }
     if (cd[k] > 0) return;
-    if (k === '1') { aimFace14(14); startMove('march', 0.5, 'point', {}); pawnMarch(false); cd[1] = MAX[1]; }
+    if (k === '1') {
+      const t = aimFace14(8), F = facingVec(), S = new THREE.Vector3(F.z, 0, -F.x), side = Math.random() < 0.5 ? 1 : -1;
+      const to = t ? t.pos.clone().addScaledVector(F, 1.2).addScaledVector(S, side * 1.4) : player.pos.clone().addScaledVector(F, 4).addScaledVector(S, side * 2.5);
+      startMove('passant', 0.45, 'slash', { from: player.pos.clone(), to: groundAt(to), hitSet: new Set(), tg: t }); player.iframes = Math.max(player.iframes, 0.25); cd[1] = 4;
+    }
     if (k === '2') { const t = aimFace14(12); knightHop(t, 9); cd[2] = MAX[2]; }
     if (k === '3') { const t = aimFace14(16); startMove('bishop', 0.55, 'cast', {}); bishopBeam(Math.atan2(aimDir14(t).x, aimDir14(t).z)); cd[3] = MAX[3]; }
     if (k === '4') {
@@ -6889,7 +7015,20 @@ function makeRookKit() {
     letterbox(true); callout('CHECKMATE');
   }
   K.moveTick = (mv, dt) => {
-    if (mv.name === 'hop') {
+    if (mv.name === 'passant') {
+      const k = Math.min(1, mv.t / 0.2), p = mv.from.clone().lerp(mv.to, easeOut(k));
+      if (spotFree(p.x, p.y, p.z)) player.pos.copy(p);
+      if (Math.random() < 0.8) P({ tex: 'streak', color: 0xeeeae0, pos: player.pos.clone().add(new THREE.Vector3(0, 1.2, 0)), vel: mv.to.clone().sub(mv.from).setY(0).normalize().multiplyScalar(-6), life: 0.2, s0: 0.6, s1: 0.1, stretch: 1 });
+      for (const d of aliveDummies()) {
+        if (mv.hitSet.has(d) || k >= 1) continue;
+        if (d.pos.distanceTo(player.pos) < 1.9 && Math.abs(d.pos.y - player.pos.y) < 2.4) {
+          mv.hitSet.add(d); const side = d.pos.clone().sub(player.pos).setY(0).normalize();
+          slashArc(0xeeeae0, 1.2, 0.4, false, 1.1, player.pos, Math.atan2(side.x, side.z));
+          hitDummy(d, { dmg: 8, type: 'b', stun: 0.9, kb: new THREE.Vector3(side.x * 6, 3, side.z * 6), set: true, mats: [fxPaper], spark: 0xeeeae0, ringColor: 0xeeeae0, label: 'EN PASSANT', awk: 4 });
+        }
+      }
+      if (k >= 1 && !mv.turned) { mv.turned = true; if (mv.tg && !mv.tg.dead) faceToward(mv.tg.pos); }
+    } else if (mv.name === 'hop') {
       const k = Math.min(1, mv.t / 0.5), a = Math.min(1, k / 0.6), b = Math.max(0, (k - 0.6) / 0.4);
       const p = k < 0.6 ? mv.from.clone().lerp(mv.corner, a) : mv.corner.clone().lerp(mv.to, b); p.y = mv.from.y + (mv.to.y - mv.from.y) * k + Math.sin(k * Math.PI) * 3.2; player.pos.copy(p);
       if (mv.t0hop === undefined && k >= 0.6) { mv.t0hop = 1; playAnim('slam', 1.4); }
@@ -6927,7 +7066,7 @@ function makeRookKit() {
 }
 
 Object.assign(FXF, {
-  mirOn: fxMirOn, mirOff: fxMirOff, hall: fxHall,
+  mirOn: fxMirOn, mirOff: fxMirOff, hall: fxHall, mghost: vfxMirrorGhost, mpool: vfxMirrorPool, mflip: vfxFlipWave, mreverse: vfxReverse, mreflect: vfxReflection,
   slowField: fxSlowField, pendulum: fxPendulum, alarm: fxAlarm, midnight: fxMidnight,
   boomer: fxBoomer, sap: fxSap, trees: fxTrees, timberfall: fxTimberfall,
   pawns: (o, f, pr) => fxPawns(o, f, !!pr), bishop: fxBishop, towerOn: fxTowerOn, towerOff: fxTowerOff, check: fxCheck, board: fxBoard, mate: fxMate,
@@ -7311,7 +7450,7 @@ function frame(now) {
   animateFighter(freezeT > 0 ? dt : (gdt || dt * 0.1));
   updateFX(freezeT > 0 ? dt : (gdt || dt * 0.15));
   auraTick(dt);
-  duelTick(dt); teamTick();
+  duelTick(dt); teamTick(); screenFxTick();
   updateDrops(gdt || dt * 0.1); updateBlobs();
   hitLightT -= dt; hitLight.intensity = hitLightT > 0 ? hitLight.intensity * Math.exp(-14 * dt) : 0;
   blurStr = Math.max(0, blurStr - dt * 3.5); if (blurPass) { blurPass.enabled = blurStr > 0.02; blurPass.uniforms.uStr.value = blurStr; }
