@@ -213,7 +213,7 @@ body.touch .slot .t { font-size: 9.5px; }
 body.touch #toast { top: calc(76px + env(safe-area-inset-top, 0px)); }
 body.touch #combo { top: 24%; }
 
-#menu { display: none; flex-direction: column; gap: 6px; padding: 12px 14px 14px; pointer-events: auto; min-width: 190px; }
+#menu { display: none; flex-direction: column; gap: 6px; padding: 12px 14px 14px; pointer-events: auto; min-width: 190px; max-height: calc(100vh - 190px); max-height: calc(100dvh - 190px); overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 #menu.show { display: flex; }
 #menu .mtitle { font-family: var(--display); font-size: 14px; margin-bottom: 2px; }
 .mbtn { font: inherit; font-weight: 700; font-size: 14px; letter-spacing: .8px; text-transform: uppercase; text-align: left; cursor: pointer; border: 0; padding: 8px 10px; background: var(--paper-shade); color: var(--ink); }
@@ -237,9 +237,19 @@ body.bw #game { filter: grayscale(1) contrast(1.45) brightness(1.05); }
 #curL { left: 0; transform: translateX(-102%); } #curR { right: 0; transform: translateX(102%); }
 body.curtains #curL, body.curtains #curR { transform: translateX(0); }
 .chip.net { pointer-events: none; font-size: 12px; padding: 5px 9px; }
-.roomrow { display: flex; gap: 6px; margin-top: 6px; }
-.roomrow input { flex: 1; min-width: 0; font: inherit; font-size: 14px; padding: 6px 8px; border: 2px solid #3a2f25; border-radius: 6px; background: #fffaf0; color: #2a2118; text-transform: lowercase; }
-.roomhint { font-size: 11px; opacity: .8; margin-top: 4px; max-width: 230px; line-height: 1.3; }
+.srv { margin-top: 12px; color: #2a2118; }
+#menu .srv { margin-top: 8px; max-width: 250px; }
+.srvtabs { display: flex; gap: 0; border: 2px solid #2a2118; }
+.srvtab { flex: 1; font: inherit; font-weight: 800; font-size: 13px; letter-spacing: .8px; text-transform: uppercase; padding: 8px 6px; border: 0; background: #fffaf0; color: #2a2118; cursor: pointer; }
+.srvtab + .srvtab { border-left: 2px solid #2a2118; }
+.srvtab.on { background: #2a2118; color: #fffaf0; }
+.srvpriv { display: none; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.srv.priv .srvpriv { display: flex; }
+.srvmake, .srvgo { font: inherit; font-weight: 800; font-size: 13px; text-transform: uppercase; letter-spacing: .6px; padding: 7px 10px; border: 2px solid #2a2118; background: #f3d36b; color: #2a2118; cursor: pointer; }
+.srvjoin { display: flex; gap: 6px; flex: 1; min-width: 170px; }
+.srvcode { flex: 1; min-width: 0; font: inherit; font-size: 15px; padding: 6px 8px; border: 2px solid #2a2118; background: #fff; color: #2a2118; text-transform: lowercase; }
+.srvinfo { font-size: 12px; margin-top: 6px; line-height: 1.35; }
+.srvinfo b { font-size: 15px; letter-spacing: 1px; background: #f3d36b; padding: 0 5px; }
 .chip.net.on { background: #2f8a4c; border-color: #bff0cc; }
 .chip.net.wait { background: #9a7a1e; border-color: #f3dc9a; }
 .chip.net.off { opacity: .75; }
@@ -301,8 +311,11 @@ body.curtains #curL, body.curtains #curR { transform: translateX(0); }
       <button class="mbtn" id="chipDuel" type="button">1v1 Battle Dummy</button>
       <button class="mbtn" id="chipGfx" type="button">Graphics: High</button>
       <button class="mbtn only-desk" id="chipHelp" type="button">Controls (H)</button>
-      <div class="roomrow"><input id="roomIn" maxlength="20" placeholder="room code" autocomplete="off" spellcheck="false"><button class="mbtn" id="roomGo" type="button">Join room</button></div>
-      <div class="roomhint" id="roomHint">Room: main. Friends who type the same code end up together.</div>
+      <div class="srv" id="srvMenu">
+      <div class="srvtabs"><button type="button" class="srvtab" data-mode="public">Public server</button><button type="button" class="srvtab" data-mode="private">Private room</button></div>
+      <div class="srvpriv"><button type="button" class="srvmake">Make a room</button><div class="srvjoin"><input class="srvcode" maxlength="20" placeholder="friend's code" autocomplete="off" spellcheck="false"><button type="button" class="srvgo">Join</button></div></div>
+      <div class="srvinfo"></div>
+    </div>
     </div>
   </div>
   <div id="cross"></div>
@@ -343,7 +356,7 @@ body.curtains #curL, body.curtains #curR { transform: translateX(0); }
 <div id="overlay">
   <div class="card scrap">
     <h1>Windstep Village</h1>
-    <div class="build">Build 40 · Big bear hand + connection fixes · Pick your fighter</div>
+    <div class="build">Build 41 · Public server or private rooms · Pick your fighter</div>
     <div class="roster" id="roster">
       <button class="fcard sel" data-id="juno" type="button"><span class="sw juno"></span><span class="fn">Juno Marrow</span><span class="fs">Ink · Hard</span></button>
       <button class="fcard" data-id="pip" type="button"><span class="sw pip"></span><span class="fn">Pip Hollow</span><span class="fs">Thread · Medium</span></button>
@@ -361,6 +374,11 @@ body.curtains #curL, body.curtains #curR { transform: translateX(0); }
       <button class="fcard" data-id="patch" type="button"><span class="sw patch"></span><span class="fn">Patch</span><span class="fs">Ragdoll · Medium</span></button>
     </div>
     <label class="namefield" for="nameIn"><span>Your name</span><input id="nameIn" maxlength="14" autocomplete="off" spellcheck="false"></label>
+    <div class="srv" id="srvStart">
+      <div class="srvtabs"><button type="button" class="srvtab" data-mode="public">Public server</button><button type="button" class="srvtab" data-mode="private">Private room</button></div>
+      <div class="srvpriv"><button type="button" class="srvmake">Make a room</button><div class="srvjoin"><input class="srvcode" maxlength="20" placeholder="friend's code" autocomplete="off" spellcheck="false"><button type="button" class="srvgo">Join</button></div></div>
+      <div class="srvinfo"></div>
+    </div>
     <p class="fdesc" id="fdesc"></p>
     <ul class="only-desk">
       <li><b>WASD</b>Move</li>
@@ -4573,7 +4591,8 @@ setupFighter('juno');
 const qs = new URLSearchParams(location.search);
 // one shared room for the whole game, no matter which link people open it from
 // a room code lets friends play in their own private room; with no code everyone shares the main room
-let ROOM = (qs.get('room') || (() => { try { return localStorage.getItem('wsv-room'); } catch (err) { return null; } })() || 'main').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 20) || 'main';
+try { localStorage.removeItem('wsv-room'); } catch (err) { /* ok */ }
+let ROOM = (qs.get('room') || 'main').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 20) || 'main';
 const roomKey = () => (ROOM === 'main' ? 'fightingtest405-main' : 'fightingtest405-' + ROOM);
 function hashStr(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); }
 // the host spot for a room. If whoever holds it stops answering (a frozen tab, a sleeping phone, a bad network),
@@ -4652,7 +4671,7 @@ function joinAsClient() {
   const peer = new Peer(PEER_OPTS); NET.peer = peer; voiceAttach(peer);
   peer.on('open', (id) => {
     NET.myId = id; NET.isHost = false;
-    setNet('wait', 'Joining room ' + ROOM + '…');
+    setNet('wait', ROOM === 'main' ? 'Joining the public server…' : 'Joining private room ' + ROOM + '…');
     const conn = peer.connect(hostId(NET.slot), { reliable: true, serialization: 'json' });
     NET.hostConn = conn; setupConn(conn);
     // the host spot is taken but nobody answers: after two tries, everyone moves on to the next spot
@@ -4713,7 +4732,7 @@ window.addEventListener('pagehide', () => { try { netSend({ t: 'bye' }); } catch
 function netLabel() {
   if (!NET.on) return;
   const n = remotes.size + 1;
-  setNet('on', (NET.isHost ? 'Hosting' : 'Online') + ' · ' + n + (n === 1 ? ' player' : ' players') + (ROOM !== 'main' ? ' · room ' + ROOM : ''));
+  setNet('on', (ROOM === 'main' ? 'Public server' : 'Private room ' + ROOM) + ' · ' + n + (n === 1 ? ' player' : ' players'));
 }
 
 // ---- remote players ----
@@ -9730,20 +9749,43 @@ function frame(now) {
 requestAnimationFrame(frame);
 
 try { $('nameIn').value = myName; } catch (err) { /* ok */ }
+// Public server: everyone online plays together. Private room: only people with the same code.
+const SRV = { pickPriv: ROOM !== 'main' };
+const ROOM_WORDS = ['bear', 'yarn', 'moon', 'ink', 'duck', 'drum', 'storm', 'clock', 'mask', 'stitch', 'tide', 'ember'];
+function newRoomCode() { return ROOM_WORDS[Math.floor(Math.random() * ROOM_WORDS.length)] + '-' + Math.floor(100 + Math.random() * 900); }
+function updateServerUI() {
+  for (const box of document.querySelectorAll('.srv')) {
+    const priv = SRV.pickPriv || ROOM !== 'main';
+    box.classList.toggle('priv', priv);
+    box.querySelectorAll('.srvtab').forEach((b) => b.classList.toggle('on', (b.dataset.mode === 'private') === priv));
+    const info = box.querySelector('.srvinfo');
+    if (ROOM !== 'main') info.innerHTML = 'In private room <b>' + ROOM + '</b>. Friends pick Private room, type <b>' + ROOM + '</b> and press Join.';
+    else if (priv) info.textContent = 'Make a room and send your friends the code, or type a friend\'s code and press Join.';
+    else info.textContent = 'Public: you play with everyone who is online. No code needed.';
+  }
+}
 function switchRoom(code) {
-  ROOM = (code || 'main').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 20) || 'main';
-  try { localStorage.setItem('wsv-room', ROOM); } catch (err) { /* ok */ }
+  const next = (code || 'main').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 20) || 'main';
+  SRV.pickPriv = next !== 'main';
+  if (next === ROOM) { updateServerUI(); return; }
+  ROOM = next;
   try { const u = new URL(location.href); if (ROOM === 'main') u.searchParams.delete('room'); else u.searchParams.set('room', ROOM); history.replaceState(null, '', u); } catch (err) { /* ok */ }
-  $('roomHint').textContent = 'Room: ' + ROOM + '. Friends who type the same code end up together.';
+  updateServerUI();
+  if (!NET.peer && !NET.starting && !NET.on) return;   // not connected yet: PLAY connects to the chosen server
   try { netSend({ t: 'bye' }); } catch (err) { /* ok */ }
   for (const id of [...remotes.keys()]) removeRemote(id);
   NET.on = false; NET.slot = 0; NET.slotFails = 0; NET.retrying = false; NET.starting = false; cleanupPeer(); NET.peer = null;
-  netStart(); toast(ROOM === 'main' ? 'Back in the main room' : 'Joined room "' + ROOM + '". Tell your friends to type the same code.');
+  netStart(); toast(ROOM === 'main' ? 'Back on the public server' : 'In private room ' + ROOM + '. Send your friends the code.');
 }
-try { $('roomIn').value = ROOM === 'main' ? '' : ROOM; $('roomHint').textContent = 'Room: ' + ROOM + '. Friends who type the same code end up together.'; } catch (err) { /* ok */ }
-$('roomGo').addEventListener('click', (e) => { e.stopPropagation(); switchRoom($('roomIn').value.trim()); });
-$('roomIn').addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') switchRoom($('roomIn').value.trim()); });
-$('roomIn').addEventListener('click', (e) => e.stopPropagation());
+for (const box of document.querySelectorAll('.srv')) {
+  box.addEventListener('click', (e) => e.stopPropagation());
+  box.querySelectorAll('.srvtab').forEach((b) => b.addEventListener('click', () => { if (b.dataset.mode === 'public') switchRoom('main'); else { SRV.pickPriv = true; updateServerUI(); } }));
+  box.querySelector('.srvmake').addEventListener('click', () => switchRoom(newRoomCode()));
+  const inp = box.querySelector('.srvcode'), go = () => { const c = inp.value.trim(); if (c) { switchRoom(c); inp.value = ''; inp.blur(); } };
+  box.querySelector('.srvgo').addEventListener('click', go);
+  inp.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') go(); });
+}
+updateServerUI();
 $('chipPractice').addEventListener('click', (e) => { e.stopPropagation(); $('menu').classList.remove('show'); player.pos.set(-34, T3, -42); player.vel.set(0, 0, 0); player.facing = Math.PI; yaw = 0; toast('Practice corner. Use the menu to set the dummies to blocking or attacking'); e.currentTarget.blur(); });
 $('play').addEventListener('click', () => {
   const nm = ($('nameIn').value || '').trim().slice(0, 14);
