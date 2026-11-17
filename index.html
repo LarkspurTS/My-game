@@ -338,7 +338,7 @@ body.curtains #curL, body.curtains #curR { transform: translateX(0); }
 <div id="overlay">
   <div class="card scrap">
     <h1>Windstep Village</h1>
-    <div class="build">Build 31 · New Patchwork look · Pick your fighter</div>
+    <div class="build">Build 32 · Yarn Spider pet · Pick your fighter</div>
     <div class="roster" id="roster">
       <button class="fcard sel" data-id="juno" type="button"><span class="sw juno"></span><span class="fn">Juno Marrow</span><span class="fs">Ink · Hard</span></button>
       <button class="fcard" data-id="pip" type="button"><span class="sw pip"></span><span class="fn">Pip Hollow</span><span class="fs">Thread · Medium</span></button>
@@ -2644,7 +2644,7 @@ function moveInput() {
 }
 function tryDash() {
   const p = player;
-  if (!started || p.dead > 0 || p.hidden || p.seized > 0) return;
+  if (!started || p.dead > 0 || p.hidden || p.seized > 0 || p.rootT > 0) return;
   if (p.stun > 0) {
     if (p.evasiveCd > 0 || p.guardBreak > 0) return;
     p.stun = 0; p.evasiveCd = 20; p.iframes = 0.35;
@@ -4061,7 +4061,7 @@ function updatePlayer(dt) {
   }
   if (p.forcedT > 0) { p.forcedT -= dt; p.pos.lerp(p.forcedP, 0.6); p.vel.set(0, 0, 0); p.speedNow = 0; p.stun = Math.max(p.stun, 0.12); p.stun -= dt; return; }
   p.dashCd = Math.max(0, p.dashCd - dt); p.evasiveCd = Math.max(0, p.evasiveCd - dt);
-  p.endlag = Math.max(0, p.endlag - dt); p.stun = Math.max(0, p.stun - dt); p.iframes = Math.max(0, p.iframes - dt); if (p.slowT > 0) { p.slowT -= dt; if (Math.random() < 0.3) slowSpark(p.pos); }
+  p.endlag = Math.max(0, p.endlag - dt); p.stun = Math.max(0, p.stun - dt); p.iframes = Math.max(0, p.iframes - dt); if (p.rootT > 0) p.rootT -= dt; if (p.slowT > 0) { p.slowT -= dt; if (Math.random() < 0.3) slowSpark(p.pos); }
   p.guardBreak = Math.max(0, p.guardBreak - dt); p.landT = Math.max(0, p.landT - dt);
   p.jumpBuf -= dt; p.coyote = p.grounded ? 0.1 : p.coyote - dt;
   if (!blockHeld) p.guard = Math.min(100, p.guard + dt * 25);
@@ -4089,6 +4089,7 @@ function updatePlayer(dt) {
   } else {
     let speed = 9.5 * (kit.moveMul ? kit.moveMul() : 1);
     if (p.slowT > 0) speed *= 0.45;
+    if (p.rootT > 0) speed = 0;
     if (p.blocking) speed = 3.2;
     if (kit.channeling) speed = 2;
     if (attacking || p.move) speed *= 0.3;
@@ -4729,6 +4730,8 @@ function handleMsg(m) {
     flipMyScreen(m.dur);
   } else if (m.t === 'crack') {
     crackMyScreen(m.dur);
+  } else if (m.t === 'root') {
+    player.rootT = Math.max(player.rootT || 0, m.dur);
   } else if (m.t === 'slow') {
     player.slowT = Math.max(player.slowT || 0, m.dur);
   } else if (m.t === 'pos') {
@@ -8063,9 +8066,162 @@ function runYarnSpider(at, tg, onBite) {
     const sc = m.scale.x; if (sc > 0.05) tails.forEach((r, n) => { const off = new THREE.Vector3((n - 1) * 0.15, 0.4, -0.55).multiplyScalar(sc).applyAxisAngle(new THREE.Vector3(0, 1, 0), m.rotation.y); ropeStep(r, Math.min(dt, 0.033), m.position.clone().add(off), null, pos.y); r.mesh.visible = true; }); else tails.forEach((r) => { r.mesh.visible = false; });
   });
 }
+// ---- Yarn Spider pet: thrown anywhere, follows its owner, shoots a yarn web on command, leaps and bites on command ----
+// a ball of wound yarn: lots of separate strands crossing in different directions, with highlights, shadows and fuzz
+const WOUND_TEX = canvasTex(256, (g, S) => {
+  g.fillStyle = '#a92e27'; g.fillRect(0, 0, S, S);
+  const fams = [0.45, -0.7, 1.35, 2.3];
+  for (let n = 0; n < 260; n++) {
+    const a = fams[n % 4] + rv(0.18), cx = Math.random() * S, cy = Math.random() * S, L = S * (0.5 + Math.random() * 0.7), bend = rv(30);
+    const dx = Math.cos(a) * L / 2, dy = Math.sin(a) * L / 2, nx = -Math.sin(a) * bend, ny = Math.cos(a) * bend;
+    const path = (o) => { g.beginPath(); g.moveTo(cx - dx + o, cy - dy + o); g.quadraticCurveTo(cx + nx + o, cy + ny + o, cx + dx + o, cy + dy + o); };
+    g.lineCap = 'round';
+    g.strokeStyle = 'rgba(70,10,8,.55)'; g.lineWidth = 4.5; path(1.2); g.stroke();                 // shadow under the strand
+    g.strokeStyle = n % 3 ? '#c63a30' : '#b8322a'; g.lineWidth = 3.4; path(0); g.stroke();            // the strand
+    g.strokeStyle = 'rgba(255,170,150,.55)'; g.lineWidth = 1; path(-0.8); g.stroke();                // highlight
+    g.setLineDash([2, 4]); g.strokeStyle = 'rgba(90,15,10,.45)'; g.lineWidth = 3; path(0); g.stroke(); g.setLineDash([]); // the ply twist
+  }
+  for (let i = 0; i < 900; i++) { const x = Math.random() * S, y = Math.random() * S, a = Math.random() * 6.28; g.strokeStyle = 'rgba(255,190,170,.25)'; g.lineWidth = 0.6; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * 3, y + Math.sin(a) * 3); g.stroke(); } // fuzz
+});
+WOUND_TEX.wrapS = WOUND_TEX.wrapT = THREE.RepeatWrapping;
+const SPIDER_PETS = [], YARN_TRAPS = [];
+function makeSpiderPet(owner, from, at, local) {
+  const yarn = toon(0xffffff, { map: WOUND_TEX }), strand = toon(0xb8322a), strandD = toon(0x7e1e1a);
+  const g = new THREE.Group(), body = new THREE.Group(); g.add(body); scene.add(g);
+  const abd = new THREE.Mesh(new THREE.SphereGeometry(0.32, 20, 14), yarn); abd.scale.set(1, 0.82, 1.18); abd.position.set(0, 0, -0.26); body.add(abd);
+  const tho = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 12), yarn); tho.position.set(0, -0.02, 0.1); body.add(tho);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.13, 14, 10), yarn); head.position.set(0, 0, 0.27); body.add(head);
+  // loose strands wrapped over the ball in every direction
+  for (let i = 0; i < 12; i++) { const r = i < 8 ? 0.33 : 0.21, w = new THREE.Mesh(new THREE.TorusGeometry(r, 0.011, 4, 26), i % 2 ? strand : strandD); w.position.copy(i < 8 ? abd.position : tho.position); w.rotation.set(Math.random() * 3.1, Math.random() * 3.1, Math.random() * 3.1); w.scale.set(1, i < 8 ? 0.82 : 1, i < 8 ? 1.18 : 1); body.add(w); }
+  g.traverse((o) => { if (o.isMesh) { o.userData.noOutline = true; o.castShadow = true; } });
+  // legs: soft yarn ropes from the body to the feet, so they sag and hang instead of sticking out
+  const legs = [];
+  for (const sd of [-1, 1]) for (let i = 0; i < 4; i++) {
+    const r = makeRope(7, 0xa92e27, 0.024); r.mesh.material = yarn;
+    legs.push({ r, hip: new THREE.Vector3(sd * 0.13, -0.02, 0.14 - i * 0.1), rest: new THREE.Vector3(sd * (0.6 + (i === 1 || i === 2 ? 0.08 : 0)), 0, 0.42 - i * 0.28), foot: null, from: null, to: null, st: 1, sd, i });
+  }
+  const tails = [0, 1].map((n) => { const r = makeRope(7, 0xb8322a, 0.014); r.len = 0.5 + n * 0.25; return r; });
+  const pet = { g, body, legs, tails, owner, local, state: 'land', t: 0, pos: at.clone(), from: from.clone(), facing: owner && owner.facing || 0, life: 16, webbed: null, target: null, onBite: null, done: false };
+  g.position.copy(from); g.scale.setScalar(0.4);
+  SPIDER_PETS.push(pet); return pet;
+}
+function spiderWorld(P, v) { return v.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), P.facing).add(P.g.position); }
+function petShoot(P, tg, onHit) { if (!P || P.done || !tg || !tg.pos) return; P.state = 'shoot'; P.t = 0; P.target = tg; P.onHit = onHit; }
+function petLeap(P, tg, onBite) { if (!P || P.done || !tg || !tg.pos) return; P.state = 'leap'; P.t = 0; P.target = tg; P.onBite = onBite; P.leapFrom = P.pos.clone(); }
+function petUnravel(P) { if (!P || P.done || P.state === 'unravel') return; P.state = 'unravel'; P.t = 0; }
+// the web: yarn wound around the target and pinned to the ground with taut strands, like getting webbed to the floor
+function makeYarnTrap(tg, dur) {
+  if (!tg || !tg.pos) return;
+  const yarn = toon(0xffffff, { map: WOUND_TEX }), grp = new THREE.Group(); scene.add(grp);
+  for (let i = 0; i < 7; i++) { const w = new THREE.Mesh(new THREE.TorusGeometry(0.46 + (i % 2) * 0.06, 0.05, 6, 22), yarn); w.position.y = 0.35 + i * 0.22; w.rotation.set(Math.PI / 2 + rv(0.45), 0, rv(0.45)); w.userData.noOutline = true; grp.add(w); }
+  const base = tg.pos.clone(), gy = groundY(base.x, base.z, base.y + 1), ropes = [];
+  for (let i = 0; i < 7; i++) {
+    const a = i / 7 * PI2 + rv(0.3), r = 1.5 + Math.random() * 0.7, anchor = new THREE.Vector3(base.x + Math.cos(a) * r, gy + 0.03, base.z + Math.sin(a) * r);
+    const rp = makeRope(8, 0xb8322a, 0.03); rp.mesh.material = yarn; rp.len = 0;
+    const blob = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 6), yarn); blob.scale.y = 0.35; blob.position.copy(anchor); scene.add(blob);
+    ropes.push({ rp, anchor, blob, a, h: 0.5 + (i % 3) * 0.35 });
+  }
+  const T = { tg, grp, ropes, t: dur, max: dur }; YARN_TRAPS.push(T); return T;
+}
+function dropTrap(T) { scene.remove(T.grp); T.ropes.forEach((r) => { dropRope(r.rp); scene.remove(r.blob); }); for (let i = 0; i < 14; i++) P({ tex: 'streak', color: 0xc63a30, pos: T.grp.position.clone().add(new THREE.Vector3(rv(0.6), 0.4 + Math.random() * 1.4, rv(0.6))), vel: randDir(0.8).multiplyScalar(4), life: 0.45, s0: 0.35, s1: 0.05 }); }
+function spiderTick(dt) {
+  for (const T of YARN_TRAPS) {
+    T.t -= dt; const p = T.tg.pos; if (!p) { T.t = 0; continue; }
+    T.grp.position.copy(p); T.grp.scale.setScalar(Math.min(1, (T.max - T.t) * 6) + 0.01); T.grp.rotation.y += dt * 0.2;
+    for (const r of T.ropes) { const on = p.clone().add(new THREE.Vector3(Math.cos(r.a) * 0.42, r.h, Math.sin(r.a) * 0.42)); r.rp.len = on.distanceTo(r.anchor) * 1.04; ropeStep(r.rp, dt, on, r.anchor, r.anchor.y); }
+  }
+  for (let i = YARN_TRAPS.length - 1; i >= 0; i--) if (YARN_TRAPS[i].t <= 0 || YARN_TRAPS[i].tg.dead) { dropTrap(YARN_TRAPS[i]); YARN_TRAPS.splice(i, 1); }
+  for (const S of SPIDER_PETS) petTick(S, dt);
+  for (let i = SPIDER_PETS.length - 1; i >= 0; i--) if (SPIDER_PETS[i].done) SPIDER_PETS.splice(i, 1);
+}
+function petTick(S, dt) {
+  S.t += dt; S.life -= dt;
+  const own = S.owner, gy = (v) => groundY(v.x, v.z, v.y + 1.5);
+  let moving = false, ride = null, lift = 0;
+  if (!own || !own.pos || (own !== player && own.remote && !remotes.has(own.id))) petUnravel(S);
+  if (S.state === 'land') {                                                    // the yarn ball arcs to where it was thrown
+    const k = Math.min(1, S.t / 0.4), p = S.from.clone().lerp(S.pos, k); p.y += Math.sin(k * Math.PI) * 2.2; S.g.position.copy(p); S.g.rotation.x += dt * 14;
+    S.g.scale.setScalar(0.4);
+    if (k >= 1) { S.state = 'pop'; S.t = 0; S.g.rotation.x = 0; for (let i = 0; i < 10; i++) P({ tex: 'streak', color: 0xc63a30, pos: S.pos.clone().add(new THREE.Vector3(0, 0.3, 0)), vel: randDir(0.9).multiplyScalar(4), life: 0.4, s0: 0.3, s1: 0.05 }); }
+    S.legs.forEach((l) => { l.r.mesh.visible = false; }); S.tails.forEach((r) => { r.mesh.visible = false; });
+    return;
+  }
+  if (S.state === 'pop') { S.g.scale.setScalar(0.4 + 0.6 * easeOut(Math.min(1, S.t / 0.25))); if (S.t >= 0.25) { S.state = 'follow'; S.t = 0; } }
+  if (S.state === 'follow' || S.state === 'pop') {
+    if (S.life <= 0) petUnravel(S);
+    const of = own.facing || 0, want = own.pos.clone().add(new THREE.Vector3(Math.cos(of) * 1.4 - Math.sin(of) * 0.9, 0, -Math.sin(of) * 1.4 - Math.cos(of) * 0.9));
+    if (S.pos.distanceTo(want) > 25) S.pos.copy(want);
+    const v = want.clone().sub(S.pos).setY(0), d = v.length();
+    if (d > 0.35) { v.normalize(); S.pos.addScaledVector(v, Math.min(d, (d > 4 ? 13 : 8) * dt)); S.facing = turnTo(S.facing, Math.atan2(v.x, v.z), dt * 10); moving = true; }
+    else S.facing = turnTo(S.facing, of, dt * 5);
+    S.pos.y = gy(S.pos);
+  } else if (S.state === 'shoot') {                                            // rears up and fires a strand of yarn
+    const tg = S.target; if (tg && tg.pos) S.facing = turnTo(S.facing, Math.atan2(tg.pos.x - S.pos.x, tg.pos.z - S.pos.z), dt * 16);
+    S.body.rotation.x = -Math.min(1, S.t / 0.12) * 0.5;
+    if (!S.shot && S.t >= 0.12 && tg && tg.pos) {
+      S.shot = { r: makeRope(10, 0xb8322a, 0.022), t: 0 }; S.shot.r.mesh.material = toon(0xffffff, { map: WOUND_TEX });
+    }
+    if (S.shot && tg && tg.pos) {
+      S.shot.t += dt; const k = Math.min(1, S.shot.t / 0.18), a = spiderWorld(S, new THREE.Vector3(0, 0.05, -0.5)), b = a.clone().lerp(tg.pos.clone().add(new THREE.Vector3(0, 1.1, 0)), k);
+      S.shot.r.len = a.distanceTo(b) * 1.02; ropeStep(S.shot.r, dt, a, b, S.pos.y);
+      if (k >= 1 && !S.shot.hit) { S.shot.hit = true; if (S.onHit) S.onHit(tg); }
+      if (S.shot.t > 0.45) { dropRope(S.shot.r); S.shot = null; S.state = 'follow'; S.t = 0; S.body.rotation.x = 0; }
+    }
+    if (!tg || !tg.pos) { S.state = 'follow'; S.body.rotation.x = 0; }
+  } else if (S.state === 'leap') {                                             // jumps onto the target
+    const tg = S.target; if (!tg || !tg.pos || tg.dead) { petUnravel(S); } else {
+      const k = Math.min(1, S.t / 0.38), to = tg.pos.clone().add(new THREE.Vector3(0, 1.9, 0));
+      const p = S.leapFrom.clone().lerp(to, k); p.y += Math.sin(k * Math.PI) * 2.4; S.pos.copy(p); lift = 1;
+      S.facing = turnTo(S.facing, Math.atan2(to.x - S.leapFrom.x, to.z - S.leapFrom.z), dt * 20); S.body.rotation.x = -0.4 + k * 0.6;
+      if (k >= 1) { S.state = 'ride'; S.t = 0; addShake(0.2); }
+    }
+  } else if (S.state === 'ride') {                                             // crawls over them, then sinks its fangs in
+    const tg = S.target; if (!tg || !tg.pos) { petUnravel(S); } else {
+      ride = tg; const a = S.t * 3.2; S.pos.copy(tg.pos).add(new THREE.Vector3(Math.sin(a) * 0.3, 1.95 + Math.abs(Math.sin(S.t * 9)) * 0.06, Math.cos(a) * 0.3)); S.facing = a + Math.PI / 2; moving = true;
+      if (!S.bit && S.t >= 0.55) { S.bit = true; S.body.rotation.x = 0.6; floatText('BITE', tg.pos.clone().add(new THREE.Vector3(0, 3, 0)), 'big'); sparks(tg.pos.clone().add(new THREE.Vector3(0, 1.7, 0)), 12, 0x8cff5a, 1.3); flash(tg.pos.clone().add(new THREE.Vector3(0, 1.8, 0)), 0x8cff5a, 1.6); if (S.onBite) S.onBite(tg); }
+      if (S.bit) S.body.rotation.x = Math.max(0, 0.6 - (S.t - 0.55) * 3);
+      if (S.t >= 0.95) petUnravel(S);
+    }
+  }
+  if (S.state === 'unravel') {
+    const k = Math.min(1, S.t / 0.55); S.g.scale.setScalar(Math.max(0.01, 1 - k)); S.g.rotation.y += dt * 9;
+    if (Math.random() < 0.8) P({ tex: 'streak', color: 0xc63a30, pos: S.g.position.clone().add(new THREE.Vector3(0, 0.3, 0)), vel: randDir(0.8).multiplyScalar(3.5), life: 0.45, s0: 0.35, s1: 0.05 });
+    if (k >= 1) { S.done = true; scene.remove(S.g); S.legs.forEach((l) => dropRope(l.r)); S.tails.forEach(dropRope); if (S.shot) dropRope(S.shot.r); if (S.onGone) S.onGone(); return; }
+  }
+  if (S.state !== 'unravel' && S.state !== 'land') { S.g.position.copy(S.pos).add(new THREE.Vector3(0, 0.42, 0)); }
+  if (S.state !== 'unravel') S.g.rotation.y = S.facing;
+  // soft body jiggle
+  const jig = moving ? Math.sin(S.t * 18) : Math.sin(S.t * 3) * 0.4; S.body.position.y = jig * 0.02; S.body.rotation.z = jig * 0.05;
+  // feet step when they get left behind; the yarn ropes between hip and foot sag like loose thread
+  const sc = S.g.scale.x;
+  for (const l of S.legs) {
+    l.r.mesh.visible = sc > 0.05;
+    const hip = spiderWorld(S, l.hip.clone().multiplyScalar(sc).add(new THREE.Vector3(0, 0, 0))).add(new THREE.Vector3(0, S.body.position.y, 0));
+    let rest;
+    if (ride) { const a = S.t * 3.2 + l.i * 0.7 + (l.sd > 0 ? 0 : Math.PI); rest = ride.pos.clone().add(new THREE.Vector3(Math.sin(a) * 0.48, 1.3 + (l.i % 2) * 0.35, Math.cos(a) * 0.48)); }
+    else { rest = spiderWorld(S, l.rest.clone().multiplyScalar(sc)); rest.y = lift ? hip.y - 0.55 : gy(rest) + 0.02; }
+    if (!l.foot) { l.foot = rest.clone(); }
+    if (lift) l.foot.lerp(rest, Math.min(1, dt * 12));
+    else if (l.st >= 1 && l.foot.distanceTo(rest) > 0.42 && ((l.i + (l.sd > 0 ? 1 : 0)) % 2 === Math.floor(S.t * 7) % 2 || l.foot.distanceTo(rest) > 0.9)) { l.from = l.foot.clone(); l.to = rest.clone(); l.st = 0; }
+    if (l.st < 1) { l.st = Math.min(1, l.st + dt / 0.11); l.foot.lerpVectors(l.from, l.to, l.st); l.foot.y += Math.sin(l.st * Math.PI) * 0.22; }
+    l.r.len = hip.distanceTo(l.foot) * 1.28 + 0.05;
+    ropeStep(l.r, dt, hip, l.foot, (ride ? ride.pos.y : S.pos.y));
+  }
+  S.tails.forEach((r, n) => { r.mesh.visible = sc > 0.05; ropeStep(r, dt, spiderWorld(S, new THREE.Vector3((n - 0.5) * 0.14, 0.02, -0.6).multiplyScalar(sc)), null, S.pos.y); });
+}
+function turnTo(a, b, k) { let d = b - a; d = Math.atan2(Math.sin(d), Math.cos(d)); return a + d * Math.min(1, k); }
+// other players' spiders (visual copies)
+const ghostPetOf = (owner) => SPIDER_PETS.find((s) => !s.local && s.owner === owner && !s.done && s.state !== 'unravel');
+Object.assign(FXF, {
+  yspider: (owner, at) => { if (!owner) return; const old = ghostPetOf(owner); if (old) petUnravel(old); makeSpiderPet(owner, owner.pos.clone().add(new THREE.Vector3(0, 1.4, 0)), at, false); },
+  yweb: (owner, tg) => { const s = ghostPetOf(owner); if (s) petShoot(s, tg, (t) => makeYarnTrap(t, 3)); },
+  ybite: (owner, tg) => { const s = ghostPetOf(owner); if (s) petLeap(s, tg, null); },
+  yend: (owner) => petUnravel(ghostPetOf(owner)),
+});
+
 function makePatchKit() {
   const K = { id: 'patch', name: 'PATCH', sub: 'The Ragdoll Stitchling', color: PYARN, accent: '#c8443a',
-    desc: 'A stitched-up rag doll with a second life: the first KO just knocks his stuffing out, and he sews himself back together (that life lasts until he goes down again). R re-stitches him into a whole new body: Patchwork (balanced), Bulk (huge, slow, hits hard) or Threadbare (skinny and fast, throws yarn that becomes a spider: it spins a sticky web, then hunts down the nearest enemy and bites once for venom damage over time). Yarn Lasso ties someone up and drags them wherever you go; click to slam them (3 slams) before they break free.',
+    desc: 'A stitched-up rag doll with a second life: the first KO just knocks his stuffing out, and he sews himself back together (that life lasts until he goes down again). R re-stitches him into a whole new body: Patchwork (balanced), Bulk (huge, slow, hits hard) or Threadbare (skinny and fast). Threadbare throws a yarn spider that follows him: press 2 again and it webs someone to the ground, press 2 again and it leaps on them and bites for venom damage over time. Yarn Lasso ties someone up and drags them wherever you go; click to slam them (3 slams) before they break free.',
     slots: [], awkName: 'LOOSE THREADS', awkLine: 'Hold still. This will only sting.', awkColor: PYARN, awkSlots: [] };
   const SL = {
     plush: [{ k: '1', name: 'Stuffing Punches', tag: 'b' }, { k: '2', name: 'Yarn Lasso', tag: 'g' }, { k: '3', name: 'Stuffing Burst', tag: 'x' }, { k: '4', name: 'Needle Point', tag: 'b' }],
@@ -8082,7 +8238,7 @@ function makePatchKit() {
   function releaseTether(msg) { if (!tether) return; const t = tether; tether = null; if (t.d && !t.d.dead) { t.d.grabbed = 0; if (msg) floatText(msg, t.d.pos.clone().add(new THREE.Vector3(0, 2.8, 0)), 'ink'); } looseRopes.push({ r: t.rope, t: 0.6 }); }
   const looseRopes = [];
   function releaseHold() { if (!hold) return; scene.remove(hold.hand); if (hold.d && !hold.d.dead) hold.d.grabbed = 0; hold = null; }
-  K.reset = () => { for (const k in cd) cd[k] = 0; releaseTether(); releaseHold(); clearStrands(); revived = false; if (form !== 'plush') { form = 'plush'; swapBody(); } };
+  K.reset = () => { for (const k in cd) cd[k] = 0; releaseTether(); releaseHold(); clearStrands(); if (pet && !pet.done) petUnravel(pet); pet = null; revived = false; if (form !== 'plush') { form = 'plush'; swapBody(); } };
   K.slotsNow = () => (awakened ? SL[form].slice(0, 3).concat([{ k: '4', name: 'Final Stitch', tag: 'u' }, { k: 'R', name: 'Re-Stitch', tag: 'n' }]) : SL[form].concat([{ k: 'R', name: 'Re-Stitch', tag: 'n' }]));
   K.resLabel = () => PFORM_NAME[form] + (revived ? ' · 2nd life' : ' · 1 spare life');
   K.resPct = () => (revived ? 50 : 100);
@@ -8094,6 +8250,7 @@ function makePatchKit() {
   K.view = (k) => {
     if (k === 'R') return { name: 'Re-Stitch: ' + PFORM_NAME[NEXT[form]].toLowerCase(), tag: 'n', remain: cd.R, max: MAX.R };
     if (awakened && k === '4') return { name: 'Final Stitch', tag: 'u', remain: 0, max: 1, glow: true };
+    if (k === '2' && pet && !pet.done) return { name: pet.state === 'unravel' ? 'Unraveling…' : pet.webbed ? 'Spider: Leap + Bite' : 'Spider: Web Shot', tag: pet.webbed ? 'p' : 'n', remain: 0, max: 1, glow: pet.state === 'follow' };
     if (k === '2' && tether) return { name: 'SLAM! (' + (3 - tether.slams) + ' left)', tag: 'g', remain: 0, max: 1, glow: true };
     if (hold && (k === '1' || k === '2')) return { name: k === '1' ? 'Squeeze (' + (3 - hold.sq) + ')' : 'SMASH!', tag: 'g', remain: 0, max: 1, glow: true };
     const s = SL[form][+k - 1]; return { name: s.name, tag: s.tag, remain: cd[k], max: MAX[k] };
@@ -8107,6 +8264,7 @@ function makePatchKit() {
     setFace(rig, faceName()); makeStrands(); buildBar();
   }
   function restitch() {
+    dismissPet();
     releaseTether(); releaseHold();
     const at = player.pos.clone(); vfxRestitch(at); netOnly('prestitch', [at]);
     startMove('restitch', 0.75, 'raise', { lockPos: true, swapped: false });
@@ -8141,6 +8299,7 @@ function makePatchKit() {
   K.press = (k) => {
     if (tether && k === '2') { startSlam(); return; }
     if (hold && k === '2') { holdSmash(); return; }
+    if (k === '2' && pet && !pet.done && (pet.state === 'follow' || pet.state === 'pop')) { spiderCommand(); return; }
     if (hold && k === '1') { if (hold.sq < 3 && !hold.smash) { hold.sq++; hold.squeeze = 0.25; hitDummy(hold.d, { dmg: 4, type: 'g', stun: 1, mats: [fxPaper], spark: PYARN, label: 'SQUEEZE', awk: 3 }); addShake(0.2); vfxStuffing(hold.d.pos.clone().add(new THREE.Vector3(0, 1.2, 0)), 6, 3); } return; }
     if (busy() || player.blocking) return;
     if (k === 'R') { if (cd.R > 0) return; restitch(); return; }
@@ -8157,7 +8316,13 @@ function makePatchKit() {
     if (k === '2') {
       if (form === 'plush') { aimFace14(16); startMove('lasso', 0.5, 'throw', { fired: false }); }
       if (form === 'big') { aimFace14(7); const hand = makeBigHand(); scene.add(hand); hold = null; startMove('bighand', 0.75, 'point', { hand, caught: false }); }
-      if (form === 'thread') { const t = aimFace14(14); const at = groundAt(t ? t.pos : player.pos.clone().addScaledVector(f, 7)); startMove('web', 0.45, 'throw', { at, fired: false }); }
+      if (form === 'thread') {
+        if (pet && !pet.done) return;
+        const t = aim14(14), dir = shiftLock ? camForward() : t ? t.pos.clone().sub(player.pos).setY(0).normalize() : facingVec(); player.facing = Math.atan2(dir.x, dir.z);
+        const at = groundAt(player.pos.clone().addScaledVector(dir, 6.5)); startMove('throwsp', 0.35, 'throw', {});
+        pet = makeSpiderPet(player, handPos(), at, true); pet.onGone = () => { pet = null; cd[2] = MAX[2]; };
+        netOnly('yspider', [player, at]); return;
+      }
       cd[2] = MAX[2];
     }
     if (k === '3') {
@@ -8259,9 +8424,10 @@ function makePatchKit() {
     }
   };
   const webs = [], poisons = [];
+  let pet = null;
   K.update = (dt) => {
     for (const k in cd) cd[k] = Math.max(0, cd[k] - dt);
-    if (player.dead > 0) { releaseTether(); releaseHold(); }
+    if (player.dead > 0) { releaseTether(); releaseHold(); dismissPet(); }
     const floor = player.pos.y;
     // the lasso: drag the target wherever you go, slam on click
     if (tether) {
@@ -8326,8 +8492,29 @@ function makePatchKit() {
     for (const s of strands) { const a = s.anc.getWorldPosition(new THREE.Vector3()); if (s.anc === rig.neck) a.add(new THREE.Vector3(Math.sin(player.facing) * -0.22, 0.35, Math.cos(player.facing) * -0.22)); else a.y -= 0.08; ropeStep(s.r, dt, a, null, floor); }
     if (awakened && Math.random() < 0.3) P({ tex: 'glow', color: PYARN, pos: player.pos.clone().add(new THREE.Vector3(rv(1), 0.4 + Math.random() * 1.8, rv(1))), vel: new THREE.Vector3(0, 1.4, 0), life: 0.5, s0: 0.3, s1: 0.05 });
   };
+  function dismissPet() { if (pet && !pet.done) { petUnravel(pet); netOnly('yend', [player]); } }
+  function spiderCommand() {
+    if (!pet.webbed) {
+      const tg = aim14(14) || nearestDummy(pet.pos, 13); if (!tg) { toast('No one in range to web'); return; }
+      pet.webbed = tg; netOnly('yweb', [player, tg]);
+      petShoot(pet, tg, (t) => {
+        makeYarnTrap(t, 3);
+        hitDummy(t, { dmg: 3, type: 'n', stun: 1, mats: [fxThread], spark: 0xc63a30, label: 'WEBBED', awk: 3 });
+        if (t.remote) netSend({ t: 'root', to: t.id, dur: 3 }); else { t.rooted = Math.max(t.rooted || 0, 3); t.stun = Math.max(t.stun || 0, 1); }
+      });
+    } else {
+      const w = pet.webbed, tg = w && !w.dead && w.pos && w.pos.distanceTo(pet.pos) < 18 ? w : (aim14(14) || nearestDummy(pet.pos, 13));
+      if (!tg) { toast('No one in range to bite'); return; }
+      netOnly('ybite', [player, tg]);
+      petLeap(pet, tg, (d) => {
+        if (!d || d.dead) return;
+        hitDummy(d, { dmg: 4, type: 'p', stun: 0.6, otg: true, mats: [fxThread], spark: 0x8cff5a, ringColor: 0x8cff5a, label: 'VENOM BITE', awk: 3 });
+        const old = poisons.find((q) => q.d === d); if (old) old.left = 4; else poisons.push({ d, left: 4, tick: 0.5 });
+      });
+    }
+  }
   K.onRespawn = () => { revived = false; releaseTether(); releaseHold(); setFace(rig, faceName()); };
-  K.dbg = () => ({ tether, hold });
+  K.dbg = () => ({ tether, hold, pet });
   K.cancel = () => { if (player.move && player.move.name === 'needle' && player.move.nd) rig.handR.remove(player.move.nd); if (player.move && player.move.name === 'bighand' && !player.move.caught) scene.remove(player.move.hand); };
   K.awaken = () => {};
   K.unawaken = () => {};
@@ -9256,7 +9443,7 @@ function frame(now) {
   animateFighter(freezeT > 0 ? dt : (gdt || dt * 0.1));
   updateFX(freezeT > 0 ? dt : (gdt || dt * 0.15));
   auraTick(dt);
-  duelTick(dt); teamTick(); screenFxTick(); islandTick(dt); voiceTick(dt); ringTick();
+  duelTick(dt); teamTick(); screenFxTick(); islandTick(dt); voiceTick(dt); ringTick(); spiderTick(dt);
   updateDrops(gdt || dt * 0.1); updateBlobs();
   hitLightT -= dt; hitLight.intensity = hitLightT > 0 ? hitLight.intensity * Math.exp(-14 * dt) : 0;
   blurStr = Math.max(0, blurStr - dt * 3.5); if (blurPass) { blurPass.enabled = blurStr > 0.02; blurPass.uniforms.uStr.value = blurStr; }
