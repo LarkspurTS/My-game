@@ -8009,11 +8009,11 @@ function vfxFinalStitch(tg) {
   later(1.75, () => { vfxStuffing(c.clone().add(new THREE.Vector3(0, 1.4, 0)), 30, 10); flash(c.clone().add(new THREE.Vector3(0, 1.4, 0)), PYARN, 5); });
 }
 const SPIDER_TEX = canvasTex(128, (g, S) => {
-  g.fillStyle = '#e0141e'; g.fillRect(0, 0, S, S);
-  for (let y = -S; y < S * 2; y += 7) { g.strokeStyle = 'rgba(255,120,110,.5)'; g.lineWidth = 2; g.beginPath(); g.moveTo(0, y); g.lineTo(S, y + S * 0.35); g.stroke(); g.strokeStyle = 'rgba(110,0,8,.5)'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(0, y + 3.5); g.lineTo(S, y + 3.5 + S * 0.35); g.stroke(); }
+  g.fillStyle = '#c4302c'; g.fillRect(0, 0, S, S);
+  for (let y = -S; y < S * 2; y += 7) { g.strokeStyle = 'rgba(255,160,140,.45)'; g.lineWidth = 2; g.beginPath(); g.moveTo(0, y); g.lineTo(S, y + S * 0.35); g.stroke(); g.strokeStyle = 'rgba(110,0,8,.5)'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(0, y + 3.5); g.lineTo(S, y + 3.5 + S * 0.35); g.stroke(); }
 });
 function makeYarnSpider() {
-  const g = new THREE.Group(), yarn = toon(0xffffff, { map: SPIDER_TEX }), dark = toon(0xa8141a);
+  const g = new THREE.Group(), yarn = toon(0xffffff, { map: SPIDER_TEX }), dark = toon(0x8e2420);
   const abd = new THREE.Mesh(new THREE.SphereGeometry(0.32, 16, 12), yarn); abd.scale.set(1, 0.8, 1.2); abd.position.set(0, 0.45, -0.28); g.add(abd);
   for (let i = 0; i < 3; i++) { const w = new THREE.Mesh(new THREE.TorusGeometry(0.27 - i * 0.04, 0.025, 6, 18), dark); w.position.set(0, 0.45, -0.18 - i * 0.12); w.scale.set(1, 0.8, 1); g.add(w); }
   const tho = new THREE.Mesh(new THREE.SphereGeometry(0.2, 14, 10), yarn); tho.position.set(0, 0.42, 0.08); g.add(tho);
@@ -8036,7 +8036,7 @@ function makeYarnSpider() {
 // onBite is only passed on the thrower's screen; other players just see the show.
 function runYarnSpider(at, tg, onBite) {
   const sp = makeYarnSpider(), LIFE = 4.6, pos = at.clone(); let bit = -1, phaseFace = 0, walk = 0;
-  const tails = [0, 1, 2].map(() => { const r = makeRope(8, 0xe0141e, 0.016); r.len = 0.55 + Math.random() * 0.35; return r; });
+  const tails = [0, 1, 2].map(() => { const r = makeRope(8, 0xc4302c, 0.016); r.len = 0.55 + Math.random() * 0.35; return r; });
   later(LIFE, () => tails.forEach(dropRope));
   sp.position.copy(pos); sp.scale.setScalar(0.01);
   vfxWeb(at, 2.6); for (let i = 0; i < 10; i++) P({ tex: 'streak', color: PYARN, pos: at.clone().add(new THREE.Vector3(0, 0.4, 0)), vel: randDir(0.9).multiplyScalar(4), life: 0.4, s0: 0.3, s1: 0.05 });
