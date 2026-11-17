@@ -237,6 +237,9 @@ body.bw #game { filter: grayscale(1) contrast(1.45) brightness(1.05); }
 #curL { left: 0; transform: translateX(-102%); } #curR { right: 0; transform: translateX(102%); }
 body.curtains #curL, body.curtains #curR { transform: translateX(0); }
 .chip.net { pointer-events: none; font-size: 12px; padding: 5px 9px; }
+.roomrow { display: flex; gap: 6px; margin-top: 6px; }
+.roomrow input { flex: 1; min-width: 0; font: inherit; font-size: 14px; padding: 6px 8px; border: 2px solid #3a2f25; border-radius: 6px; background: #fffaf0; color: #2a2118; text-transform: lowercase; }
+.roomhint { font-size: 11px; opacity: .8; margin-top: 4px; max-width: 230px; line-height: 1.3; }
 .chip.net.on { background: #2f8a4c; border-color: #bff0cc; }
 .chip.net.wait { background: #9a7a1e; border-color: #f3dc9a; }
 .chip.net.off { opacity: .75; }
@@ -298,6 +301,8 @@ body.curtains #curL, body.curtains #curR { transform: translateX(0); }
       <button class="mbtn" id="chipDuel" type="button">1v1 Battle Dummy</button>
       <button class="mbtn" id="chipGfx" type="button">Graphics: High</button>
       <button class="mbtn only-desk" id="chipHelp" type="button">Controls (H)</button>
+      <div class="roomrow"><input id="roomIn" maxlength="20" placeholder="room code" autocomplete="off" spellcheck="false"><button class="mbtn" id="roomGo" type="button">Join room</button></div>
+      <div class="roomhint" id="roomHint">Room: main. Friends who type the same code end up together.</div>
     </div>
   </div>
   <div id="cross"></div>
@@ -4289,8 +4294,8 @@ function dummyPose(d, blocking) {
   }
   if (d.struggleT && clock - d.struggleT < 0.15) {
     const t = clock * 11 + (d.home ? d.home.x : 0), a = Math.sin(t), b = Math.sin(t * 1.3 + 1), c = Math.sin(t * 0.7 + 2);
-    return { shL: [-1.62 + a * 0.12, 0, -0.8 + b * 0.1], elL: [-0.5 - b * 0.3, 0, 0], shR: [-1.62 - b * 0.12, 0, 0.8 - a * 0.1], elR: [-0.5 - a * 0.3, 0, 0],
-      hipL: [-0.2 + a * 0.32, 0, -0.04], knL: [0.45 + b * 0.3, 0, 0], hipR: [-0.2 - a * 0.32, 0, 0.04], knR: [0.45 - b * 0.3, 0, 0], neck: [0.15 + c * 0.25, c * 0.4, 0], chest: [0, b * 0.15, a * 0.06], waist: [0, 0, 0] };
+    return { shL: [-1.95 + a * 0.15, 0, -0.95 + b * 0.1], elL: [-0.35 - b * 0.3, 0, 0], shR: [-1.95 - b * 0.15, 0, 0.95 - a * 0.1], elR: [-0.35 - a * 0.3, 0, 0],
+      hipL: [-0.2 + a * 0.32, 0, -0.04], knL: [0.45 + b * 0.3, 0, 0], hipR: [-0.2 - a * 0.32, 0, 0.04], knR: [0.45 - b * 0.3, 0, 0], neck: [0.15 + c * 0.25, c * 0.4, 0], chest: [0, 0, 0], waist: [0, 0, 0] };
   }
   if (d.grabbed > 0) return { shL: [-2.6, 0, -0.5], shR: [-2.4, 0, 0.6], elL: [-0.6, 0, 0], elR: [-0.4, 0, 0], hipL: [-0.6, 0, 0], knL: [1.2, 0, 0], hipR: [0.3, 0, 0], knR: [0.5, 0, 0], neck: [-0.4, 0, Math.sin(clock * 20) * 0.3] };
   if (d.blind > 0) return { shL: [-2.2, 0, 0.6], elL: [-2.0, 0, 0], shR: [-2.2, 0, -0.6], elR: [-2.0, 0, 0], neck: [0.3, 0, 0], body: [0, 0, Math.sin(clock * 6) * 0.08], knL: [0.3, 0, 0], knR: [0.3, 0, 0] };
@@ -4567,11 +4572,22 @@ setupFighter('juno');
 // ---------- Online multiplayer (peer-to-peer, one shared room per site) ----------
 const qs = new URLSearchParams(location.search);
 // one shared room for the whole game, no matter which link people open it from
-const ROOM = (qs.get('room') || 'fightingtest405-main').toLowerCase();
+// a room code lets friends play in their own private room; with no code everyone shares the main room
+let ROOM = (qs.get('room') || (() => { try { return localStorage.getItem('wsv-room'); } catch (err) { return null; } })() || 'main').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 20) || 'main';
+const roomKey = () => (ROOM === 'main' ? 'fightingtest405-main' : 'fightingtest405-' + ROOM);
 function hashStr(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36); }
-const HOST_ID = 'wsv-' + hashStr(ROOM) + '-host';
-const PEER_OPTS = qs.get('peerhost') ? { host: qs.get('peerhost'), port: +(qs.get('peerport') || 9000), path: qs.get('peerpath') || '/', secure: qs.get('peersecure') === '1', debug: 0 } : { debug: 0 };
-const NET = { on: false, peer: null, isHost: false, myId: null, conns: new Map(), hostConn: null, status: 'offline', sendT: 0, tries: 0 };
+// the host spot for a room. If whoever holds it stops answering (a frozen tab, a sleeping phone, a bad network),
+// everyone moves to the room's next spot together instead of knocking on a dead door forever
+const hostId = (slot) => 'wsv-' + hashStr(roomKey()) + '-host' + (slot ? slot : '');
+const NETV = 39;   // bump when messages change, so mismatched versions can tell people to refresh
+// extra STUN servers find a direct route more often; the TURN relay carries the game when no direct route exists
+const ICE = { iceServers: [
+  { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] },
+  { urls: 'stun:stun.cloudflare.com:3478' },
+  { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' },
+], sdpSemantics: 'unified-plan' };
+const PEER_OPTS = qs.get('peerhost') ? { host: qs.get('peerhost'), port: +(qs.get('peerport') || 9000), path: qs.get('peerpath') || '/', secure: qs.get('peersecure') === '1', debug: 0, config: ICE } : { debug: 0, config: ICE };
+const NET = { on: false, peer: null, isHost: false, myId: null, conns: new Map(), hostConn: null, status: 'offline', sendT: 0, tries: 0, slot: 0, slotFails: 0 };
 const remotes = new Map();
 const realNow = () => performance.now() / 1000;
 let NETCAP = true, CAPD = 0, myName = 'Player' + Math.floor(1000 + Math.random() * 9000);
@@ -4621,13 +4637,13 @@ function netStart() {
 function cleanupPeer() { try { if (NET.peer) NET.peer.destroy(); } catch (err) { /* ok */ } NET.peer = null; NET.conns.clear(); NET.hostConn = null; }
 function tryHost() {
   cleanupPeer();
-  let peer; try { peer = new Peer(HOST_ID, PEER_OPTS); } catch (err) { setNet('off', 'Offline · solo'); return; }
+  let peer; try { peer = new Peer(hostId(NET.slot), PEER_OPTS); } catch (err) { setNet('off', 'Offline · solo'); return; }
   NET.peer = peer; voiceAttach(peer);
-  peer.on('open', (id) => { NET.on = true; NET.isHost = true; NET.myId = id; NET.tries = 0; netLabel(); });
+  peer.on('open', (id) => { NET.on = true; NET.isHost = true; NET.myId = id; NET.tries = 0; NET.slotFails = 0; netLabel(); });
   peer.on('connection', (conn) => setupConn(conn));
   peer.on('error', (err) => {
     if (err.type === 'unavailable-id') { joinAsClient(); return; }
-    if (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error') { NET.on = false; setNet('off', 'Offline · retrying'); retryLater(); }
+    if (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error' || err.type === 'socket-closed') { NET.on = false; setNet('off', "Can't reach the game server · retrying"); retryLater(); }
   });
   peer.on('disconnected', () => { try { peer.reconnect(); } catch (err) { /* ok */ } });
 }
@@ -4636,11 +4652,18 @@ function joinAsClient() {
   const peer = new Peer(PEER_OPTS); NET.peer = peer; voiceAttach(peer);
   peer.on('open', (id) => {
     NET.myId = id; NET.isHost = false;
-    const conn = peer.connect(HOST_ID, { reliable: true, serialization: 'json' });
+    setNet('wait', 'Joining room ' + ROOM + '…');
+    const conn = peer.connect(hostId(NET.slot), { reliable: true, serialization: 'json' });
     NET.hostConn = conn; setupConn(conn);
-    setTimeout(() => { if (NET.hostConn === conn && !conn.open) retryLater(); }, 16000);
+    // the host spot is taken but nobody answers: after two tries, everyone moves on to the next spot
+    setTimeout(() => {
+      if (NET.hostConn !== conn || conn.open) return;
+      NET.slotFails++;
+      if (NET.slotFails >= 2) { NET.slotFails = 0; NET.slot = (NET.slot + 1) % 4; setNet('wait', 'Host not answering · trying the backup spot'); }
+      retryLater(true);
+    }, 9000);
   });
-  peer.on('error', (err) => { if (err.type === 'peer-unavailable') retryLater(true); else if (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error') retryLater(); });
+  peer.on('error', (err) => { if (err.type === 'peer-unavailable') retryLater(true); else if (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error' || err.type === 'socket-closed') { setNet('off', "Can't reach the game server · retrying"); retryLater(); } });
 }
 function retryLater(fast) {
   if (NET.retrying) return; NET.retrying = true;
@@ -4649,7 +4672,7 @@ function retryLater(fast) {
 }
 function setupConn(conn) {
   conn.on('open', () => {
-    NET.conns.set(conn.peer, conn); NET.on = true; NET.lastMsg = realNow(); netLabel();
+    NET.conns.set(conn.peer, conn); NET.on = true; NET.lastMsg = realNow(); NET.slotFails = 0; netLabel();
     sendState(true);
   });
   conn.on('data', (m) => onMsg(m, conn));
@@ -4672,6 +4695,7 @@ function netSend(m) {
 }
 function onMsg(m, conn) {
   if (!m || !m.t) return;
+  if (m.t === 'probe') { try { conn.send({ t: 'pinfo', n: Math.max(0, NET.conns.size - 1) }); } catch (err) { /* ok */ } return; }
   if (NET.isHost) {
     if (m.to && m.to !== NET.myId) { const c = NET.conns.get(m.to); if (c && c.open) c.send(m); return; }
     if (!m.to) broadcast(m, conn.peer);
@@ -4685,7 +4709,7 @@ window.addEventListener('pagehide', () => { try { netSend({ t: 'bye' }); } catch
 function netLabel() {
   if (!NET.on) return;
   const n = remotes.size + 1;
-  setNet('on', (NET.isHost ? 'Hosting' : 'Online') + ' · ' + n + (n === 1 ? ' player' : ' players'));
+  setNet('on', (NET.isHost ? 'Hosting' : 'Online') + ' · ' + n + (n === 1 ? ' player' : ' players') + (ROOM !== 'main' ? ' · room ' + ROOM : ''));
 }
 
 // ---- remote players ----
@@ -4715,6 +4739,8 @@ function setRemoteFighter(r, f) {
   r.fighter = f; r.rig = buildFighter(f); scene.add(r.rig.root); r.face = null;
 }
 function handleMsg(m) {
+  if (m.t === 'hb') return;
+  if (m.t === 'st' && m.v !== NETV && !NET.warnedV) { NET.warnedV = true; toast('Someone in the room is on a different version of the game. Everyone refresh the page so you can play together.'); }
   if (/^t(chal|yes|no|busy|team|ko|lose|leave)$/.test(m.t)) { teamMsg(m); return; }
   if (m.t === 'st') {
     const r = remotes.get(m.id) || makeRemote(m.id);
@@ -4772,7 +4798,7 @@ function handleMsg(m) {
     const victim = m.id === NET.myId ? myName : (remotes.get(m.id) || {}).name || 'Someone';
     const killer = m.by === NET.myId ? myName : (remotes.get(m.by) || {}).name || 'Someone';
     toast(killer + ' KO\'d ' + victim + '!');
-  } else if (m.t === 'bye') { removeRemote(m.id); if (!NET.isHost && m.id === HOST_ID) hostGone(); }
+  } else if (m.t === 'bye') { removeRemote(m.id); if (!NET.isHost && NET.hostConn && m.id === NET.hostConn.peer) hostGone(); }
 }
 // projectiles from other players (visual only)
 function ghostProj(vis, p, v, g, life, sz) {
@@ -4975,7 +5001,7 @@ function updateRemotes(dt) {
 }
 function sendState(force) {
   const p = player;
-  const st = { t: 'st', n: myName, f: kit.netFighter ? kit.netFighter() : fighterId, p: [+p.pos.x.toFixed(2), +p.pos.y.toFixed(2), +p.pos.z.toFixed(2)], r: +p.facing.toFixed(2),
+  const st = { t: 'st', v: NETV, n: myName, f: kit.netFighter ? kit.netFighter() : fighterId, p: [+p.pos.x.toFixed(2), +p.pos.y.toFixed(2), +p.pos.z.toFixed(2)], r: +p.facing.toFixed(2),
     hp: Math.round(p.hp), dead: p.dead > 0 ? 1 : 0, hid: p.hidden ? 1 : 0, sy: +(p.sinkY || 0).toFixed(2), blk: p.blocking ? 1 : 0, stn: p.stun > 0 ? 1 : 0,
     sp: +(p.speedNow || 0).toFixed(1), gr: p.grounded ? 1 : 0, vy: +p.vel.y.toFixed(1), dsh: p.dashT > 0 ? 1 : 0, ch: kit.channeling ? 1 : 0, aw: awakened ? 1 : 0, awc: kit.awkColor,
     lc: clock - p.lastCombat < 2.5 ? 1 : 0, sm: kit.netSummons ? kit.netSummons() : [] };
@@ -4987,9 +5013,29 @@ function sendState(force) {
   netSend(st);
   if (FXQ.length) { netSend({ t: 'fx', q: FXQ.splice(0, FXQ.length) }); }
 }
+setInterval(() => { if (NET.on && NET.myId) { try { netSend({ t: 'hb' }); } catch (err) { /* ok */ } } }, 1000);
+// a host with nobody connected looks at the room's other host spots; if a group is playing on one, it joins them
+// (so a frozen host's spot freeing up later can't split friends into two rooms)
+setInterval(() => {
+  if (!NET.on || !NET.isHost || !NET.peer || NET.conns.size > 0 || NET.probing) return;
+  NET.probing = true; const mine = NET.slot, peer = NET.peer; let done = false;
+  const finish = () => { if (!done) { done = true; NET.probing = false; } };
+  for (let sl = 0; sl < 4; sl++) {
+    if (sl === mine) continue;
+    let c; try { c = peer.connect(hostId(sl), { reliable: true, serialization: 'json' }); } catch (err) { continue; }
+    c.on('open', () => { try { c.send({ t: 'probe' }); } catch (err) { /* ok */ } });
+    c.on('data', (m) => {
+      if (!m || m.t !== 'pinfo') return; try { c.close(); } catch (err) { /* ok */ }
+      if (done || NET.peer !== peer || NET.conns.size > 0) return;
+      if (m.n > 0 || sl < mine) { finish(); NET.slot = sl; NET.slotFails = 0; NET.on = false; cleanupPeer(); joinAsClient(); }
+    });
+    setTimeout(() => { try { c.close(); } catch (err) { /* ok */ } }, 5000);
+  }
+  setTimeout(finish, 5500);
+}, 7000);
 function hostGone() { for (const id of [...remotes.keys()]) removeRemote(id); NET.on = false; setNet('wait', 'Host left · reconnecting'); retryLater(true); }
 function netTick(dt) {
-  if (NET.on && !NET.isHost && NET.hostConn && NET.lastMsg && realNow() - NET.lastMsg > 6) { NET.lastMsg = 0; hostGone(); return; }
+  if (NET.on && !NET.isHost && NET.hostConn && NET.lastMsg && realNow() - NET.lastMsg > 10) { NET.lastMsg = 0; hostGone(); return; }
   if (!NET.on || (!started && !(TEAM && TEAM.state !== 'off'))) { FXQ.length = 0; return; }
   NET.sendT -= dt;
   if (NET.sendT <= 0) { NET.sendT = 1 / 15; sendState(); }
@@ -8024,36 +8070,99 @@ function vfxWeb(at, r) {
   for (let k = 1; k <= 3; k++) { const t = new THREE.Mesh(new THREE.TorusGeometry(r * k / 3.2, 0.022, 4, 8), m); t.rotation.x = Math.PI / 2; t.position.y = 0.08; g.add(t); }
   g.position.copy(at); tempMesh(g, 3, (o, k) => { o.scale.setScalar(Math.min(1, k * 12) * (k > 0.9 ? (1 - k) * 10 : 1) + 0.01); });
 }
-function makeBigHand() {
-  // Bulk is a stuffed toy: his paw is a fat plush mitten that closes all the way around whoever it grabs
-  const g = new THREE.Group(), felt = toon(0xffffff, { map: FELT_TEX }), dark = SM(0x2a1c14);
-  const RING = 0.385, TUBE = 0.125, TALL = 1.5;                      // x1.8 in the world: the inside clears a 0.42 waist; TALL makes it a deep mitten, not a hoop
-  const lay = new THREE.Group(); lay.rotation.x = -Math.PI / 2; g.add(lay);
-  const spin = new THREE.Group(); spin.scale.z = TALL; lay.add(spin);
-  const band = new THREE.Mesh(new THREE.BufferGeometry(), felt), bandOL = new THREE.Mesh(new THREE.BufferGeometry(), OUTLINE);
-  band.castShadow = true; band.userData.noOutline = true; bandOL.userData.outline = true; spin.add(band, bandOL);
-  const ball = () => { const m = new THREE.Mesh(new THREE.SphereGeometry(TUBE, 14, 10), felt); m.castShadow = true; spin.add(m); return m; };
-  const tipA = ball(), tipB = ball();                                // round stuffed ends: the fingertips and the heel of the paw
-  const seams = []; for (let i = 0; i < 3; i++) { const sm = new THREE.Mesh(new THREE.TorusGeometry(TUBE * 1.03, 0.008, 4, 18), dark); sm.userData.noOutline = true; spin.add(sm); seams.push(sm); }
-  const thumb = new THREE.Group(); g.add(thumb);                    // stubby thumb on top, pointing up
-  const tb = new THREE.Mesh(boxGeo(0.17, 0.26, 0.17), felt); tb.position.y = 0.13; thumb.add(tb);
-  const tp = new THREE.Mesh(new THREE.SphereGeometry(0.088, 12, 10), felt); tp.position.y = 0.26; thumb.add(tp);
-  const tst = new THREE.Mesh(boxGeo(0.012, 0.2, 0.012), dark); tst.position.set(0, 0.14, 0.088); tst.userData.noOutline = true; thumb.add(tst);
-  const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.19, 0.1, 16), toon(PYARN)); cuff.rotation.x = Math.PI / 2; g.add(cuff);
-  g.userData = { band, bandOL, spin, seams, thumb, cuff, tipA, tipB, RING, TUBE, TALL, arc: -1, ring: -1 };
-  g.userData.setArc = (arc, ring) => {
-    const U = g.userData, R2 = ring || RING; if (Math.abs(U.arc - arc) < 0.005 && Math.abs(U.ring - R2) < 0.001) return; U.arc = arc; U.ring = R2;
-    U.band.geometry.dispose(); U.band.geometry = new THREE.TorusGeometry(R2, TUBE, 12, 44, arc);
-    U.bandOL.geometry.dispose(); U.bandOL.geometry = new THREE.TorusGeometry(R2, TUBE + 0.016, 8, 44, arc);
-    // spin-frame angle a sits at (cos a, 0, -sin a) in the paw; the arc is centered on the back (toward Bulk), open at the front
-    const s0 = Math.PI / 2 - arc / 2; U.spin.rotation.z = s0;
-    const at = (a) => new THREE.Vector3(Math.cos(a) * R2, Math.sin(a) * R2, 0);
-    U.tipA.position.copy(at(0)); U.tipB.position.copy(at(arc));
-    U.seams.forEach((sm, i) => { const a = arc * (0.16 + i * 0.09); sm.position.copy(at(a)); sm.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), new THREE.Vector3(-Math.sin(a), Math.cos(a), 0)); });
-    const ta = s0 + arc * 0.9; U.thumb.position.set(Math.cos(ta) * R2, TUBE * TALL * 0.75, -Math.sin(ta) * R2); U.thumb.rotation.y = ta;
-    U.cuff.position.set(0, 0, -(R2 + TUBE + 0.03));
+// ---- Bulk's hand: a fat plush bear hand. Back of the hand on their chest, three stubby fingers curl around one side
+// and across their back, the thumb wraps the other way on top. The fingers are shaped from the victim's actual body,
+// so they sit snug against it with no gap and nothing poking through.
+const PAW = { r: 0.12, levels: [0.97, 1.16, 1.34], thumbY: 1.35, thumbR: 0.11, GY: 1.16, m: 0.025, lens: [0.66, 0.74, 0.6], thumbLen: 0.33 };
+// a sparring dummy's torso, for when there is nobody in the hand yet
+const PAW_DEFAULT_HULL = (() => { const pts = [], w = 0.33, dp = 0.22, c = 0.08; for (let i = 0; i < 16; i++) { const a = i / 16 * PI2, cx = Math.sign(Math.cos(a)) * (w - c), cz = Math.sign(Math.sin(a)) * (dp - c); pts.push([cx + Math.cos(a) * c, cz + Math.sin(a) * c]); } return pts; })();
+function hull2(P) {
+  const p = P.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]); if (p.length < 3) return p;
+  const cr = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]), lo = [], up = [];
+  for (const q of p) { while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop(); lo.push(q); }
+  for (let i = p.length - 1; i >= 0; i--) { const q = p[i]; while (up.length >= 2 && cr(up[up.length - 2], up[up.length - 1], q) <= 0) up.pop(); up.push(q); }
+  return lo.slice(0, -1).concat(up.slice(0, -1));   // counter-clockwise
+}
+// the outline of their body at height y0..y1, in the hand's frame (x = Bulk's right, z = away from Bulk), around their feet
+function bodyHull(d, fa, y0, y1) {
+  const root = d && d.rig && d.rig.root; if (!root) return null;
+  const X = new THREE.Vector3(Math.cos(fa), 0, -Math.sin(fa)), Z = new THREE.Vector3(Math.sin(fa), 0, Math.cos(fa)), v = new THREE.Vector3(), pts = [];
+  const skip = new Set(); for (const k of ['shL', 'shR', 'hipL', 'hipR']) if (d.rig.j && d.rig.j[k]) skip.add(d.rig.j[k]);
+  root.updateMatrixWorld(true);
+  const walk = (o) => {
+    if (skip.has(o) || o.visible === false) return;
+    if (o.isMesh && !o.userData.outline && o.material !== OUTLINE && o.geometry && o.geometry.attributes.position) {
+      const pos = o.geometry.attributes.position, st = pos.count > 600 ? 3 : 1;
+      for (let i = 0; i < pos.count; i += st) { v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld).sub(d.pos); if (v.y >= y0 && v.y <= y1) pts.push([v.dot(X), v.dot(Z)]); }
+    }
+    for (const c of o.children) walk(c);
   };
-  outlineAll(g); g.userData.setArc(PI2 - 0.3); return g;
+  walk(root);
+  return pts.length >= 6 ? hull2(pts) : null;
+}
+// push a convex outline out by `off`, as a dense closed loop with its arc length
+function offsetLoop(H, off) {
+  const n = H.length, out = [];
+  for (let i = 0; i < n; i++) {
+    const a = H[(i + n - 1) % n], b = H[i], c = H[(i + 1) % n];
+    let a1 = Math.atan2(-(b[0] - a[0]), b[1] - a[1]), a2 = Math.atan2(-(c[0] - b[0]), c[1] - b[1]);
+    while (a2 < a1) a2 += PI2;
+    const steps = Math.max(1, Math.ceil((a2 - a1) / 0.18));
+    for (let k = 0; k <= steps; k++) { const t = a1 + (a2 - a1) * k / steps; out.push([b[0] + Math.cos(t) * off, b[1] + Math.sin(t) * off]); }
+  }
+  const L = [0]; for (let i = 1; i <= out.length; i++) { const p = out[i - 1], q = out[i % out.length]; L.push(L[i - 1] + Math.hypot(q[0] - p[0], q[1] - p[1])); }
+  let front = 0; for (let i = 1; i < out.length; i++) if (out[i][1] < out[front][1]) front = i;
+  return { pts: out, L, P: L[out.length], s0: L[front] };
+}
+function loopAt(lp, s) {
+  const P = lp.P; s = ((s % P) + P) % P; let lo = 0, hi = lp.pts.length; while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (lp.L[mid] <= s) lo = mid; else hi = mid; }
+  const p = lp.pts[lo], q = lp.pts[(lo + 1) % lp.pts.length], seg = lp.L[lo + 1] - lp.L[lo] || 1e-6, t = (s - lp.L[lo]) / seg;
+  return { x: p[0] + (q[0] - p[0]) * t, z: p[1] + (q[1] - p[1]) * t, tx: (q[0] - p[0]) / seg, tz: (q[1] - p[1]) / seg };
+}
+// one finger: follows the body for `curl` of its length, the rest sticks straight out (an open hand)
+function fingerPath(lp, start, dir, len, curl, y, rise) {
+  const pts = [], N = 26, held = len * curl; let end = null;
+  for (let i = 0; i <= N; i++) {
+    const t = len * i / N, u = i / N, yy = y + (rise || 0) * Math.max(0, (u - 0.55) / 0.45) ** 2;
+    if (t <= held) pts.push(new THREE.Vector3(...((q) => [q.x, yy, q.z])(loopAt(lp, start + dir * t))));
+    else { if (!end) end = loopAt(lp, start + dir * held); const e = t - held; pts.push(new THREE.Vector3(end.x + end.tx * dir * e, yy, end.z + end.tz * dir * e)); }
+  }
+  return pts;
+}
+function makeBigHand() {
+  const g = new THREE.Group(), inner = new THREE.Group(); inner.scale.setScalar(1 / 1.8); g.add(inner);   // built in world units
+  const felt = toon(0xffffff, { map: FELT_TEX }), dark = SM(0x2a1c14), pink = toon(0xe79a86, { map: FELT_TEX });
+  const mk = (geo, mat, ol) => { const m = new THREE.Mesh(geo, mat); m.userData.noOutline = !ol; m.castShadow = true; inner.add(m); return m; };
+  const digit = (r) => ({ r, tube: mk(new THREE.BufferGeometry(), felt), ol: mk(new THREE.BufferGeometry(), OUTLINE), tip: mk(new THREE.SphereGeometry(r, 14, 10), felt, true), seams: [0, 1].map(() => mk(new THREE.TorusGeometry(r * 1.03, 0.012, 4, 18), dark)), pts: [] });
+  const fingers = PAW.levels.map(() => digit(PAW.r)), thumb = digit(PAW.thumbR);
+  fingers.concat([thumb]).forEach((D) => { D.ol.userData.outline = true; D.ol.castShadow = false; });
+  // the back of the hand sits on their chest; the arm plugs into it
+  const back = mk(new THREE.SphereGeometry(1, 20, 14), felt, true);
+  const pad = mk(new THREE.SphereGeometry(1, 14, 10), pink); pad.visible = false;
+  const cuff = mk(new THREE.CylinderGeometry(0.2, 0.23, 0.12, 18), toon(PYARN), true); cuff.rotation.x = Math.PI / 2;
+  g.userData = { inner, fingers, thumb, back, cuff, key: '', hulls: null, hullT: -1, wristZ: -0.6 };
+  outlineAll(g);
+  g.userData.shape = (curl, squeeze) => {
+    const U = g.userData, key = curl.toFixed(2) + '|' + (squeeze || 0).toFixed(2) + '|' + U.hullT;
+    if (key === U.key) return; U.key = key;
+    const off = PAW.r + PAW.m - Math.min(1, squeeze || 0) * 0.02;
+    const hl = (i) => (U.hulls && U.hulls[i]) || PAW_DEFAULT_HULL, sq = Math.min(1, squeeze || 0) * 0.02;
+    const lps = PAW.levels.map((_, i) => offsetLoop(hl(i), off)), lp = lps[1], lpT = offsetLoop(hl(3), PAW.thumbR + PAW.m - sq);
+    const set = (D, pts) => {
+      D.pts = pts; const curve = new THREE.CatmullRomCurve3(pts);
+      D.tube.geometry.dispose(); D.tube.geometry = new THREE.TubeGeometry(curve, 48, D.r, 12, false);
+      D.ol.geometry.dispose(); D.ol.geometry = new THREE.TubeGeometry(curve, 48, D.r + 0.02, 8, false);
+      D.tip.position.copy(pts[pts.length - 1]);
+      D.seams.forEach((sm, i) => { const u = 0.4 + i * 0.22, p = curve.getPointAt(u), t = curve.getTangentAt(u); sm.position.copy(p); sm.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), t); });
+    };
+    U.fingers.forEach((D, i) => set(D, fingerPath(lps[i], lps[i].s0 - 0.12, 1, PAW.lens[i] * lps[i].P, curl, PAW.levels[i] - PAW.GY, 0)));
+    set(U.thumb, fingerPath(lpT, lpT.s0 + 0.02, -1, PAW.thumbLen * lpT.P, curl, PAW.thumbY - PAW.GY, 0.07));
+    const zf = loopAt(lp, lp.s0).z, midY = (PAW.levels[0] + PAW.levels[2]) / 2 - PAW.GY;
+    U.back.position.set(0.05, midY, zf - PAW.r * 0.55); U.back.scale.set(0.42, 0.42, 0.17);
+    U.cuff.position.set(0.05, midY, zf - PAW.r * 0.55 - 0.2); U.wristZ = zf - PAW.r * 0.55 - 0.32;
+  };
+  g.userData.shape(0.4, 0);
+  return g;
 }
 function vfxFinalStitch(tg) {
   if (!tg || !tg.pos) return;
@@ -8306,13 +8415,19 @@ const STRETCH_ARMS = [], GHOST_ARMS = new Map();
 // the hand is turned palm-up: fingers curl UP around whoever is standing in the palm
 function grabSpot(owner, forward, up) { const fa = owner.facing || 0; return owner.pos.clone().add(new THREE.Vector3(Math.sin(fa) * forward + Math.cos(fa) * 0.55, up, Math.cos(fa) * forward - Math.sin(fa) * 0.55)); }
 function smashUp(k) { return k < 0.4 ? (k / 0.4) * 0.8 : 0.8 - ((k - 0.4) / 0.6) * 2.75; }
-// the paw lies flat around them; it only turns with Bulk
 function orientGrab(h, fa) { h.rotation.set(0, fa, 0); }
-// open C while reaching, closed all the way around once caught; a squeeze shrinks it a touch (never into their body)
-function handPose(h) { h.userData.setArc(Math.PI * 1.15, 0.385); }
-function handGrip(h, squeeze) { h.userData.setArc(PI2 - 0.3, 0.385 - Math.min(1, squeeze || 0) * 0.012); }
-const PAW_DROP = 1.1;   // their waist sits right in the middle of the ring
-function gripPos(h) { return h.position.clone().add(new THREE.Vector3(0, -PAW_DROP, 0)); }
+// reaching: an open claw, fingers spread forward
+function handPose(h) { h.userData.shape(0.42, 0); }
+// holding: the fingers close all the way around them, re-fitted to their body every few frames
+function handGrip(h, squeeze, d, fa) {
+  const U = h.userData;
+  if (d && clock - (U.fitAt || -9) > 0.05) {
+    U.fitAt = clock; const ys = PAW.levels.concat([PAW.thumbY]), rs = [PAW.r, PAW.r, PAW.r, PAW.thumbR + 0.08];
+    const hs = ys.map((y, i) => bodyHull(d, fa, y - rs[i] - 0.03, y + rs[i] + 0.03)); if (hs.every((h) => h)) { U.hulls = hs; U.hullT = (U.hullT + 1) % 1e6; }
+  }
+  U.shape(1, Math.min(1, squeeze || 0));
+}
+function gripPos(h) { return h.position.clone().add(new THREE.Vector3(0, -PAW.GY, 0)); }
 function palmTop(h) { return 0.15 * h.scale.x; }
 function attachStretchArm(hand, ownerRig) {
   if (!ownerRig || !ownerRig.j) return;
@@ -8329,10 +8444,10 @@ function stretchArmTick() {
     const A = STRETCH_ARMS[n];
     if (!A.hand.parent || !A.rig.root.parent) { A.segs.forEach((m) => scene.remove(m)); A.rings.forEach((m) => scene.remove(m)); A.puffs.forEach((p) => scene.remove(p.m)); A.hidden.forEach((c) => { c.visible = true; }); STRETCH_ARMS.splice(n, 1); continue; }
     const sh = A.rig.j.shR.getWorldPosition(new THREE.Vector3()), hs = A.hand.scale.x, grow = Math.min(1, hs / 1.8);
-    const fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(A.hand.quaternion), wrist = A.hand.position.clone().addScaledVector(fwd, -0.55 * hs);
+    const fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(A.hand.quaternion), wrist = A.hand.position.clone().addScaledVector(fwd, A.hand.userData.wristZ != null ? A.hand.userData.wristZ * hs / 1.8 : -0.55 * hs);
     const ctrl = sh.clone().lerp(wrist, 0.5).add(new THREE.Vector3(0, 0.12 + sh.distanceTo(wrist) * 0.04, 0));
     const at = (u) => { const a = sh.clone().lerp(ctrl, u), b = ctrl.clone().lerp(wrist, u); return a.lerp(b, u); };
-    const rad = (u) => (0.16 + 0.52 * Math.pow(u, 1.6) * grow) * (1 + 0.09 * Math.sin(clock * 11 - u * 9)) * (1 - 0.55 * grow * Math.max(0, Math.min(1, (u - 0.8) / 0.2)));   // swells toward the paw, then necks into the cuff   // swells toward the hand, stuffing pulsing through it
+    const rad = (u) => (0.16 + 0.36 * Math.pow(u, 1.6) * grow) * (1 + 0.09 * Math.sin(clock * 11 - u * 9)) * (1 - 0.38 * grow * Math.max(0, Math.min(1, (u - 0.8) / 0.2)));   // swells toward the paw, then necks into the cuff   // swells toward the hand, stuffing pulsing through it
     const N = A.segs.length, len = sh.distanceTo(wrist) / (N - 1);
     for (let i = 0; i < N; i++) { const u = i / (N - 1), p = at(u), q = at(Math.min(1, u + 0.05)), r = rad(u), m = A.segs[i]; m.position.copy(p); m.lookAt(q.equals(p) ? p.clone().add(fwd) : q); m.scale.set(r, r, Math.max(r, len * 0.75)); }
     A.rings.forEach((m, i) => { const u = 0.28 + i * 0.25, p = at(u); m.position.copy(p); m.lookAt(at(Math.min(1, u + 0.05))); m.scale.setScalar(rad(u) * 1.02); });
@@ -8617,12 +8732,12 @@ function makePatchKit() {
       const H = hold, d = H.d, f = facingVec(); H.t -= dt;
       const base = grabSpot(player, 2.6, 3.1);
       if (H.smash) {
-        H.smash.t += dt; const k = Math.min(1, H.smash.t / 0.35); const p = base.clone().add(new THREE.Vector3(0, smashUp(k), 0)); H.hand.position.copy(p); orientGrab(H.hand, player.facing, 0); handGrip(H.hand, 1); H.hand.scale.setScalar(1.8);
+        H.smash.t += dt; const k = Math.min(1, H.smash.t / 0.35); const p = base.clone().add(new THREE.Vector3(0, smashUp(k), 0)); H.hand.position.copy(p); orientGrab(H.hand, player.facing, 0); handGrip(H.hand, 1, d, player.facing); H.hand.scale.setScalar(1.8);
         d.pos.copy(gripPos(H.hand, player.facing)); d.struggleT = clock; d.holdFace = player.facing + Math.PI; d.vel.set(0, 0, 0);
         if (k >= 1) { const land = groundAt(p); vfxSlamImpact(land); netOnly('pslam', [land.clone()]); addShake(1); impactFrame(0.1); hitDummy(d, { dmg: 12, type: 'g', otg: true, kb: f.clone().multiplyScalar(6).setY(3), set: true, down: 1.4, big: true, mats: [fxFluff], spark: 0xb8875a, ringColor: PYARN, label: 'SMASH', awk: 6 }); releaseHold(); }
       } else {
         H.squeeze = Math.max(0, H.squeeze - dt); H.age += dt; const lift = Math.min(1, H.age / 0.3);
-        H.hand.position.copy(base).add(new THREE.Vector3(0, (easeOut(Math.max(0, lift)) - 1) * 1.4, 0)); orientGrab(H.hand, player.facing, 0); H.hand.scale.setScalar(1.8); handGrip(H.hand, H.squeeze * 4);
+        H.hand.position.copy(base).add(new THREE.Vector3(0, (easeOut(Math.max(0, lift)) - 1) * 1.4, 0)); orientGrab(H.hand, player.facing, 0); H.hand.scale.setScalar(1.8); handGrip(H.hand, H.squeeze * 4, d, player.facing);
         d.pos.copy(gripPos(H.hand, player.facing)); d.struggleT = clock; d.holdFace = player.facing + Math.PI; d.vel.set(0, 0, 0); d.grabbed = Math.max(d.grabbed || 0, 0.4);
         if (H.t <= 0 || d.dead) { if (!d.dead) floatText('DROPPED', d.pos.clone().add(new THREE.Vector3(0, 3, 0)), 'ink'); releaseHold(); }
       }
@@ -9610,6 +9725,20 @@ function frame(now) {
 requestAnimationFrame(frame);
 
 try { $('nameIn').value = myName; } catch (err) { /* ok */ }
+function switchRoom(code) {
+  ROOM = (code || 'main').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 20) || 'main';
+  try { localStorage.setItem('wsv-room', ROOM); } catch (err) { /* ok */ }
+  try { const u = new URL(location.href); if (ROOM === 'main') u.searchParams.delete('room'); else u.searchParams.set('room', ROOM); history.replaceState(null, '', u); } catch (err) { /* ok */ }
+  $('roomHint').textContent = 'Room: ' + ROOM + '. Friends who type the same code end up together.';
+  try { netSend({ t: 'bye' }); } catch (err) { /* ok */ }
+  for (const id of [...remotes.keys()]) removeRemote(id);
+  NET.on = false; NET.slot = 0; NET.slotFails = 0; NET.retrying = false; NET.starting = false; cleanupPeer(); NET.peer = null;
+  netStart(); toast(ROOM === 'main' ? 'Back in the main room' : 'Joined room "' + ROOM + '". Tell your friends to type the same code.');
+}
+try { $('roomIn').value = ROOM === 'main' ? '' : ROOM; $('roomHint').textContent = 'Room: ' + ROOM + '. Friends who type the same code end up together.'; } catch (err) { /* ok */ }
+$('roomGo').addEventListener('click', (e) => { e.stopPropagation(); switchRoom($('roomIn').value.trim()); });
+$('roomIn').addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Enter') switchRoom($('roomIn').value.trim()); });
+$('roomIn').addEventListener('click', (e) => e.stopPropagation());
 $('chipPractice').addEventListener('click', (e) => { e.stopPropagation(); $('menu').classList.remove('show'); player.pos.set(-34, T3, -42); player.vel.set(0, 0, 0); player.facing = Math.PI; yaw = 0; toast('Practice corner. Use the menu to set the dummies to blocking or attacking'); e.currentTarget.blur(); });
 $('play').addEventListener('click', () => {
   const nm = ($('nameIn').value || '').trim().slice(0, 14);
