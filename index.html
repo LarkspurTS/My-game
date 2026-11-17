@@ -364,7 +364,7 @@ body.curtains #curL, body.curtains #curR { transform: translateX(0); }
 <div id="overlay">
   <div class="card scrap">
     <h1>Windstep Village</h1>
-    <div class="build">Build 46 · Patch ultimate: All of Me · Pick your fighter</div>
+    <div class="build">Build 47 · Heavier wrecking ball swing · Pick your fighter</div>
     <div class="roster" id="roster">
       <button class="fcard sel" data-id="juno" type="button"><span class="sw juno"></span><span class="fn">Juno Marrow</span><span class="fs">Ink · Hard</span></button>
       <button class="fcard" data-id="pip" type="button"><span class="sw pip"></span><span class="fn">Pip Hollow</span><span class="fs">Thread · Medium</span></button>
@@ -9024,11 +9024,16 @@ function bkMirrorClips() {
   const mir = (p) => { const o = {}; for (const k in p) { const v = p[k]; o[sw[k] || k] = Array.isArray(v) ? [v[0], -v[1], -v[2]] : v; } return o; };
   for (const n of Object.keys(CLIPS)) if (!/M$/.test(n)) { CLIPS[n + 'M'] = CLIPS[n].map((kf) => [kf[0], mir(kf[1])].concat(kf.slice(2))); if (ATTACK_CLIPS.has(n)) ATTACK_CLIPS.add(n + 'M'); }
   // hauling the wrecking ball round and heaving it through
+  // the rig's L side is his right. Drops it, drags it round to his right, hauls it up behind him (twisted, leaning back,
+  // legs braced wide), heaves it through to his left and gets yanked a step after it, then catches his balance
   CLIPS.bkheave = [
-    [0, { chest: [-0.15, 0, 0], shL: [-2.5, 0, -0.3], shR: [-2.4, 0, 0.3], elL: [-0.4, 0, 0], elR: [-0.5, 0, 0], lift: -0.05 }],
-    [0.42, { chest: [-0.35, -0.45, 0], waist: [0, -0.35, 0], shL: [-2.9, 0, -0.5], shR: [-2.6, 0, 0.2], elL: [-0.5, 0, 0], elR: [-0.7, 0, 0], knL: [0.25, 0, 0], knR: [0.35, 0, 0], lift: -0.08 }],
-    [0.62, { chest: [0.35, 0.55, 0], waist: [0, 0.45, 0], shL: [-1.1, 0, -0.5], shR: [-1.3, 0, 0.3], elL: [-0.15, 0, 0], elR: [-0.3, 0, 0], knL: [0.5, 0, 0], knR: [0.2, 0, 0], lift: -0.16 }],
-    [1.05, { chest: [0.2, 0.75, 0], waist: [0, 0.55, 0], shL: [-1.5, 0, -0.3], shR: [-1.6, 0, 0.2], elL: [-0.3, 0, 0], elR: [-0.4, 0, 0], lift: -0.1 }],
+    [0, { chest: [0.15, 0, 0], shL: [-0.9, 0, -0.1], shR: [-0.9, 0, 0.1], elL: [-0.45, 0, 0], elR: [-0.45, 0, 0], knL: [0.3, 0, 0], knR: [0.3, 0, 0], lift: -0.1 }],
+    [0.15, { chest: [0.4, -0.15, 0], shL: [-0.45, 0, -0.15], shR: [-0.5, 0, 0.05], elL: [-0.15, 0, 0], elR: [-0.2, 0, 0], hipL: [-0.15, 0, -0.15], hipR: [-0.15, 0, 0.15], knL: [0.55, 0, 0], knR: [0.5, 0, 0], lift: -0.2 }],
+    [0.32, { body: [0, -0.35, 0], chest: [0.05, -0.55, 0], waist: [0, -0.35, 0], shL: [-0.35, 0, -0.55], shR: [-0.1, 0, 0.25], elL: [-0.3, 0, 0], elR: [-0.5, 0, 0], hipL: [-0.1, 0, -0.28], hipR: [0.1, 0, 0.28], knL: [0.45, 0, 0], knR: [0.45, 0, 0], lift: -0.2 }],
+    [0.5, { body: [-0.1, -0.5, 0], chest: [-0.35, -0.85, 0], waist: [0, -0.5, 0], shL: [-0.6, 0, -0.75], shR: [-0.2, 0, 0.45], elL: [-0.55, 0, 0], elR: [-0.75, 0, 0], neck: [0.15, 0.4, 0], hipL: [-0.05, 0, -0.32], hipR: [0.15, 0, 0.32], knL: [0.5, 0, 0], knR: [0.55, 0, 0], lift: -0.22 }],
+    [0.66, { body: [0.15, 0.25, 0], chest: [0.35, 0.55, 0], waist: [0, 0.45, 0], shL: [-1.45, 0, -0.25], shR: [-1.55, 0, 0.1], elL: [-0.1, 0, 0], elR: [-0.1, 0, 0], neck: [-0.2, -0.3, 0], hipL: [-0.5, 0, -0.2], hipR: [0.25, 0, 0.2], knL: [0.65, 0, 0], knR: [0.25, 0, 0], lift: -0.25 }],
+    [0.86, { body: [0.25, 0.55, 0], chest: [0.4, 0.9, 0], waist: [0, 0.6, 0], shL: [-1.9, 0, -0.35], shR: [-1.75, 0, 0.45], elL: [-0.2, 0, 0], elR: [-0.3, 0, 0], neck: [-0.25, -0.5, 0], hipL: [-0.75, 0, -0.15], hipR: [0.45, 0, 0.2], knL: [0.85, 0, 0], knR: [0.15, 0, 0], lift: -0.2 }],
+    [1.15, { body: [0.1, 0.3, 0], chest: [0.2, 0.4, 0], waist: [0, 0.3, 0], shL: [-0.8, 0, -0.2], shR: [-0.8, 0, 0.2], elL: [-0.4, 0, 0], elR: [-0.4, 0, 0], knL: [0.35, 0, 0], knR: [0.3, 0, 0], lift: -0.1 }],
   ];
   ATTACK_CLIPS.add('bkheave');
 }
@@ -9359,42 +9364,47 @@ function bkCraneImpact(at, wall) { ring(at.clone(), BK_HAT, 5, true); vfxDustSla
 function bkWreckVis(owner, dbl) {
   const ball = new THREE.Mesh(new THREE.SphereGeometry(0.62, 18, 12), SM(0x2e3238)); ball.castShadow = true; outlineAll(ball);
   const chain = new THREE.Group(); scene.add(chain);
-  const links = []; for (let i = 0; i < 14; i++) { const l = new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.03, 5, 10), SM(0x6a6f78)); chain.add(l); links.push(l); }
-  const dur = dbl ? 1.6 : 1.15, fa0 = owner.facing || 0, L = 3.6;
-  const F = new THREE.Vector3(Math.sin(fa0), 0, Math.cos(fa0)), R = new THREE.Vector3(-Math.cos(fa0), 0, Math.sin(fa0)), U = new THREE.Vector3(0, 1, 0);
+  const links = []; for (let i = 0; i < 16; i++) { const l = new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.03, 5, 10), SM(0x6a6f78)); chain.add(l); links.push(l); }
+  const dur = dbl ? 1.6 : 1.15, fa0 = owner.facing || 0, Rg = bkRigOf(owner);
+  const F = new THREE.Vector3(Math.sin(fa0), 0, Math.cos(fa0)), R = new THREE.Vector3(-Math.cos(fa0), 0, Math.sin(fa0));
   const st = { ball, pos: new THREE.Vector3(), pivot: new THREE.Vector3(), swinging: false };
-  const sm = (x) => x * x * (3 - 2 * x);
-  tempMesh(ball, dur, (o, k) => {
-    if (!owner || !owner.pos) return; const t = k * dur;
-    let pivot, dirv;
+  const sm = (x) => Math.max(0, Math.min(1, x)) ** 2 * (3 - 2 * Math.max(0, Math.min(1, x))), lerp = (a, b, u) => a + (b - a) * u;
+  if (Rg && Rg.bHammer) Rg.bHammer.visible = false;   // the sledgehammer goes away: both hands are on the chain
+  const thud = (at, big) => { vfxDustSlam(at, big ? 0.7 : 0.45, 0); addShake(big ? 0.35 : 0.2); };
+  let thudA = false, thudB = false, prev = null;
+  tempMesh(ball, dur, (o, k, dt) => {
+    if (!owner || !owner.pos) return; const t = k * dur, c = owner.pos, gy = groundY(c.x, c.z, c.y + 1.5) + 0.62;
+    // his two hands hold the end of the chain
+    const hands = Rg && Rg.handL ? Rg.handL.getWorldPosition(new THREE.Vector3()).add(Rg.handR.getWorldPosition(new THREE.Vector3())).multiplyScalar(0.5) : c.clone().add(new THREE.Vector3(0, 1.5, 0));
+    let ph, r, h, slack;
     if (!dbl) {
-      // he holds the chain in his right hand. Lets the ball drop, hauls it round behind him,
-      // then heaves it through: it whips past low in front (fastest at the bottom of the arc), climbs
-      // up the far side, and swings back a little as gravity takes it
-      let ph;
-      if (t < 0.12) ph = 0.5;
-      else if (t < 0.5) ph = 0.5 + sm((t - 0.12) / 0.38) * 1.9;
-      else if (t < 0.9) ph = 0.25 + 2.15 * Math.cos(Math.PI * (t - 0.5) / 0.4);
-      else ph = -1.9 + sm(Math.min(1, (t - 0.9) / 0.25)) * 1.1;
+      if (t < 0.15) { const u = t / 0.15; ph = 0.6; r = lerp(0.9, 1.3, u); h = Math.max(gy, hands.y - 0.6 - 9 * u * u); slack = 0.3; }                       // lets it drop: thud
+      else if (t < 0.32) { const u = sm((t - 0.15) / 0.17); ph = lerp(0.6, 1.6, u); r = lerp(1.3, 2.4, u); h = gy; slack = 0.7; }                             // drags it round on the ground
+      else if (t < 0.5) { const u = sm((t - 0.32) / 0.18); ph = lerp(1.6, 2.5, u); r = lerp(2.4, 3.2, u); h = lerp(gy, c.y + 2.2, u * u); slack = 0.25; }       // speed builds, it lifts off behind him
+      else if (t < 0.9) { const u = (t - 0.5) / 0.4; ph = 0.3 + 2.2 * Math.cos(Math.PI * u); r = 3.4; h = c.y + 0.9 + 0.75 * (1 - Math.cos(ph)); slack = 0; }   // heaved through, fastest low in front
+      else { const u = (t - 0.9) / 0.25; ph = lerp(-1.9, -1.45, sm(u)); r = lerp(3.4, 2.7, u); h = Math.max(gy, c.y + 1.9 + 0.75 * (1 - Math.cos(-1.9)) - 0.75 - 30 * (t - 0.9) * (t - 0.9)); slack = 0.5; }   // and crashes back down
       st.swinging = t >= 0.5 && t < 0.9;
-      pivot = owner.pos.clone().addScaledVector(U, t < 0.5 ? 2.5 + (t / 0.5) * 0.4 : 2.1).addScaledVector(F, 0.25).addScaledVector(R, t < 0.5 ? 0.35 : 0);
-      const low = F.clone().multiplyScalar(0.91).addScaledVector(U, -0.41);
-      dirv = low.multiplyScalar(Math.cos(ph)).addScaledVector(R, Math.sin(ph)).addScaledVector(U, (1 - Math.cos(ph)) * 0.38).normalize();
+      if (t >= 0.15 && !thudA) { thudA = true; thud(o.position.clone(), false); }
+      if (t >= 0.95 && h <= gy + 0.01 && !thudB) { thudB = true; thud(o.position.clone(), true); }
     } else {
-      // awakened: a hammer-throw spin, twice round, the ball flying out low as he turns with it
+      // awakened: a hammer-throw spin, twice round, the ball flying out as he turns with it
       const u = Math.max(0, (t - 0.25) / 1.15), a = u * PI2 * 2 * sm(Math.min(1, u * 1.4)) / sm(1);
-      st.swinging = t >= 0.4 && t < 1.4; st.angle = fa0 + a;
-      pivot = owner.pos.clone().addScaledVector(U, 1.9);
-      const fa = fa0 + a; dirv = new THREE.Vector3(Math.sin(fa), -0.18 + (1 - Math.min(1, u * 3)) * -0.6, Math.cos(fa)).normalize();
+      ph = null; st.swinging = t >= 0.4 && t < 1.4; st.angle = fa0 + a;
+      const fa = fa0 + a; r = lerp(1.6, 4.0, Math.min(1, u * 2.5)); h = t < 0.25 ? gy : lerp(gy, c.y + 1.1, Math.min(1, u * 3)); slack = st.swinging ? 0 : 0.5;
+      o.position.set(c.x + Math.sin(fa) * r, Math.max(gy, h), c.z + Math.cos(fa) * r);
     }
-    o.position.copy(pivot).addScaledVector(dirv, L); const gy = groundY(o.position.x, o.position.z, o.position.y + 1) + 0.62; if (o.position.y < gy) o.position.y = gy;
-    st.pos.copy(o.position); st.pivot.copy(pivot);
-    // the chain: links strung from his hand to the ball, with a little sag when it's slack
-    const slack = st.swinging ? 0 : 0.35;
-    links.forEach((l, i) => { const u = (i + 0.5) / links.length; l.position.copy(pivot).lerp(o.position, u); l.position.y -= Math.sin(u * Math.PI) * slack; l.lookAt(o.position); l.rotateY(i % 2 ? Math.PI / 2 : 0); });
-    if (st.swinging && Math.random() < 0.5) P({ tex: 'streak', color: 0xdfe6ee, pos: o.position.clone(), vel: new THREE.Vector3(rv(1), 0, rv(1)), life: 0.15, s0: 0.5, s1: 0.1 });
-    if (st.swinging && o.position.y < gy + 0.4 && Math.random() < 0.6) { dust(o.position.clone().setY(gy - 0.55), 1, 2); P({ tex: 'square', add: false, color: 0x6b5a44, pos: o.position.clone().setY(gy - 0.5), vel: new THREE.Vector3(rv(3), 3 + Math.random() * 3, rv(3)), life: 0.5, s0: 0.07, s1: 0.05, grav: 22 }); }
-    if (k >= 1) scene.remove(chain);
+    if (ph != null) { const d = F.clone().multiplyScalar(Math.cos(ph)).addScaledVector(R, Math.sin(ph)); o.position.set(c.x + d.x * r, Math.max(gy, h), c.z + d.z * r); }
+    // it rolls/spins with how fast it's moving
+    if (prev) { const v = o.position.clone().sub(prev); o.rotation.x += v.length() * 1.6; o.rotation.z += v.x * 0.8; } prev = o.position.clone();
+    st.pos.copy(o.position); st.pivot.copy(hands);
+    // the chain: from his hands to the ball; taut while it's flying, sagging and lying on the ground when it's dragged
+    const mid = hands.clone().lerp(o.position, 0.5); mid.y -= slack * hands.distanceTo(o.position) * 0.5;
+    links.forEach((l, i) => { const u = (i + 0.5) / links.length, a = hands.clone().lerp(mid, u), b = mid.clone().lerp(o.position, u); l.position.copy(a.lerp(b, u)); l.position.y = Math.max(l.position.y, gy - 0.58); l.lookAt(o.position); l.rotateY(i % 2 ? Math.PI / 2 : 0); });
+    // scraping along the ground: grit and dust; whooshing past when it flies
+    if (o.position.y <= gy + 0.05 && st.speed !== 0 && Math.random() < 0.8) P({ tex: 'square', add: false, color: [0x6b5a44, 0x8a7a62, 0x4a3e30][Math.floor(Math.random() * 3)], pos: o.position.clone().setY(gy - 0.55), vel: new THREE.Vector3(rv(2.5), 2 + Math.random() * 3, rv(2.5)), life: 0.45, s0: 0.08, s1: 0.05, grav: 22 });
+    if (o.position.y <= gy + 0.05 && Math.random() < 0.4) P({ tex: 'smoke', add: false, color: 0xcdbb9c, pos: o.position.clone().setY(gy - 0.4), vel: new THREE.Vector3(rv(1), 0.6, rv(1)), life: 0.7, s0: 0.5, s1: 1.4, a: 0.45, drag: 2 });
+    if (st.swinging && Math.random() < 0.6) P({ tex: 'streak', color: 0xdfe6ee, pos: o.position.clone(), vel: new THREE.Vector3(rv(1), 0, rv(1)), life: 0.15, s0: 0.6, s1: 0.1 });
+    if (k >= 1) { scene.remove(chain); if (Rg && Rg.bHammer) Rg.bHammer.visible = true; }
   });
   return st;
 }
@@ -9514,7 +9524,7 @@ function makeBrickKit() {
       bkRamp(id, at, player.facing, player); netOnly('bramp', [id, at, player.facing, player]);
       startMove('build', 0.35, 'slamM', {}); cd[2] = MAX[2];
     }
-    if (k === '3') { aimAt(6, 0.3); startMove('wreck', awakened ? 1.6 : 1.15, awakened ? 'spin' : 'bkheave', { vis: bkWreckVis(player, awakened), hits: new Set(), dbl: awakened }); netOnly('bwreck', [player, awakened ? 1 : 0]); cd[3] = awakened ? 6 : MAX[3]; }
+    if (k === '3') { aimAt(6, 0.3); startMove('wreck', awakened ? 1.6 : 1.15, awakened ? 'spin' : 'bkheave', { a: true,  vis: bkWreckVis(player, awakened), hits: new Set(), dbl: awakened }); netOnly('bwreck', [player, awakened ? 1 : 0]); cd[3] = awakened ? 6 : MAX[3]; }
     if (k === '4') {
       aimAt(14, 0.26); const ff = facingVec(); let t = null, bd = 0.3;
       for (const d of aliveDummies()) { const v = d.pos.clone().sub(player.pos).setY(0), L = v.length(); if (L < 2 || L > 14 || Math.abs(d.pos.y - player.pos.y) > 4) continue; const a = Math.acos(Math.max(-1, Math.min(1, v.dot(ff) / L))); if (a < bd) { bd = a; t = d; } }
@@ -9583,7 +9593,9 @@ function makeBrickKit() {
       mv.done = true; const W = mv.W; if (!W || !BK_WALLS.includes(W)) return;
       bkPuntVis(W.id, mv.dir, W.steel); netOnly('bwpunt', [W.id, mv.dir, W.steel ? 1 : 0]); addShake(0.4); bricks = Math.min(6, bricks + (awakened ? 0 : 1));
     } else if (mv.name === 'wreck') {
-      const ball = mv.vis && mv.vis.pos; if (mv.dbl && mv.vis && mv.vis.angle != null && mv.vis.swinging) player.facing = mv.vis.angle; if (!ball || !mv.vis.swinging) return;
+      const ball = mv.vis && mv.vis.pos; if (mv.dbl && mv.vis && mv.vis.angle != null && mv.vis.swinging) player.facing = mv.vis.angle;
+      if (!mv.dbl && mv.t > 0.6 && mv.t < 0.85) { const pull = mv.vis.pos.clone().sub(player.pos).setY(0).normalize(); player.vel.x = pull.x * 3.2; player.vel.z = pull.z * 3.2; }   // the weight drags him a step
+      if (!ball || !mv.vis.swinging) return;
       // the ball and the chain both hit, so standing close to him doesn't dodge it
       const sx = ball.x - player.pos.x, sz = ball.z - player.pos.z, sl = sx * sx + sz * sz || 1;
       const swept = (d) => { const u = Math.max(0.25, Math.min(1, ((d.pos.x - player.pos.x) * sx + (d.pos.z - player.pos.z) * sz) / sl)); return Math.hypot(d.pos.x - player.pos.x - sx * u, d.pos.z - player.pos.z - sz * u) < (u > 0.85 ? 1.7 : 1.1); };
