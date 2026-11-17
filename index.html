@@ -174,6 +174,7 @@ body.shiftlock #cross { display: block; }
 .sw.echo { background: linear-gradient(180deg, #0d2a2e, #1f6f78); } .sw.echo::after { content: ""; position: absolute; left: 12%; right: 12%; top: 40%; height: 16px; background: repeating-linear-gradient(90deg, #3fe0d0 0 3px, transparent 3px 7px); clip-path: polygon(0 50%, 10% 20%, 20% 80%, 30% 0, 40% 100%, 50% 30%, 60% 70%, 70% 10%, 80% 90%, 90% 40%, 100% 50%, 100% 60%, 0 60%); box-shadow: 0 0 10px #3fe0d0; }
 .sw.tempest { background: linear-gradient(135deg, #ffd23a 0 33%, #6fb3ff 33% 55%, #bff5e6 55% 75%, #5a4a8e 75%); } .sw.tempest::after { content: ""; position: absolute; left: 50%; top: 18%; width: 34px; height: 18px; margin-left: -17px; background: #fff; border-radius: 12px; box-shadow: -8px 6px 0 -2px #fff, 9px 6px 0 -3px #fff; }
 .sw.patch { background: repeating-linear-gradient(45deg, #d8b48a 0 10px, #c9a47a 10px 20px); } .sw.patch::after { content: ""; position: absolute; left: 50%; top: 14%; width: 30px; height: 30px; margin-left: -15px; border-radius: 50%; background: #e85a5a; box-shadow: inset 0 0 0 4px #b8443a, 26px 4px 0 -6px #5a8ae8; border: 2px dashed #2a1c14; }
+.sw.brick { background: repeating-linear-gradient(0deg, #d8d0c4 0 2px, transparent 2px 12px), repeating-linear-gradient(90deg, #c8553d 0 22px, #d8d0c4 22px 24px); } .sw.brick::after { content: ""; position: absolute; left: 50%; top: 8%; width: 34px; height: 18px; margin-left: -17px; background: #ffc61a; border-radius: 17px 17px 3px 3px; box-shadow: 0 3px 0 #e0a010; }
 .sw.chef { background: repeating-linear-gradient(90deg, #f4f2ec 0 12px, #d8d4ca 12px 14px); } .sw.chef::after { content: ""; position: absolute; left: 50%; top: 8%; width: 30px; height: 30px; margin-left: -15px; border-radius: 50% 50% 10% 10%; background: #fff; box-shadow: 0 2px 0 #c0392b; }
 #vig { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, rgba(0,0,0,0) 58%, rgba(12,8,24,.32) 100%); }
 .sw.mask { background: #6b1420; } .sw.mask::after { content: ""; position: absolute; left: 50%; top: 10%; width: 34px; height: 38px; margin-left: -17px; background: #f2eee6; border-radius: 50% 50% 46% 46% / 40% 40% 60% 60%; }
@@ -356,7 +357,7 @@ body.curtains #curL, body.curtains #curR { transform: translateX(0); }
 <div id="overlay">
   <div class="card scrap">
     <h1>Windstep Village</h1>
-    <div class="build">Build 42 · Aimed Bulk grab, 2nd life 50 HP · Pick your fighter</div>
+    <div class="build">Build 43 · New fighter: Brick the Builder · Pick your fighter</div>
     <div class="roster" id="roster">
       <button class="fcard sel" data-id="juno" type="button"><span class="sw juno"></span><span class="fn">Juno Marrow</span><span class="fs">Ink · Hard</span></button>
       <button class="fcard" data-id="pip" type="button"><span class="sw pip"></span><span class="fn">Pip Hollow</span><span class="fs">Thread · Medium</span></button>
@@ -372,6 +373,7 @@ body.curtains #curL, body.curtains #curR { transform: translateX(0); }
       <button class="fcard" data-id="echo" type="button"><span class="sw echo"></span><span class="fn">Echo</span><span class="fs">Rhythm · Hard</span></button>
       <button class="fcard" data-id="tempest" type="button"><span class="sw tempest"></span><span class="fn">Tempest</span><span class="fs">Weather · Hard</span></button>
       <button class="fcard" data-id="patch" type="button"><span class="sw patch"></span><span class="fn">Patch</span><span class="fs">Ragdoll · Medium</span></button>
+      <button class="fcard" data-id="brick" type="button"><span class="sw brick"></span><span class="fn">Brick</span><span class="fs">Builder · Hard</span></button>
     </div>
     <label class="namefield" for="nameIn"><span>Your name</span><input id="nameIn" maxlength="14" autocomplete="off" spellcheck="false"></label>
     <div class="srv" id="srvStart">
@@ -1113,7 +1115,7 @@ function faceTexture(kind) {
   const cv = document.createElement('canvas'); cv.width = cv.height = 256;
   const g = cv.getContext('2d'); g.scale(2, 2); g.lineCap = 'round'; g.lineJoin = 'round';
   const ell = (x, y, rx, ry, c) => { g.fillStyle = c; g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); g.fill(); };
-  if (patchFace(kind, g, ell) || tempestFace(kind, g, ell) || echoFace(kind, g, ell) || drawFace14(kind, g, ell)) {
+  if (patchFace(kind, g, ell) || brickFace(kind, g, ell) || tempestFace(kind, g, ell) || echoFace(kind, g, ell) || drawFace14(kind, g, ell)) {
     /* new fighters */
   } else if (kind === 'juno') {
     ell(44, 62, 8, 12, '#15131c'); ell(84, 62, 8, 12, '#15131c');
@@ -1332,6 +1334,8 @@ function buildFighter(id) {
   let rig;
   if (/^patch/.test(id)) {
     rig = buildPatch(id);
+  } else if (id === 'brick') {
+    rig = buildBrick();
   } else if (id === 'tempest') {
     rig = buildTempest();
   } else if (id === 'echo') {
@@ -2611,6 +2615,7 @@ function busy() { return !!player.move || player.dashT > 0 || player.stun > 0 ||
 function spotFree(x, y, z) { for (const b of colliders) if (overlaps(b, x, y + 0.05, z, player.r, player.h)) return false; return true; }
 function meleeTargets(range, cone) {
   const f = facingVec(), out = [];
+  if (BK_WALLS.length) bkMeleeWalls(range, cone);
   for (const d of aliveDummies()) {
     const dx = d.pos.x - player.pos.x, dz = d.pos.z - player.pos.z, dist = Math.hypot(dx, dz);
     if (dist > range || d.pos.y - player.pos.y > 2.4 || d.pos.y - player.pos.y < -2.6) continue;
@@ -2646,10 +2651,10 @@ function doM1Hit() {
   else slashArc(col, 1.6, 1.3, false, 1.1);
   for (const d of meleeTargets(2.6, 0.25)) {
     if ((d.rag && d.ragGround) || (d.remote && d.rdg) || d.wake > 0) continue;
-    if (a.idx < 4) hitDummy(d, { dmg: 3, type: 'b', kb: f.clone().multiplyScalar(3), m1: true, spark: col });
-    else if (a.kind === 'upper') { if (hitDummy(d, { dmg: 4, type: 'b', heavy: true, kb: new THREE.Vector3(f.x * 2, 16, f.z * 2), set: true, down: 1.5, big: true, awk: 5, m1: true, fin: true, ringColor: col }) === 'hit') player.vel.y = 13.5; }
-    else if (a.kind === 'slam') hitDummy(d, { dmg: 4, type: 'b', heavy: true, kb: new THREE.Vector3(f.x * 3, -26, f.z * 3), set: true, down: 1.5, big: true, slam: true, awk: 5, m1: true, fin: true, ringColor: col });
-    else hitDummy(d, { dmg: 4, type: 'b', heavy: true, kb: new THREE.Vector3(f.x * 19, 5.5, f.z * 19), set: true, down: 1.5, big: true, awk: 5, m1: true, fin: true, ringColor: col });
+    if (a.idx < 4) hitDummy(d, { dmg: kit.m1Dmg ? kit.m1Dmg(a) : 3, type: 'b', kb: f.clone().multiplyScalar(3), m1: true, spark: col });
+    else if (a.kind === 'upper') { if (hitDummy(d, { dmg: kit.m1Dmg ? kit.m1Dmg(a) : 4, type: 'b', heavy: true, kb: new THREE.Vector3(f.x * 2, 16, f.z * 2), set: true, down: 1.5, big: true, awk: 5, m1: true, fin: true, ringColor: col }) === 'hit') player.vel.y = 13.5; }
+    else if (a.kind === 'slam') hitDummy(d, { dmg: kit.m1Dmg ? kit.m1Dmg(a) : 4, type: 'b', heavy: true, kb: new THREE.Vector3(f.x * 3, -26, f.z * 3), set: true, down: 1.5, big: true, slam: true, awk: 5, m1: true, fin: true, ringColor: col });
+    else hitDummy(d, { dmg: kit.m1Dmg ? kit.m1Dmg(a) : 4, type: 'b', heavy: true, kb: new THREE.Vector3(f.x * 19, 5.5, f.z * 19), set: true, down: 1.5, big: true, awk: 5, m1: true, fin: true, ringColor: col });
   }
 }
 
@@ -2718,7 +2723,7 @@ function updateProjectiles(dt) {
       if (d.pos.clone().add(new THREE.Vector3(0, 1.3, 0)).distanceTo(pr.pos) < pr.radius) { pr.onHit(d); done = !pr.pierce; if (pr.hitSet) pr.hitSet.add(d); break; }
     }
     if (!done) for (const b of colliders) {
-      if (pr.pos.x > b.x1 && pr.pos.x < b.x2 && pr.pos.z > b.z1 && pr.pos.z < b.z2 && pr.pos.y > b.y1 && pr.pos.y < b.y2) { if (pr.onWorld) pr.onWorld(pr.pos.clone(), pr.vel.clone()); done = true; break; }
+      if (pr.pos.x > b.x1 && pr.pos.x < b.x2 && pr.pos.z > b.z1 && pr.pos.z < b.z2 && pr.pos.y > b.y1 && pr.pos.y < b.y2) { if (b.wall && pr.owner !== 'ghost') bkWallDamage(b.wall, 5); if (pr.onWorld) pr.onWorld(pr.pos.clone(), pr.vel.clone()); done = true; break; }
     }
     if (!done && pr.life <= 0) { if (pr.onWorld && !pr.noExpire) pr.onWorld(pr.pos.clone(), pr.vel.clone()); done = true; }
     if (done) { scene.remove(pr.mesh); projectiles.splice(i, 1); }
@@ -6255,7 +6260,7 @@ function grabAssist(range, cone) {
 function aimFace14(range) { const t = aim14(range); if (t) faceToward(t.pos); else if (shiftLock) player.facing = yaw + Math.PI; return t; }
 function aimDir14(t) { return t ? t.pos.clone().sub(player.pos).setY(0).normalize() : (shiftLock ? camForward() : facingVec()); }
 function groundAt(v) { const p = v.clone(); p.y = groundY(p.x, p.z, p.y + 2); return p; }
-function bigHitAll(at, r, o, filter) { const out = []; for (const d of aliveDummies()) { if (filter && !filter(d)) continue; if (Math.hypot(d.pos.x - at.x, d.pos.z - at.z) < r && Math.abs(d.pos.y - at.y) < 3) { const dir = d.pos.clone().sub(at).setY(0); if (dir.lengthSq() < 0.01) dir.set(0, 0, 1); dir.normalize(); const kb = o.kbOut ? new THREE.Vector3(dir.x * o.kbOut, o.kbUp || 4, dir.z * o.kbOut) : o.kb; hitDummy(d, Object.assign({}, o, { kb, set: true })); out.push(d); } } return out; }
+function bigHitAll(at, r, o, filter) { const out = []; if (BK_WALLS.length && o) bkAreaWalls(at, r, o.dmg); for (const d of aliveDummies()) { if (filter && !filter(d)) continue; if (Math.hypot(d.pos.x - at.x, d.pos.z - at.z) < r && Math.abs(d.pos.y - at.y) < 3) { const dir = d.pos.clone().sub(at).setY(0); if (dir.lengthSq() < 0.01) dir.set(0, 0, 1); dir.normalize(); const kb = o.kbOut ? new THREE.Vector3(dir.x * o.kbOut, o.kbUp || 4, dir.z * o.kbOut) : o.kb; hitDummy(d, Object.assign({}, o, { kb, set: true })); out.push(d); } } return out; }
 function lineHits(from, dir, len, width, o, hitSet) {
   for (const d of aliveDummies()) {
     if (hitSet && hitSet.has(d)) continue;
@@ -8840,6 +8845,545 @@ function makePatchKit() {
 Object.assign(FXF, { pspider: (at, tg) => runYarnSpider(at, tg, null), prestitch: vfxRestitch, previve: (p) => vfxStuffing(p.clone().add(new THREE.Vector3(0, 1.3, 0)), 40, 11), pslam: vfxSlamImpact, pweb: vfxWeb, pstuff: (p) => vfxStuffing(p, 34, 11), pfinal: vfxFinalStitch });
 KITS.patch = makePatchKit;
 
+// =====================================================================
+// BRICK, the Builder: slow, heavy hammer; builds walls and ramps mid-fight
+// =====================================================================
+const BK_RED = 0xc8553d, BK_HAT = 0xffc61a, BK_VEST = 0xff7a1a, BK_STEEL = 0x8f9bab;
+const BK_BRICK_TEX = canvasTex(128, (g, S) => {
+  g.fillStyle = '#d8d0c4'; g.fillRect(0, 0, S, S);
+  const rows = 8, h = S / rows, w = S / 4;
+  for (let r = 0; r < rows; r++) for (let c = -1; c < 5; c++) {
+    const x = c * w + (r % 2 ? w / 2 : 0), shade = 180 + ((r * 7 + c * 13) % 5) * 9;
+    g.fillStyle = 'rgb(' + shade + ',' + Math.round(shade * 0.42) + ',' + Math.round(shade * 0.3) + ')'; g.fillRect(x + 2, r * h + 2, w - 4, h - 4);
+    g.fillStyle = 'rgba(0,0,0,.08)'; g.fillRect(x + 2, r * h + h - 6, w - 4, 4);
+  }
+});
+const BK_STEEL_TEX = canvasTex(128, (g, S) => {
+  g.fillStyle = '#9aa6b6'; g.fillRect(0, 0, S, S);
+  g.strokeStyle = '#6c7888'; g.lineWidth = 4; for (let i = 0; i <= 2; i++) { g.beginPath(); g.moveTo(0, i * S / 2); g.lineTo(S, i * S / 2); g.stroke(); g.beginPath(); g.moveTo(i * S / 2, 0); g.lineTo(i * S / 2, S); g.stroke(); }
+  g.fillStyle = '#5a6574'; for (let x = 8; x < S; x += 20) for (let y = 8; y < S; y += 64) { g.beginPath(); g.arc(x, y, 3, 0, PI2); g.fill(); }
+});
+function brickFace(kind, g, ell) {
+  if (!/^brick/.test(kind)) return false;
+  const angry = kind === 'brick-awk';
+  ell(46, 60, 5.5, 6, '#1d1610'); ell(82, 60, 5.5, 6, '#1d1610'); ell(47.5, 58, 1.8, 2, '#fff'); ell(83.5, 58, 1.8, 2, '#fff');
+  g.strokeStyle = '#4a2e18'; g.lineWidth = 6; g.beginPath();
+  if (angry) { g.moveTo(34, 46); g.lineTo(56, 53); g.moveTo(94, 46); g.lineTo(72, 53); } else { g.moveTo(35, 49); g.lineTo(56, 49); g.moveTo(72, 49); g.lineTo(93, 49); }
+  g.stroke();
+  // short boxed beard along the jaw, then a big push-broom mustache
+  g.fillStyle = '#5a3820'; g.beginPath(); g.moveTo(22, 70); g.quadraticCurveTo(24, 104, 64, 114); g.quadraticCurveTo(104, 104, 106, 70); g.lineTo(98, 72); g.quadraticCurveTo(92, 96, 64, 98); g.quadraticCurveTo(36, 96, 30, 72); g.closePath(); g.fill();
+  g.fillStyle = 'rgba(90,56,32,.35)'; for (let i = 0; i < 40; i++) { const a = Math.random() * Math.PI, r = 34 + Math.random() * 10; g.fillRect(64 + Math.cos(a) * r * 1.1, 78 + Math.sin(a) * r * 0.7, 1.5, 1.5); }
+  g.fillStyle = '#4a2e18'; g.beginPath(); g.moveTo(42, 82); g.quadraticCurveTo(64, 70, 86, 82); g.quadraticCurveTo(80, 90, 64, 85); g.quadraticCurveTo(48, 90, 42, 82); g.fill();
+  g.fillStyle = 'rgba(200,110,80,.45)'; ell(36, 72, 5, 3.5, 'rgba(200,110,80,.45)'); ell(92, 72, 5, 3.5, 'rgba(200,110,80,.45)');
+  return true;
+}
+function buildBrick() {
+  const rig = makeRig({ skin: 0xc98e64, upper: 0x4c5a68, armU: 0x4c5a68, armL: 0xc98e64, lower: 0x3a5a8a, hand: 0xc9a46a, leg: 0x3a5a8a, foot: 0x5a3a22, face: 'brick' });
+  rig.root.scale.setScalar(1.06); rig.chest.scale.set(1.12, 1, 1.1);
+  const hatM = SM(BK_HAT), vest = SM(BK_VEST), refl = new THREE.MeshBasicMaterial({ color: 0xe9eef2 }), brown = SM(0x5b3a1f), beardM = SM(0x4a2e18);
+  // hard hat with a brim and a ridge; an amber beacon on top that only lights up when he's awakened
+  { const dome = new THREE.Mesh(new THREE.SphereGeometry(0.3, 20, 12, 0, PI2, 0, Math.PI / 2), hatM); dome.position.y = 0.44; dome.scale.set(1, 0.85, 1.05); dome.castShadow = true; rig.neck.add(dome); }
+  { const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.04, 24), hatM); brim.position.set(0, 0.45, 0.04); rig.neck.add(brim); }
+  rig.neck.add(part(0.06, 0.06, 0.6, hatM, 0, 0.66, 0));
+  const beacon = new THREE.Group(); beacon.position.y = 0.72; rig.neck.add(beacon);
+  { const base = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.04, 12), SM(0x333333)); beacon.add(base);
+    const lamp = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.1, 12), new THREE.MeshBasicMaterial({ color: 0xffa21a })); lamp.position.y = 0.07; lamp.userData.noOutline = true; beacon.add(lamp);
+    const beam = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.08), new THREE.MeshBasicMaterial({ color: 0xffb84a, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending })); beam.position.y = 0.07; beam.userData.noOutline = true; beam.material.userData.lin = true; beacon.add(beam); rig.bBeam = beam; }
+  beacon.visible = false; rig.bBeacon = beacon;
+  // hi-vis vest worn open over a work shirt, with reflective stripes
+  for (const sd of [-1, 1]) {
+    rig.chest.add(part(0.27, 0.52, 0.4, vest, sd * 0.225, 0.25, 0));
+    rig.chest.add(part(0.28, 0.05, 0.41, refl, sd * 0.225, 0.14, 0)); rig.chest.add(part(0.28, 0.05, 0.41, refl, sd * 0.225, 0.32, 0));
+    rig.chest.add(part(0.09, 0.05, 0.4, refl, sd * 0.25, 0.505, 0));
+  }
+  // tool belt: pouches, a tape measure, a pencil
+  rig.waist.add(part(0.7, 0.1, 0.4, brown, 0, 0.0, 0));
+  rig.waist.add(part(0.16, 0.18, 0.14, brown, -0.27, -0.08, 0.15)); rig.waist.add(part(0.16, 0.18, 0.14, brown, 0.27, -0.08, 0.15));
+  rig.waist.add(part(0.11, 0.11, 0.07, SM(0xffd23a), 0.3, -0.02, -0.2));
+  rig.waist.add(part(0.03, 0.14, 0.03, SM(0xe0b040), -0.3, 0.08, 0.2));
+  // rolled sleeves, knee patches, chunky boot toes
+  for (const el of [rig.j.elL, rig.j.elR]) el.add(part(0.22, 0.07, 0.24, SM(0x4c5a68), 0, -0.02, 0));
+  for (const kn of [rig.j.knL, rig.j.knR]) { kn.add(part(0.2, 0.14, 0.04, SM(0x2c4466), 0, -0.05, 0.145)); kn.add(part(0.3, 0.1, 0.18, SM(0x4a2c18), 0, -0.45, 0.2)); }
+  // the sledgehammer
+  const grip = new THREE.Group(); grip.position.set(0, -0.06, 0.06); grip.rotation.x = -1.3; rig.handR.add(grip);
+  const hammer = new THREE.Group(); grip.add(hammer);
+  { const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.04, 1.15, 10), SM(0x9a6a3a)); handle.position.y = -0.38; hammer.add(handle);
+    const head = new THREE.Mesh(boxGeo(0.24, 0.24, 0.52), SM(0x4a4f58)); head.position.y = -0.95; head.castShadow = true; hammer.add(head);
+    const cracks = new THREE.Group(); cracks.position.y = -0.95; cracks.visible = false; hammer.add(cracks);
+    const glow = new THREE.MeshBasicMaterial({ color: 0xffa040 });
+    [[0.123, 0, 0.1, 0.25], [0.123, 0.05, -0.12, 0.2], [-0.123, -0.03, 0.05, 0.28], [-0.123, 0.06, -0.15, 0.16]].forEach(([x, y, z, l]) => { const c = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.02, l), glow); c.position.set(x, y, z); c.rotation.x = rv(0.6); c.userData.noOutline = true; cracks.add(c); });
+    rig.bCracks = cracks; }
+  rig.bHammer = hammer;
+  return rig;
+}
+
+// ---------------- walls ----------------
+const BK_WALLS = [], BK_RAMPS = [];
+let BK_SEQ = 0;
+const bkNewId = () => (NET.myId || 'me') + ':' + (++BK_SEQ);
+const bkOwnerIsMe = (o) => o === player;
+function bkWallBoxes(W) {
+  const out = [], X = new THREE.Vector3(Math.cos(W.fa), 0, -Math.sin(W.fa));
+  for (let i = 0; i < 7; i++) { const s = -1.35 + i * 0.45, cx = W.pos.x + X.x * s, cz = W.pos.z + X.z * s, h = 0.33; out.push({ x1: cx - h, y1: W.pos.y, z1: cz - h, x2: cx + h, y2: W.pos.y + 2.3, z2: cz + h, wall: W }); }
+  return out;
+}
+function bkSetBoxes(W) { for (const b of W.cols) { const i = colliders.indexOf(b); if (i >= 0) colliders.splice(i, 1); } W.cols = bkWallBoxes(W); for (const b of W.cols) colliders.push(b); }
+function bkWallMesh(steel) {
+  const g = new THREE.Group();
+  const mat = steel ? toon(0xffffff, { map: BK_STEEL_TEX }) : toon(0xffffff, { map: BK_BRICK_TEX });
+  const body = new THREE.Mesh(boxGeo(3.0, 2.3, 0.5), mat); body.position.y = 1.15; body.castShadow = true; body.receiveShadow = true; g.add(body);
+  const cap = new THREE.Mesh(boxGeo(3.1, 0.14, 0.58), SM(steel ? 0x5a6574 : 0x9a8a78)); cap.position.y = 2.33; g.add(cap);
+  outlineAll(g); return g;
+}
+// make a wall (every player's game makes the same one, so everybody bumps into it)
+function bkWall(id, pos, fa, steel, owner) {
+  const W = { id, pos: pos.clone(), fa, steel: !!steel, owner, hp: steel ? 80 : 40, t: steel ? 12 : 10, cols: [], mesh: bkWallMesh(steel), age: 0, hitT: new Map() };
+  W.mesh.position.copy(W.pos).add(new THREE.Vector3(0, -2.3, 0)); W.mesh.rotation.y = fa; scene.add(W.mesh);
+  bkSetBoxes(W); BK_WALLS.push(W);
+  dust(W.pos.clone().add(new THREE.Vector3(0, 0.2, 0)), 8, 4); crack(W.pos.clone(), 1.6);
+  return W;
+}
+function bkFind(id) { return BK_WALLS.find((w) => w.id === id); }
+function bkRemove(W, burst) {
+  const i = BK_WALLS.indexOf(W); if (i < 0) return; BK_WALLS.splice(i, 1);
+  for (const b of W.cols) { const k = colliders.indexOf(b); if (k >= 0) colliders.splice(k, 1); }
+  scene.remove(W.mesh);
+  if (burst) bkBrickBurst(W.pos.clone().add(new THREE.Vector3(0, 1.1, 0)), W.fa, W.steel, burst === 2);
+}
+function bkBrickBurst(at, fa, steel, big) {
+  dust(at.clone(), big ? 14 : 8, big ? 7 : 4); addShake(big ? 0.5 : 0.25);
+  const geo = boxGeo(0.34, 0.17, 0.17), mat = steel ? SM(BK_STEEL) : SM(BK_RED);
+  for (let i = 0; i < (big ? 16 : 10); i++) {
+    const m = new THREE.Mesh(geo, mat); m.castShadow = true; m.position.copy(at).add(new THREE.Vector3(rv(1.4), rv(1), rv(1.4)));
+    const v = new THREE.Vector3(rv(7), 3 + Math.random() * 6, rv(7)), spin = new THREE.Vector3(rv(12), rv(12), rv(12)), floor = groundY(at.x, at.z, at.y + 1);
+    tempMesh(m, 1.4, (o, k, dt) => { const d = dt || 1 / 60; v.y -= 22 * d; o.position.addScaledVector(v, d); if (o.position.y < floor + 0.09) { o.position.y = floor + 0.09; v.multiplyScalar(0.4); v.y = Math.abs(v.y) * 0.3; } o.rotation.x += spin.x * d; o.rotation.y += spin.y * d; if (k > 0.75) o.scale.setScalar((1 - k) * 4); });
+  }
+}
+// damage someone else's wall (your hits and shots chip away at it)
+function bkWallDamage(W, dmg) {
+  if (!W || bkOwnerIsMe(W.owner)) return;
+  const last = W.hitT.get('me') || -9; if (clock - last < 0.25) return; W.hitT.set('me', clock);
+  bkApplyWallDmg(W.id, dmg); netOnly('bwdmg', [W.id, dmg]);
+}
+function bkApplyWallDmg(id, dmg) {
+  const W = bkFind(id); if (!W) return; W.hp -= dmg;
+  sparks(W.pos.clone().add(new THREE.Vector3(0, 1.3, 0)), 4, W.steel ? 0xdfe6ee : 0xd88a6a, 0.8);
+  if (W.hp <= 0) bkRemove(W, 1);
+}
+function bkSegDist(W, x, z) { const X = Math.cos(W.fa), Z = -Math.sin(W.fa), dx = x - W.pos.x, dz = z - W.pos.z, s = Math.max(-1.5, Math.min(1.5, dx * X + dz * Z)); return Math.hypot(dx - X * s, dz - Z * s); }
+function bkMeleeWalls(range, cone) {
+  if (!BK_WALLS.length) return; const f = facingVec();
+  for (const W of BK_WALLS.slice()) { if (bkOwnerIsMe(W.owner)) continue; const dx = W.pos.x - player.pos.x, dz = W.pos.z - player.pos.z, d = bkSegDist(W, player.pos.x, player.pos.z); if (d > range * 0.8 || Math.abs(W.pos.y - player.pos.y) > 2.5) continue; const dist = Math.hypot(dx, dz) || 1; if (d > 1 && (dx * f.x + dz * f.z) / dist < cone - 0.4) continue; bkWallDamage(W, 6); }
+}
+function bkAreaWalls(at, r, dmg) {
+  for (const W of BK_WALLS.slice()) { if (bkOwnerIsMe(W.owner)) continue; if (bkSegDist(W, at.x, at.z) < r && Math.abs(W.pos.y - at.y) < 3) bkWallDamage(W, Math.max(5, dmg || 5)); }
+}
+// a wall sliding forward like a battering ram
+function bkPuntVis(id, dir, explode) {
+  const W = bkFind(id); if (!W) return null;
+  W.punt = { dir: dir.clone().setY(0).normalize(), t: 0, explode: !!explode, hits: new Set() }; W.t = 99;
+  dust(W.pos.clone().add(new THREE.Vector3(0, 0.3, 0)), 8, 5); addShake(0.3);
+  return W;
+}
+function bkWallTick(dt) {
+  for (const W of BK_WALLS.slice()) {
+    W.age += dt; W.t -= dt;
+    const rise = Math.min(1, W.age / 0.22); W.mesh.position.set(W.pos.x, W.pos.y - 2.3 * (1 - easeOut(rise)), W.pos.z);
+    if (W.punt) {
+      const pu = W.punt; pu.t += dt; const step = 16 * dt; W.pos.addScaledVector(pu.dir, step); W.pos.y = groundY(W.pos.x, W.pos.z, W.pos.y + 1.0);
+      bkSetBoxes(W); if (Math.random() < 0.6) dust(W.pos.clone().add(new THREE.Vector3(rv(1.2), 0.1, rv(1.2))), 1, 2);
+      if (bkOwnerIsMe(W.owner)) for (const d of aliveDummies()) if (!pu.hits.has(d) && bkSegDist(W, d.pos.x, d.pos.z) < 1.25 && Math.abs(d.pos.y - W.pos.y) < 2.4) {
+        pu.hits.add(d); hitDummy(d, { dmg: 10, type: 'b', heavy: true, stun: 0.9, kb: pu.dir.clone().multiplyScalar(15).setY(4), set: true, big: true, mats: [fxPaper], spark: BK_RED, ringColor: BK_HAT, label: 'BATTERING RAM', awk: 4, bkNoSplat: true });
+      }
+      if (pu.explode && pu.t >= 0.3) {   // steel wall: blows apart into a cone of bricks halfway there
+        const at = W.pos.clone(); bkRemove(W, 2); flash(at.clone().add(new THREE.Vector3(0, 1.2, 0)), BK_HAT, 4); ring(at.clone(), BK_VEST, 6, true);
+        if (bkOwnerIsMe(W.owner)) { for (const d of aliveDummies()) { const v = d.pos.clone().sub(at).setY(0), L = v.length(); if (L < 7.5 && L > 0.01 && v.dot(pu.dir) / L > 0.45 && !pu.hits.has(d)) hitDummy(d, { dmg: 9, type: 'x', stun: 1, kb: v.normalize().multiplyScalar(11).setY(5), set: true, big: true, mats: [fxPaper], spark: BK_RED, ringColor: BK_VEST, label: 'BRICK BLAST', awk: 4 }); } }
+        continue;
+      }
+      if (pu.t >= 0.62) { bkRemove(W, 1); continue; }
+    }
+    if (W.t <= 0) bkRemove(W, 1);
+  }
+}
+
+// ---------------- ramps ----------------
+function bkRampMesh() {
+  const g = new THREE.Group(), wood = SM(0xb07a44), dark = SM(0x7a5228);
+  const L = 2.8, H = 1.05, ang = Math.atan2(H, L), slab = new THREE.Mesh(boxGeo(1.9, 0.14, Math.hypot(L, H)), wood);
+  slab.rotation.x = -ang; slab.position.set(0, H / 2, L / 2); slab.castShadow = true; g.add(slab);
+  for (let i = 0; i < 5; i++) { const s = new THREE.Mesh(new THREE.BoxGeometry(1.92, 0.02, 0.03), dark); const u = (i + 0.5) / 5; s.position.set(0, H * u + 0.08, L * u); s.rotation.x = -ang; g.add(s); }
+  for (const sd of [-1, 1]) { const leg = new THREE.Mesh(boxGeo(0.12, H, 0.12), dark); leg.position.set(sd * 0.85, H / 2, L - 0.1); g.add(leg); }
+  outlineAll(g); return g;
+}
+function bkRamp(id, pos, fa, owner) {
+  for (const R of BK_RAMPS.slice()) if (R.owner === owner) bkRampGone(R.id);
+  const R = { id, pos: pos.clone(), fa, owner, t: 9, mesh: bkRampMesh(), age: 0, launched: new Map() };
+  R.mesh.position.copy(R.pos); R.mesh.rotation.y = fa; R.mesh.scale.set(1, 0.01, 1); scene.add(R.mesh); BK_RAMPS.push(R);
+  dust(R.pos.clone().add(new THREE.Vector3(0, 0.2, 0)), 6, 3); return R;
+}
+function bkRampGone(id) { const i = BK_RAMPS.findIndex((r) => r.id === id); if (i < 0) return; const R = BK_RAMPS[i]; BK_RAMPS.splice(i, 1); scene.remove(R.mesh); dust(R.pos.clone().add(new THREE.Vector3(0, 0.3, 0)), 6, 3); }
+function bkOnRamp(R, p) { const F = new THREE.Vector3(Math.sin(R.fa), 0, Math.cos(R.fa)), X = new THREE.Vector3(Math.cos(R.fa), 0, -Math.sin(R.fa)), dx = p.x - R.pos.x, dz = p.z - R.pos.z, a = dx * F.x + dz * F.z, s = dx * X.x + dz * X.z; return a > 0.2 && a < 2.9 && Math.abs(s) < 1.05 && Math.abs(p.y - R.pos.y) < 1.4; }
+function bkRampTick(dt) {
+  for (const R of BK_RAMPS.slice()) {
+    R.age += dt; R.t -= dt; R.mesh.scale.y = Math.min(1, R.age / 0.2) + 0.001;
+    if (R.t <= 0) { bkRampGone(R.id); continue; }
+    const F = new THREE.Vector3(Math.sin(R.fa), 0, Math.cos(R.fa));
+    // whoever steps on it (in their own game) gets thrown up and forward
+    if (player.dead <= 0 && player.grounded && bkOnRamp(R, player.pos) && clock - (R.launched.get('me') || -9) > 1.2) {
+      R.launched.set('me', clock); player.vel.set(F.x * 9, 17, F.z * 9); player.grounded = false; dust(player.pos.clone(), 6, 3); ring(player.pos.clone().add(new THREE.Vector3(0, 0.1, 0)), 0xffffff, 2.5, true);
+      if (fighterId === 'brick') { BK_STATE.rampAir = clock; if (!BK_STATE.tip) { BK_STATE.tip = true; toast('In the air: click to hammer down for double damage'); } }
+    }
+    if (bkOwnerIsMe(R.owner)) for (const d of dummies) if (!d.dead && (!d.duel || d.active) && bkOnRamp(R, d.pos) && clock - (R.launched.get(d) || -9) > 1.2) {
+      R.launched.set(d, clock); hitDummy(d, { dmg: 2, type: 'n', stun: 1.2, kb: new THREE.Vector3(F.x * 8, 16, F.z * 8), set: true, mats: [fxPaper], spark: 0xb07a44, label: 'RAMPED', awk: 2, bkNoSplat: true });
+    }
+  }
+}
+const BK_STATE = { rampAir: -9 };
+
+// ---------------- crane ----------------
+function bkCraneVis(base, fa, at, dur, loadWall, follow) {
+  const g = new THREE.Group(), yel = SM(0xf2b21a), dark = SM(0x3a3a3a);
+  const X = new THREE.Vector3(Math.cos(fa), 0, -Math.sin(fa)), F = new THREE.Vector3(Math.sin(fa), 0, Math.cos(fa));
+  const towerAt = base.clone().addScaledVector(F, -2.2).addScaledVector(X, 1.6), H = follow ? 15 : 10;
+  const tower = new THREE.Group(); tower.position.copy(towerAt); g.add(tower);
+  for (const [x, z] of [[-0.35, -0.35], [0.35, -0.35], [-0.35, 0.35], [0.35, 0.35]]) { const c = new THREE.Mesh(new THREE.BoxGeometry(0.1, H, 0.1), yel); c.position.set(x, H / 2, z); tower.add(c); }
+  for (let y = 0.6; y < H; y += 1.1) for (const r of [0, Math.PI / 2]) { const b = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.07, 0.07), yel); b.position.y = y; b.rotation.set(0, r, 0.6); b.position.x = r ? 0 : 0; tower.add(b); }
+  const cab = new THREE.Mesh(boxGeo(1.0, 0.8, 1.0), yel); cab.position.y = H + 0.3; tower.add(cab);
+  const toAt = at.clone().sub(towerAt).setY(0), reach = Math.max(2, toAt.length()), jy = Math.atan2(toAt.x, toAt.z);
+  const jib = new THREE.Group(); jib.position.y = H + 0.75; jib.rotation.y = jy; tower.add(jib);
+  const arm = new THREE.Mesh(boxGeo(0.35, 0.35, reach + 1.6), yel); arm.position.z = reach / 2 - 0.4; jib.add(arm);
+  const cw = new THREE.Mesh(boxGeo(0.8, 0.7, 0.9), dark); cw.position.z = -1.6; jib.add(cw);
+  const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1, 6), dark); jib.add(cable);
+  const load = new THREE.Group(); scene.add(load);
+  const pallet = new THREE.Group();
+  { const wood = new THREE.Mesh(boxGeo(1.6, 0.18, 1.6), SM(0xb07a44)); pallet.add(wood); const stack = new THREE.Mesh(boxGeo(1.4, 1.0, 1.4), toon(0xffffff, { map: BK_BRICK_TEX })); stack.position.y = 0.6; pallet.add(stack); }
+  load.add(pallet);
+  if (follow) { pallet.visible = false; const hook = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.06, 6, 14, Math.PI * 1.4), SM(0x3a3a3a)); hook.rotation.z = -0.6; hook.position.y = -0.25; load.add(hook); }
+  let wallMesh = null;
+  const H0 = at.y + 8.5;
+  outlineAll(g); outlineAll(load);
+  g.scale.set(1, 0.01, 1);
+  const st = { swapped: false };
+  st.swap = (steel) => { pallet.visible = false; wallMesh = bkWallMesh(steel); wallMesh.position.y = -1.6; load.add(wallMesh); st.swapped = true; ring(load.position.clone(), BK_HAT, 2); };
+  if (loadWall) st.swap(loadWall === 2);
+  tempMesh(g, dur + 0.6, (o, k) => {
+    const t = k * (dur + 0.6);
+    o.scale.y = Math.min(1, t / 0.25) + 0.001;
+    let ly = H0; if (follow) ly = follow(t); else if (t > dur - 0.2) ly = H0 - Math.min(1, (t - (dur - 0.2)) / 0.2) ** 2 * (H0 - at.y - (st.swapped ? 0 : 0.1));
+    load.position.set(at.x, ly, at.z); load.rotation.y = fa; load.visible = follow ? true : t < dur + 0.05;
+    const top = H + 0.75 + towerAt.y, len = Math.max(0.2, top - ly - (st.swapped ? 0.75 : 1.3));
+    cable.scale.y = len; cable.position.set(0, -len / 2, reach); cable.visible = load.visible;
+    if (k >= 1) scene.remove(load);
+    if (t > dur + 0.3) o.scale.y = Math.max(0.01, 1 - (t - dur - 0.3) / 0.3);
+  });
+  return st;
+}
+function bkCraneImpact(at, wall) { ring(at.clone(), BK_HAT, 5, true); dust(at.clone().add(new THREE.Vector3(0, 0.2, 0)), 12, 6); crack(at.clone(), 2.4); addShake(0.7); if (!wall) bkBrickBurst(at.clone().add(new THREE.Vector3(0, 0.6, 0)), 0, false, false); }
+
+// ---------------- wrecking ball ----------------
+function bkWreckVis(owner, dbl) {
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(0.62, 18, 12), SM(0x2e3238)); ball.castShadow = true; outlineAll(ball);
+  const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1, 6), SM(0x6a6f78));
+  const dur = dbl ? 1.6 : 1.15; scene.add(chain);
+  const st = { ball, pos: new THREE.Vector3() };
+  tempMesh(ball, dur, (o, k) => {
+    if (!owner || !owner.pos) return; const t = k * dur, fa = owner.facing || 0, c = owner.pos.clone().add(new THREE.Vector3(0, 1.4, 0));
+    let a, r, y;
+    if (t < 0.45) { a = fa + t * 18; r = 1.3; y = 3.0; }
+    else if (!dbl) { const u = Math.min(1, (t - 0.45) / 0.4); a = fa - 1.9 + u * 3.8; r = 4.2; y = 1.1 + Math.sin(u * Math.PI) * 0.3; }
+    else { const u = Math.min(1, (t - 0.4) / 1.0); a = fa + u * PI2 * 2; r = 4.4; y = 1.1; }
+    o.position.set(owner.pos.x + Math.sin(a) * r, owner.pos.y + y, owner.pos.z + Math.cos(a) * r); st.pos.copy(o.position);
+    const mid = c.clone().lerp(o.position, 0.5), L = c.distanceTo(o.position); chain.position.copy(mid); chain.scale.y = L; chain.lookAt(o.position); chain.rotateX(Math.PI / 2);
+    if (t > 0.45 && Math.random() < 0.5) dust(o.position.clone().setY(owner.pos.y + 0.1), 1, 2);
+    if (k >= 1) scene.remove(chain);
+  });
+  return st;
+}
+
+// ---------------- grand slam, topping out ----------------
+function bkRigOf(o) { return o === player ? rig : o && o.rig; }
+function bkHammerGrow(owner, up) {
+  const R = bkRigOf(owner); if (!R || !R.bHammer) return; const h = R.bHammer, from = h.scale.x, to = up ? 3.2 : 1;
+  tempMesh(new THREE.Object3D(), up ? 0.45 : 0.3, (o, k) => { const s = from + (to - from) * easeOut(k); h.scale.setScalar(s); });
+}
+function bkGrandSlamFx(at) {
+  ring(at.clone(), BK_HAT, 9, true); ring(at.clone().add(new THREE.Vector3(0, 0.3, 0)), BK_VEST, 6, true); crack(at.clone(), 4.5); crack(at.clone(), 3);
+  dust(at.clone().add(new THREE.Vector3(0, 0.3, 0)), 22, 10); flash(at.clone().add(new THREE.Vector3(0, 1, 0)), 0xffd27a, 6); lightFlash(at.clone().add(new THREE.Vector3(0, 2, 0)), 0xffb84a, 16);
+  addShake(1.5); impactFrame(0.14);
+  const rock = SM(0x8a7d6a);
+  for (let i = 0; i < 14; i++) {
+    const a = i / 14 * PI2 + rv(0.2), r = 2 + Math.random() * 3, m = new THREE.Mesh(new THREE.DodecahedronGeometry(0.25 + Math.random() * 0.3, 0), rock); m.castShadow = true;
+    const p0 = at.clone().add(new THREE.Vector3(Math.cos(a) * r, -0.3, Math.sin(a) * r)), up = 4 + Math.random() * 5, spin = rv(9);
+    tempMesh(m, 1.1, (o, k) => { const t = k * 1.1; o.position.copy(p0).add(new THREE.Vector3(Math.cos(a) * t * 2, up * t - 11 * t * t, Math.sin(a) * t * 2)); o.rotation.x = spin * t; o.rotation.z = spin * t * 0.7; if (k > 0.8) o.scale.setScalar((1 - k) * 5); });
+  }
+}
+function bkTopOutFx(base, fa) {
+  // a steel frame builds itself floor by floor under them, then comes down
+  const g = new THREE.Group(), girder = SM(0xc8482a), steel = SM(0x6c7888), floors = 4, FH = 2.4, half = 1.6;
+  const parts = [];
+  for (let f = 0; f < floors; f++) {
+    const fl = new THREE.Group(); fl.position.set(0, f * FH, 0); fl.visible = false; g.add(fl);
+    for (const [x, z] of [[-half, -half], [half, -half], [-half, half], [half, half]]) { const c = new THREE.Mesh(boxGeo(0.22, FH, 0.22), girder); c.position.set(x, FH / 2, z); fl.add(c); }
+    for (const [x, z, r] of [[0, -half, 0], [0, half, 0], [-half, 0, Math.PI / 2], [half, 0, Math.PI / 2]]) { const b = new THREE.Mesh(boxGeo(half * 2 + 0.2, 0.22, 0.2), girder); b.position.set(x, FH, z); b.rotation.y = r; fl.add(b); }
+    if (f === floors - 1) { const roof = new THREE.Mesh(boxGeo(half * 2 + 0.3, 0.16, half * 2 + 0.3), steel); roof.position.y = FH + 0.12; fl.add(roof); }
+    parts.push(fl);
+  }
+  g.position.copy(base); g.rotation.y = fa; outlineAll(g);
+  const lift = (t) => (t < 0.25 ? base.y + 2.4 + (0.25 - t) * 30 : t < 1.6 ? base.y + 2.4 + Math.min(1, (t - 0.25) / 1.3) * 10.3 : base.y + 12.7 + (t - 1.6) * 8);
+  const crane = bkCraneVis(base.clone().addScaledVector(new THREE.Vector3(Math.sin(fa), 0, Math.cos(fa)), -1), fa, base.clone(), 2.2, 0, lift);
+  const shed = parts.map(() => ({ v: new THREE.Vector3(rv(4), 2 + Math.random() * 3, rv(4)), s: new THREE.Vector3(rv(2), rv(2), rv(2)) }));
+  tempMesh(g, 3.6, (o, k) => {
+    const t = k * 3.6;
+    parts.forEach((fl, i) => { const show = 0.35 + i * 0.25; if (t >= show && !fl.visible) { fl.visible = true; dust(base.clone().add(new THREE.Vector3(0, i * FH + 0.2, 0)), 4, 3); } if (t < show + 0.15) fl.scale.setScalar(Math.max(0.01, (t - show) / 0.15)); else fl.scale.setScalar(1); });
+    if (t > 2.25) { const u = t - 2.25; parts.forEach((fl, i) => { const S = shed[i]; fl.position.set(S.v.x * u * 0.6, i * FH + S.v.y * u - 9 * u * u, S.v.z * u * 0.6); fl.rotation.set(S.s.x * u, S.s.y * u, S.s.z * u); if (fl.position.y < -0.5) fl.visible = false; }); if (Math.random() < 0.6) dust(base.clone().add(new THREE.Vector3(rv(3), 0.3, rv(3))), 2, 5); }
+  });
+  later(2.25, () => { ring(base.clone(), BK_HAT, 7, true); crack(base.clone(), 3); addShake(1); flash(base.clone().add(new THREE.Vector3(0, 1, 0)), 0xffd27a, 4); });
+  return crane;
+}
+
+function makeBrickKit() {
+  const BASE = [{ k: '1', name: 'Brick Wall', tag: 'x' }, { k: '2', name: 'Ramp', tag: 'n' }, { k: '3', name: 'Wrecking Ball', tag: 'x' }, { k: '4', name: 'Crane Drop', tag: 'x' }, { k: 'R', name: 'Hard Hat', tag: 'n' }];
+  const AWK = [{ k: '1', name: 'Steel Wall', tag: 'x' }, { k: '2', name: 'Grand Slam', tag: 'x' }, { k: '3', name: 'Double Swing', tag: 'x' }, { k: '4', name: 'Topping Out', tag: 'u' }, { k: 'R', name: 'Steel Toe', tag: 'n' }];
+  const K = { id: 'brick', name: 'BRICK', sub: 'The Builder', color: BK_HAT, accent: '#e0821a',
+    desc: 'Slow, heavy hammer swings that hit hard, and he builds mid-fight. Walls block everyone (punt them as a battering ram), the Ramp launches whoever runs over it (jump off it and click to hammer down for double damage), the Wrecking Ball smashes through his own walls, and the Crane drops bricks or one of his walls from the sky. Knock someone into his wall for a Wall Splat. Building costs bricks (6 max). Hard: every swing is a commitment.',
+    slots: BASE, awkName: 'DEMOLITION CREW', awkLine: "Hard hats on. We're tearing it down.", awkColor: 0xffa21a, awkSlots: [] };
+  const cd = { 1: 0, 2: 0, 3: 0, 4: 0, R: 0 }, MAX = { 1: 1.2, 2: 6, 3: 9, 4: 10, R: 7 };
+  let bricks = 6, regen = 0, crane = null;
+  const myWalls = () => BK_WALLS.filter((w) => bkOwnerIsMe(w.owner));
+  K.reset = () => { for (const k in cd) cd[k] = 0; bricks = 6; crane = null; for (const W of myWalls()) bkRemove(W, 0); for (const R of BK_RAMPS.filter((r) => bkOwnerIsMe(r.owner))) bkRampGone(R.id); if (rig && rig.bHammer) rig.bHammer.scale.setScalar(1); };
+  K.slotsNow = () => (awakened ? AWK : BASE);
+  K.resLabel = () => (awakened ? 'Bricks: unlimited' : 'Bricks ' + Math.floor(bricks) + '/6');
+  K.resPct = () => (awakened ? 100 : bricks / 6 * 100);
+  K.faceKind = () => (awakened ? 'brick-awk' : 'brick');
+  K.moveMul = () => 0.9;
+  K.m1Speed = () => (awakened ? 0.78 : 0.64);
+  K.m1Dmg = (a) => (a.idx < 4 ? [4, 4, 5][a.idx - 1] : 8);
+  K.m1Fx = (a, f) => {
+    if (a.idx === 4 && a.kind !== 'upper') { const at = groundAt(player.pos.clone().addScaledVector(f, 1.8)); crack(at, 1.6); dust(at.clone().add(new THREE.Vector3(0, 0.2, 0)), 6, 4); addShake(0.35); }
+    return false;
+  };
+  const cost = (n) => { if (awakened) return true; if (bricks < n) { toast('Out of bricks: land hammer hits to get more'); return false; } bricks -= n; return true; };
+  K.view = (k) => {
+    const S = (awakened ? AWK : BASE).find((s) => s.k === k), v = { name: S.name, tag: S.tag, remain: cd[k], max: MAX[k] };
+    if (k === '1' && !awakened && myWalls().some((w) => !w.punt) && cd[1] <= 0) v.name = 'Wall / Punt';
+    if (k === '4' && crane && !crane.dropped && !crane.swapped && myWalls().length) { v.name = 'Swap: drop a wall'; v.remain = 0; }
+    if (awakened && k === '4') { v.remain = 0; v.max = 1; v.glow = true; }
+    return v;
+  };
+  // aim: where you face (camera in shift lock), with a light nudge onto someone already nearly in line
+  const aimAt = (range, cone) => { grabAssist(range, cone); return facingVec(); };
+  K.press = (k) => {
+    if (k === '4' && crane && !crane.dropped && !crane.swapped && crane.t < 0.95 && myWalls().some((w) => !w.punt)) { swapCrane(); return; }
+    if (busy() || player.blocking) return;
+    if (awakened && k === '4') { toppingOut(); return; }
+    if (cd[k] > 0) return;
+    const f = facingVec();
+    if (k === '1') {
+      // a second press punts your closest wall instead of building
+      const near = myWalls().filter((w) => !w.punt && w.pos.distanceTo(player.pos) < 5.5).sort((a, b) => a.pos.distanceTo(player.pos) - b.pos.distanceTo(player.pos))[0];
+      if (near && clock - near.bornAt > 0.35) {
+        const dir = near.pos.clone().sub(player.pos).setY(0); if (dir.lengthSq() < 0.01) dir.copy(f); dir.normalize();
+        faceToward(near.pos); startMove('punt', 0.45, 'haymaker', { W: near, dir, done: false }); cd[1] = 0.6; return;
+      }
+      if (!cost(2)) return;
+      aimAt(6, 0.3); const ff = facingVec(), at = groundAt(player.pos.clone().addScaledVector(ff, 2.6)), id = bkNewId();
+      const W = bkWall(id, at, player.facing, awakened, player); W.bornAt = clock; netOnly('bwall', [id, at, player.facing, awakened ? 1 : 0, player]);
+      const cap = awakened ? 4 : 2, mine = myWalls(); while (mine.length > cap) { const old = mine.shift(); bkRemove(old, 1); netOnly('bwgone', [old.id, 1]); }
+      startMove('build', awakened ? 0.25 : 0.42, 'slam', {});
+      // anyone standing where it bursts up gets popped into the air
+      for (const d of aliveDummies()) if (bkSegDist(W, d.pos.x, d.pos.z) < 0.75 && Math.abs(d.pos.y - at.y) < 1.5) hitDummy(d, { dmg: 5, type: 'x', stun: 1, kb: new THREE.Vector3(0, 14, 0).addScaledVector(ff, 3), set: true, big: true, mats: [fxPaper], spark: BK_RED, ringColor: BK_HAT, label: 'POPPED UP', awk: 3, bkNoSplat: true });
+      cd[1] = awakened ? 0.6 : MAX[1];
+    }
+    if (k === '2') {
+      if (awakened) { grandSlam(); cd[2] = 8; return; }
+      if (!cost(1)) return;
+      aimAt(5, 0.25); const at = groundAt(player.pos.clone().addScaledVector(facingVec(), 1.4)), id = bkNewId();
+      bkRamp(id, at, player.facing, player); netOnly('bramp', [id, at, player.facing, player]);
+      startMove('build', 0.35, 'slam', {}); cd[2] = MAX[2];
+    }
+    if (k === '3') { aimAt(6, 0.3); startMove('wreck', awakened ? 1.6 : 1.15, 'spin', { vis: bkWreckVis(player, awakened), hits: new Set(), dbl: awakened }); netOnly('bwreck', [player, awakened ? 1 : 0]); cd[3] = awakened ? 6 : MAX[3]; }
+    if (k === '4') {
+      aimAt(14, 0.26); const ff = facingVec(); let t = null, bd = 0.3;
+      for (const d of aliveDummies()) { const v = d.pos.clone().sub(player.pos).setY(0), L = v.length(); if (L < 2 || L > 14 || Math.abs(d.pos.y - player.pos.y) > 4) continue; const a = Math.acos(Math.max(-1, Math.min(1, v.dot(ff) / L))); if (a < bd) { bd = a; t = d; } }
+      const at = groundAt(t ? t.pos.clone() : player.pos.clone().addScaledVector(ff, 8));
+      vfxMark(at, 2.3, 0xe03a2a, 1.2); netOnly('tmark', [at, 2.3, 0xe03a2a, 1.2]);
+      crane = { at, t: 0, dropAt: 1.2, vis: bkCraneVis(player.pos.clone(), player.facing, at, 1.2, 0), dropped: false, swapped: false, steel: false };
+      netOnly('bcrane', [player.pos.clone(), player.facing, at, 0]);
+      startMove('point', 0.4, 'point', {}); cd[4] = MAX[4];
+    }
+    if (k === 'R') { startMove('brace', 1.0, 'pose', { lockPos: true }); P({ tex: 'ring', color: BK_HAT, pos: player.pos.clone().add(new THREE.Vector3(0, 2.2, 0)), life: 0.35, s0: 0.4, s1: 2 }); cd.R = MAX.R; }
+  };
+  K.release = () => {};
+  function swapCrane() {
+    const W = myWalls().filter((w) => !w.punt).sort((a, b) => b.bornAt - a.bornAt)[0]; if (!W) return;
+    crane.swapped = true; crane.steel = W.steel; bkRemove(W, 0); netOnly('bwgone', [W.id, 0]);
+    crane.vis.swap(W.steel); netOnly('bcswap', [crane.at, W.steel ? 1 : 0]); toast('The crane grabbed your wall');
+  }
+  function grandSlam() {
+    aimAt(10, 0.45); const ff = facingVec(); let t = null, bd = 0.45;
+    for (const d of aliveDummies()) { const v = d.pos.clone().sub(player.pos).setY(0), L = v.length(); if (L > 10 || Math.abs(d.pos.y - player.pos.y) > 4) continue; const a = L < 0.5 ? 0 : Math.acos(Math.max(-1, Math.min(1, v.dot(ff) / L))); if (a < bd) { bd = a; t = d; } }
+    const dist = t ? Math.max(1.5, Math.min(9, t.pos.distanceTo(player.pos) - 1)) : 5.5;
+    player.vel.set(ff.x * dist / 1.05, 16.5, ff.z * dist / 1.05); player.grounded = false;
+    startMove('gslam', 2.2, 'slam', { a: true, dir: ff, hs: dist / 1.05, landed: false, air: 0 });
+    bkHammerGrow(player, true); netOnly('bgrow', [player, 1]); callout('GRAND SLAM');
+  }
+  function toppingOut() {
+    aimAt(8, 0.35); const ff = facingVec();
+    player.dashDir.copy(ff); player.dashT = 0.42; player.iframes = 0.5;
+    startMove('tcharge', 0.5, 'haymaker', { done: false });
+    P({ tex: 'ring', color: BK_HAT, pos: player.pos.clone().add(new THREE.Vector3(0, 1.2, 0)), life: 0.3, s0: 1, s1: 4 });
+  }
+  function startTopOut(d) {
+    player.dashT = 0; player.vel.set(0, 0, 0);
+    const base = groundAt(d.pos.clone()), fa = player.facing;
+    startMove('topout', 3.6, 'pose', { a: true, lockPos: true, d, base, hit: false, ended: false, swung: false });
+    player.iframes = 4; d.grabbed = 3.4; d.stun = 3.6; if (d.ai) d.ai.wind = 0;
+    if (d.remote) netSend({ t: 'seize', to: d.id, dur: 3.4, title: 'TOPPING OUT', sub: 'Going up' });
+    bkTopOutFx(base, fa); netOnly('btop', [base, fa]);
+    startCine({ focus: () => d.pos.clone().add(new THREE.Vector3(0, -2.5, 0)), dur: 3.5, dist: 15, height: 5, yaw: fa + 2.3, spin: 0.25 });
+    letterbox(true); callout('TOPPING OUT');
+  }
+  K.onPlayerHit = (o, src) => {
+    const mv = player.move;
+    const front = src && src.pos ? src.pos.clone().sub(player.pos).setY(0).normalize().dot(facingVec()) > 0.2 : true;
+    if (mv && mv.name === 'brace' && front && o.type !== 'u' && !o.dot) {
+      // took it on the hard hat: a fraction of the damage, then a shoulder bash back
+      const dmg = Math.max(1, Math.round(o.dmg * 0.3)); player.hp = Math.max(1, player.hp - dmg);
+      const at = player.pos.clone().add(new THREE.Vector3(0, 2, 0)); floatText('BRACED -' + dmg, at.clone().add(new THREE.Vector3(0, 0.6, 0)), 'big'); sparks(at, 10, BK_HAT, 1.4); ring(at, BK_HAT, 3); hitStop = 0.08;
+      player.move = null; player.iframes = 0.35;
+      if (src && src.pos && !src.dead && (src.remote || dummies.includes(src))) { faceToward(src.pos); startMove('bash', 0.42, 'haymaker', { src, done: false }); player.dashDir.copy(facingVec()); player.dashT = 0.16; }
+      return 'braced';
+    }
+    // Heavy Boots: hard to push around
+    if (o.kb) o.kb = o.kb.clone().multiplyScalar(0.5);
+    return null;
+  };
+  // Wall Splat: knock someone into one of your walls
+  K.onHit = (d, o) => {
+    if (o.m1 && !awakened) bricks = Math.min(6, bricks + 0.5);
+    if (o.bkSplat || o.bkNoSplat || o.dot) return;
+    d.bkHit = { t: clock, done: false };
+  };
+  K.moveTick = (mv, dt) => {
+    const f = facingVec();
+    if (mv.name === 'punt' && !mv.done && mv.t >= 0.15) {
+      mv.done = true; const W = mv.W; if (!W || !BK_WALLS.includes(W)) return;
+      bkPuntVis(W.id, mv.dir, W.steel); netOnly('bwpunt', [W.id, mv.dir, W.steel ? 1 : 0]); addShake(0.4); bricks = Math.min(6, bricks + (awakened ? 0 : 1));
+    } else if (mv.name === 'wreck') {
+      const ball = mv.vis && mv.vis.pos; if (!ball || mv.t < 0.45) return;
+      // the ball and the chain both hit, so standing close to him doesn't dodge it
+      const sx = ball.x - player.pos.x, sz = ball.z - player.pos.z, sl = sx * sx + sz * sz || 1;
+      const swept = (d) => { const u = Math.max(0.25, Math.min(1, ((d.pos.x - player.pos.x) * sx + (d.pos.z - player.pos.z) * sz) / sl)); return Math.hypot(d.pos.x - player.pos.x - sx * u, d.pos.z - player.pos.z - sz * u) < (u > 0.85 ? 1.7 : 1.1); };
+      for (const d of aliveDummies()) if (!mv.hits.has(d) && swept(d) && Math.abs(d.pos.y + 1 - ball.y) < 2.4) {
+        mv.hits.add(d); const out = d.pos.clone().sub(player.pos).setY(0).normalize();
+        hitDummy(d, { dmg: 11, type: 'x', heavy: true, stun: 1.1, kb: out.multiplyScalar(15).setY(6), set: true, down: 0.9, big: true, mats: [fxPaper], spark: 0x6a6f78, ringColor: BK_HAT, label: 'WRECKING BALL', awk: 5 });
+      }
+      // it goes straight through walls, and smashes them into flying bricks
+      for (const W of BK_WALLS.slice()) if (!W.punt && bkSegDist(W, ball.x, ball.z) < 1.5) {
+        const at = W.pos.clone(); const mine = bkOwnerIsMe(W.owner);
+        bkRemove(W, 2); netOnly('bwgone', [W.id, 2]); if (mine && !awakened) bricks = Math.min(6, bricks + 1);
+        for (const d of aliveDummies()) if (!mv.hits.has(d) && Math.hypot(d.pos.x - at.x, d.pos.z - at.z) < 3.2) { mv.hits.add(d); hitDummy(d, { dmg: 6, type: 'x', stun: 0.9, kb: d.pos.clone().sub(at).setY(0).normalize().multiplyScalar(9).setY(4), set: true, mats: [fxPaper], spark: BK_RED, label: 'BRICK SPRAY', awk: 3 }); }
+      }
+    } else if (mv.name === 'gslam') {
+      mv.air += dt; if (!mv.landed) { player.vel.x = mv.dir.x * mv.hs; player.vel.z = mv.dir.z * mv.hs; player.vel.y -= Math.max(0, 36 - G * 0.35) * dt; }   // moves normally float; this one comes down hard
+      if (!mv.landed && mv.air > 0.25 && player.grounded) {
+        mv.landed = true; const at = player.pos.clone(); player.vel.set(0, 0, 0);
+        bkGrandSlamFx(at); netOnly('bgslam', [at]); playAnim('slam', 1.4);
+        bigHitAll(at, 7, { dmg: 16, type: 'x', heavy: true, kbOut: 10, kbUp: 9, down: 1.4, big: true, mats: [fxPaper], spark: BK_HAT, ringColor: BK_VEST, label: 'GRAND SLAM', awk: 0 });
+        later(0.35, () => { bkHammerGrow(player, false); netOnly('bgrow', [player, 0]); });
+        mv.dur = mv.t + 0.45;
+      }
+    } else if (mv.name === 'rslam') {
+      player.vel.y = Math.min(player.vel.y, -26);
+      if (!mv.done && player.grounded) {
+        mv.done = true; const at = player.pos.clone(); crack(at, 2.6); ring(at.clone(), BK_HAT, 5, true); dust(at.clone().add(new THREE.Vector3(0, 0.2, 0)), 12, 6); addShake(0.8); impactFrame(0.1);
+        bigHitAll(at, 3.4, { dmg: 12, type: 'x', heavy: true, kbOut: 7, kbUp: 8, down: 1.2, big: true, mats: [fxPaper], spark: BK_HAT, ringColor: BK_VEST, label: 'RAMP SLAM', awk: 5 });
+        mv.dur = mv.t + 0.3;
+      }
+    } else if (mv.name === 'bash' && !mv.done && mv.t >= 0.12) {
+      mv.done = true; const s = mv.src;
+      if (s && s.pos && !s.dead && s.pos.distanceTo(player.pos) < 3.4) {
+        const dir = s.pos.clone().sub(player.pos).setY(0).normalize();
+        hitDummy(s, awakened ? { dmg: 10, type: 'x', heavy: true, stun: 1.2, kb: dir.multiplyScalar(16).setY(10), set: true, down: 1.2, big: true, mats: [fxPaper], spark: BK_HAT, ringColor: BK_VEST, label: 'STEEL TOE', awk: 4 }
+          : { dmg: 7, type: 'b', heavy: true, stun: 1, kb: dir.multiplyScalar(12).setY(4), set: true, big: true, mats: [fxPaper], spark: BK_HAT, ringColor: BK_HAT, label: 'SHOULDER BASH', awk: 4 });
+      }
+    } else if (mv.name === 'tcharge') {
+      if (!mv.done) for (const d of aliveDummies()) if (d.pos.distanceTo(player.pos) < 1.9 && Math.abs(d.pos.y - player.pos.y) < 2) { mv.done = true; startTopOut(d); return; }
+      if (!mv.done && mv.t >= 0.48) { mv.done = true; callout('MISSED', 'The job fell through'); later(0.3, endAwaken); }
+    } else if (mv.name === 'topout') {
+      const d = mv.d, t = mv.t;
+      if (!mv.hit && !d.dead) {
+        let y = 0; if (t < 1.55) y = Math.max(0, (t - 0.25) / 1.3) * 10.3; else if (t < 2.3) y = 9.95; else y = Math.max(0, 9.95 - (t - 2.3) * (t - 2.3) * 26);
+        d.pos.copy(mv.base).add(new THREE.Vector3(Math.sin(t * 3) * 0.15 * (t < 1.55 ? 1 : 0), y, 0)); d.vel.set(0, 0, 0);
+      }
+      if (!mv.swung && t >= 1.85) { mv.swung = true; bkHammerGrow(player, true); netOnly('bgrow', [player, 1]); playAnim('haymaker', 0.9); }
+      if (t >= 2.25 && !mv.shook) { mv.shook = true; impactFrame(0.14); hitStop = 0.1; }
+      if (!mv.hit && t >= 2.95) {
+        mv.hit = true; d.grabbed = 0;
+        hitDummy(d, { dmg: 36, type: 'u', otg: true, kb: new THREE.Vector3(0, 6, 0), set: true, down: 2.2, big: true, slam: true, mats: [fxPaper], spark: BK_HAT, ringColor: BK_VEST, label: 'TOPPING OUT', awk: 0, bkNoSplat: true });
+        impactFrame(0.16); addShake(1.3); bkHammerGrow(player, false); netOnly('bgrow', [player, 0]);
+      }
+      if (t >= 3.45 && !mv.ended) { mv.ended = true; letterbox(false); later(0.1, endAwaken); }
+    }
+  };
+  // jumping off the ramp: click to hammer straight down
+  K.blocksM1 = () => {
+    if (player.grounded || clock - BK_STATE.rampAir > 2.5 || player.move) return false;
+    BK_STATE.rampAir = -9; startMove('rslam', 1.2, 'slam', { done: false }); player.vel.y = -26; return true;
+  };
+  K.update = (dt) => {
+    for (const k in cd) cd[k] = Math.max(0, cd[k] - dt);
+    if (!awakened && bricks < 6) { regen += dt; if (regen >= 3.5) { regen = 0; bricks = Math.min(6, bricks + 1); } }
+    if (crane) {
+      crane.t += dt;
+      if (!crane.dropped && crane.t >= crane.dropAt) {
+        crane.dropped = true; const at = crane.at;
+        bkCraneImpact(at, crane.swapped); netOnly('bcimp', [at, crane.swapped ? 1 : 0]);
+        bigHitAll(at, 2.4, { dmg: crane.swapped ? 15 : 13, type: 'x', heavy: true, kbOut: 5, kbUp: 7, down: 1, big: true, mats: [fxPaper], spark: BK_RED, ringColor: BK_HAT, label: crane.swapped ? 'WALL DROP' : 'CRANE DROP', awk: 5, bkNoSplat: true });
+        if (crane.swapped) { const id = bkNewId(), W = bkWall(id, at, player.facing, crane.steel, player); W.bornAt = clock; W.age = 1; netOnly('bwall', [id, at, player.facing, crane.steel ? 1 : 0, player]); }
+      }
+      if (crane.t > 2) crane = null;
+    }
+    // Wall Splat
+    for (const d of aliveDummies()) {
+      const h = d.bkHit; if (!h || h.done || clock - h.t > 0.7 || clock - (d.bkSplatT || -9) < 1.6) continue;   // at most one splat every 1.6 s
+      for (const W of BK_WALLS) if (bkOwnerIsMe(W.owner) && !W.punt && bkSegDist(W, d.pos.x, d.pos.z) < 0.95 && Math.abs(d.pos.y - W.pos.y) < 2.4) {
+        h.done = true; d.bkSplatT = clock; const at = d.pos.clone().add(new THREE.Vector3(0, 1.3, 0));
+        hitDummy(d, { dmg: 5, type: 'x', stun: 1.1, kb: new THREE.Vector3(0, -2, 0), set: true, mats: [fxPaper], spark: BK_RED, ringColor: BK_HAT, label: 'WALL SPLAT', awk: 3, bkSplat: true });
+        dust(at, 8, 4); sparks(at, 8, BK_HAT, 1.2); addShake(0.4); break;
+      }
+    }
+    if (rig && rig.bBeacon) { rig.bBeacon.visible = awakened; rig.bCracks.visible = awakened; if (awakened) rig.bBeacon.rotation.y += dt * 9; }
+    if (awakened && Math.random() < 0.3) dust(player.pos.clone().add(new THREE.Vector3(rv(0.6), 2.2, rv(0.6))), 1, 1);
+  };
+  K.cancel = () => { if (player.move && (player.move.name === 'gslam' || player.move.name === 'topout') && rig && rig.bHammer) { bkHammerGrow(player, false); netOnly('bgrow', [player, 0]); } };
+  K.dbg = () => ({ crane, bricks });
+  K.awaken = () => { bricks = 6; };
+  K.unawaken = () => { if (rig && rig.bHammer) rig.bHammer.scale.setScalar(1); };
+  return K;
+}
+// everyone's game: walls, ramps, other Bricks' beacons
+function brickTick(dt) {
+  bkWallTick(dt); bkRampTick(dt);
+  for (const r of remotes.values()) if (r.rig && r.rig.bBeacon) { r.rig.bBeacon.visible = !!r.aw; r.rig.bCracks.visible = !!r.aw; if (r.aw) r.rig.bBeacon.rotation.y += dt * 9; }
+}
+Object.assign(FXF, {
+  bwall: (id, at, fa, steel, owner) => { const W = bkWall(id, at, fa, !!steel, owner || 'remote'); W.bornAt = clock; },
+  bwgone: (id, burst) => { const W = bkFind(id); if (W) bkRemove(W, burst); },
+  bwdmg: (id, dmg) => bkApplyWallDmg(id, dmg),
+  bwpunt: (id, dir, steel) => { bkPuntVis(id, dir, !!steel); },
+  bramp: (id, at, fa, owner) => { bkRamp(id, at, fa, owner || 'remote'); },
+  bwreck: (owner, dbl) => { if (owner && owner.pos) bkWreckVis(owner, !!dbl); },
+  bcrane: (base, fa, at, w) => { FXF.__bkCrane = bkCraneVis(base, fa, at, 1.2, w); },
+  bcswap: (at, steel) => { if (FXF.__bkCrane) FXF.__bkCrane.swap(!!steel); },
+  bcimp: (at, wall) => bkCraneImpact(at, !!wall),
+  bgrow: (owner, up) => bkHammerGrow(owner, !!up),
+  bgslam: (at) => bkGrandSlamFx(at),
+  btop: (base, fa) => bkTopOutFx(base, fa),
+});
+KITS.brick = makeBrickKit;
+
+
 // ---------- 1v1 duel vs the Sparring Master ----------
 const duel = { on: false, d: null, state: 'off', t: 0, enraged: false };
 Object.assign(AI_CLIP, { combo: ['m1a', 0.035], spin: ['m1d', 0.08], upper: ['upper', 0.07], slam: ['slam', 0.07], dash: ['haymaker', 0.3], wave: ['cast', 0.06] });
@@ -9760,7 +10304,7 @@ function frame(now) {
   animateFighter(freezeT > 0 ? dt : (gdt || dt * 0.1));
   updateFX(freezeT > 0 ? dt : (gdt || dt * 0.15));
   auraTick(dt);
-  duelTick(dt); teamTick(); screenFxTick(); islandTick(dt); voiceTick(dt); ringTick(); spiderTick(dt);
+  duelTick(dt); teamTick(); screenFxTick(); islandTick(dt); voiceTick(dt); ringTick(); spiderTick(dt); brickTick(dt);
   updateDrops(gdt || dt * 0.1); updateBlobs();
   hitLightT -= dt; hitLight.intensity = hitLightT > 0 ? hitLight.intensity * Math.exp(-14 * dt) : 0;
   blurStr = Math.max(0, blurStr - dt * 3.5); if (blurPass) { blurPass.enabled = blurStr > 0.02; blurPass.uniforms.uStr.value = blurStr; }
