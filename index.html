@@ -338,7 +338,7 @@ body.curtains #curL, body.curtains #curR { transform: translateX(0); }
 <div id="overlay">
   <div class="card scrap">
     <h1>Windstep Village</h1>
-    <div class="build">Build 29 · New fighters: Tempest + Patch · Pick your fighter</div>
+    <div class="build">Build 30 · Patch: Yarn Spider · Pick your fighter</div>
     <div class="roster" id="roster">
       <button class="fcard sel" data-id="juno" type="button"><span class="sw juno"></span><span class="fn">Juno Marrow</span><span class="fs">Ink · Hard</span></button>
       <button class="fcard" data-id="pip" type="button"><span class="sw pip"></span><span class="fn">Pip Hollow</span><span class="fs">Thread · Medium</span></button>
@@ -2453,7 +2453,7 @@ function hitDummy(d, o) {
   if (!o.otg && ((d.rag && d.ragGround) || d.wake > 0)) return 'miss';
   const hitPos = d.pos.clone().add(new THREE.Vector3(0, 1.5, 0));
   player.lastCombat = clock;
-  d.ai.wind = 0;
+  if (!o.dot) d.ai.wind = 0;
   const canBlock = (d.duel ? d.duelBlock > 0 : dummyMode === 'block') && d.guardBreak <= 0 && d.down <= 0 && d.stun <= 0.25 && d.blind <= 0;
   if (canBlock && (o.type === 'b' || o.type === 'p')) {
     d.guard -= o.type === 'p' ? 25 : (o.heavy ? 30 : 18);
@@ -2537,6 +2537,7 @@ function hitPlayer(o, src) {
   const dmg = Math.max(1, Math.round(o.dmg * (kit.takenMul ? kit.takenMul() : 1) * (src && src.duel && duel.lv ? duel.lv.dmg : 1)));
   p.hp = Math.max(0, p.hp - dmg); p.lastHurt = clock; p.lastCombat = clock;
   if (p.hp <= 0 && kit.onKO && kit.onKO(o, src)) return 'hit';
+  if (o.dot) { floatText('-' + dmg, at.clone().add(new THREE.Vector3(rv(0.4), 0.8, 0)), 'ink'); P({ tex: 'glow', color: 0x8cff5a, pos: at.clone(), vel: new THREE.Vector3(0, 1.5, 0), life: 0.5, s0: 0.5, s1: 0.1 }); if (p.hp <= 0) { if (PHYS.world && !p.rag) { p.rag = startRagdoll(rig, p.vel.clone(), 4); p.ragT = 1.5; } p.dead = 2.2; p.move = null; toast('Knocked out! Respawning...'); } return 'hit'; }
   if (!awakened) awk = Math.min(100, awk + 4);
   p.stun = Math.max(p.stun, o.heavy ? 0.8 : 0.45); if (o.slow) p.slowT = Math.max(p.slowT || 0, o.slow);
   if (o.kb) { if (o.set) p.vel.copy(o.kb); else p.vel.add(o.kb); }
@@ -4968,7 +4969,7 @@ function netHit(d, o) {
   let mul = kit.dmgMul ? kit.dmgMul(o) : 1;
   if (d.marked > 0 && fighterId === 'mask') mul *= 1.25;
   const dmg = Math.max(1, Math.round(o.dmg * mul));
-  netSend({ t: 'hit', to: d.id, ap: player.pos.toArray(), o: { dmg, type: o.type, otg: !!o.otg, ux: !!o.ux, slow: o.slow || 0, kb: o.kb ? o.kb.toArray() : null, set: !!o.set, stun: o.stun || 0.5, down: o.down || 0, heavy: !!o.heavy, big: !!o.big } });
+  netSend({ t: 'hit', to: d.id, ap: player.pos.toArray(), o: { dmg, type: o.type, dot: !!o.dot, otg: !!o.otg, ux: !!o.ux, slow: o.slow || 0, kb: o.kb ? o.kb.toArray() : null, set: !!o.set, stun: o.stun || 0.5, down: o.down || 0, heavy: !!o.heavy, big: !!o.big } });
   const hitPos = d.pos.clone().add(new THREE.Vector3(0, 1.5, 0));
   const hdir = (o.kb && o.kb.clone().setY(0).lengthSq() > 0.1 ? o.kb.clone() : d.pos.clone().sub(player.pos)).setY(0).normalize();
   const sc = o.spark || 0xffffff;
@@ -7986,14 +7987,57 @@ function vfxFinalStitch(tg) {
   });
   later(1.75, () => { vfxStuffing(c.clone().add(new THREE.Vector3(0, 1.4, 0)), 30, 10); flash(c.clone().add(new THREE.Vector3(0, 1.4, 0)), PYARN, 5); });
 }
+function makeYarnSpider() {
+  const g = new THREE.Group(), yarn = toon(0xffffff, { map: YARN_TEX }), dark = toon(0x8a2a22);
+  const abd = new THREE.Mesh(new THREE.SphereGeometry(0.32, 16, 12), yarn); abd.scale.set(1, 0.8, 1.2); abd.position.set(0, 0.45, -0.28); g.add(abd);
+  for (let i = 0; i < 3; i++) { const w = new THREE.Mesh(new THREE.TorusGeometry(0.27 - i * 0.04, 0.025, 6, 18), dark); w.position.set(0, 0.45, -0.18 - i * 0.12); w.scale.set(1, 0.8, 1); g.add(w); }
+  const tho = new THREE.Mesh(new THREE.SphereGeometry(0.2, 14, 10), yarn); tho.position.set(0, 0.42, 0.08); g.add(tho);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.14, 12, 10), yarn); head.position.set(0, 0.44, 0.26); g.add(head);
+  [[-0.07, 0xf2c24a], [0.07, 0x5a8ae8]].forEach(([x, c]) => { const e = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.02, 12), toon(c)); e.rotation.x = Math.PI / 2; e.position.set(x, 0.5, 0.385); g.add(e); const h = new THREE.Mesh(new THREE.SphereGeometry(0.012, 6, 4), toon(0x1a120c)); h.position.set(x, 0.5, 0.398); g.add(h); });
+  const fangs = []; for (const sd of [-1, 1]) { const fg = new THREE.Mesh(new THREE.ConeGeometry(0.025, 0.12, 6), toon(0xf4f2ee)); fg.position.set(sd * 0.05, 0.36, 0.37); fg.rotation.x = Math.PI; g.add(fg); fangs.push(fg); }
+  const legs = [];
+  for (const sd of [-1, 1]) for (let i = 0; i < 4; i++) {
+    const hip = new THREE.Group(); hip.position.set(sd * 0.12, 0.42, 0.14 - i * 0.1); hip.rotation.y = sd * (i - 1.5) * -0.42; g.add(hip);
+    const up = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.035, 0.4, 6), yarn); up.position.set(sd * 0.16, 0.12, 0); up.rotation.z = -sd * 0.95; hip.add(up);
+    const lo = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.03, 0.69, 6), yarn); lo.position.set(sd * 0.435, -0.095, 0); lo.rotation.z = sd * 2.8; hip.add(lo);
+    legs.push({ hip, sd, i });
+  }
+  g.traverse((o) => { if (o.isMesh) { o.userData.noOutline = true; o.castShadow = true; } });
+  g.userData.legs = legs; g.userData.fangs = fangs; g.scale.setScalar(1.25); return g;
+}
+// a yarn ball lands, unravels into a spider, spins a web, scuttles to its target and bites once.
+// onBite is only passed on the thrower's screen; other players just see the show.
+function runYarnSpider(at, tg, onBite) {
+  const sp = makeYarnSpider(), LIFE = 4.6, pos = at.clone(); let bit = -1, phaseFace = 0, walk = 0;
+  sp.position.copy(pos); sp.scale.setScalar(0.01);
+  vfxWeb(at, 2.6); for (let i = 0; i < 10; i++) P({ tex: 'streak', color: PYARN, pos: at.clone().add(new THREE.Vector3(0, 0.4, 0)), vel: randDir(0.9).multiplyScalar(4), life: 0.4, s0: 0.3, s1: 0.05 });
+  tempMesh(sp, LIFE, (m, k, dt) => {
+    const t = k * LIFE, L = m.userData.legs;
+    let s = 1.25, moving = false;
+    if (t < 0.25) s = 1.25 * easeOut(t / 0.25);                                   // unravels out of the ball
+    else if (t < 0.85) { m.rotation.y += dt * 14; if (Math.random() < 0.6) P({ tex: 'streak', color: PYARN, pos: pos.clone().add(new THREE.Vector3(rv(2), 0.1, rv(2))), life: 0.3, s0: 0.25, s1: 0.05 }); }   // spins the web
+    else if (bit < 0 && t < 3.4 && tg && tg.pos && !tg.dead) {                      // hunts
+      const v = tg.pos.clone().sub(pos).setY(0), d = v.length();
+      if (d < 1.25) { bit = t; if (onBite) onBite(tg); floatText('BITE', tg.pos.clone().add(new THREE.Vector3(0, 2.6, 0)), 'ink'); sparks(tg.pos.clone().add(new THREE.Vector3(0, 1.1, 0)), 10, 0x8cff5a, 1.2); }
+      else { v.normalize(); pos.addScaledVector(v, Math.min(d, 9 * dt)); pos.y = groundY(pos.x, pos.z, pos.y + 1.5); phaseFace = Math.atan2(v.x, v.z); moving = true; }
+      let df = phaseFace - m.rotation.y; df = Math.atan2(Math.sin(df), Math.cos(df)); m.rotation.y += df * Math.min(1, dt * 14);
+    }
+    if (bit >= 0) { const b = t - bit; m.position.y = pos.y + Math.sin(Math.min(1, b / 0.18) * Math.PI) * 0.5; m.userData.fangs.forEach((f) => { f.rotation.z = b < 0.2 ? Math.sin(b * 40) * 0.5 : 0; }); }
+    const fade = bit >= 0 ? t - bit - 0.6 : t - 3.4;                              // unravels back into loose yarn
+    if (fade > 0) { s = 1.25 * Math.max(0.01, 1 - fade / 0.4); m.rotation.y += dt * 10; if (Math.random() < 0.7) P({ tex: 'streak', color: PYARN, pos: pos.clone().add(new THREE.Vector3(0, 0.5, 0)), vel: randDir(0.8).multiplyScalar(3), life: 0.4, s0: 0.3, s1: 0.05 }); }
+    m.scale.setScalar(s); m.position.x = pos.x; m.position.z = pos.z; if (bit < 0) m.position.y = pos.y;
+    walk += dt * (moving ? 22 : 0);
+    for (const lg of L) { const ph = walk + lg.i * 1.6 + (lg.sd > 0 ? Math.PI : 0); lg.hip.rotation.x = moving ? Math.sin(ph) * 0.35 : 0; lg.hip.rotation.z = moving ? Math.max(0, Math.sin(ph + 1.5)) * 0.3 * lg.sd : 0; }
+  });
+}
 function makePatchKit() {
   const K = { id: 'patch', name: 'PATCH', sub: 'The Ragdoll Stitchling', color: PYARN, accent: '#c8443a',
-    desc: 'A stitched-up rag doll with a second life: the first KO just knocks his stuffing out, and he sews himself back together (that life lasts until he goes down again). R re-stitches him into a whole new body: Patchwork (balanced), Bulk (huge, slow, hits hard) or Threadbare (skinny and fast). Yarn Lasso ties someone up and drags them wherever you go; click to slam them (3 slams) before they break free.',
+    desc: 'A stitched-up rag doll with a second life: the first KO just knocks his stuffing out, and he sews himself back together (that life lasts until he goes down again). R re-stitches him into a whole new body: Patchwork (balanced), Bulk (huge, slow, hits hard) or Threadbare (skinny and fast, throws yarn that becomes a spider: it spins a sticky web, then hunts down the nearest enemy and bites once for venom damage over time). Yarn Lasso ties someone up and drags them wherever you go; click to slam them (3 slams) before they break free.',
     slots: [], awkName: 'LOOSE THREADS', awkLine: 'Hold still. This will only sting.', awkColor: PYARN, awkSlots: [] };
   const SL = {
     plush: [{ k: '1', name: 'Stuffing Punches', tag: 'b' }, { k: '2', name: 'Yarn Lasso', tag: 'g' }, { k: '3', name: 'Stuffing Burst', tag: 'x' }, { k: '4', name: 'Needle Point', tag: 'b' }],
     big: [{ k: '1', name: 'Heavy Paws', tag: 'b' }, { k: '2', name: 'Big Hand', tag: 'g' }, { k: '3', name: 'Belly Flop', tag: 'x' }, { k: '4', name: 'Needle Point', tag: 'b' }],
-    thread: [{ k: '1', name: 'Whip Stitch', tag: 'b' }, { k: '2', name: 'Web Snare', tag: 'n' }, { k: '3', name: 'Unravel Spin', tag: 'x' }, { k: '4', name: 'Needle Point', tag: 'b' }],
+    thread: [{ k: '1', name: 'Whip Stitch', tag: 'b' }, { k: '2', name: 'Yarn Spider', tag: 'p' }, { k: '3', name: 'Unravel Spin', tag: 'x' }, { k: '4', name: 'Needle Point', tag: 'b' }],
   };
   K.slots = SL.plush.concat([{ k: 'R', name: 'Re-Stitch', tag: 'n' }]);
   const cd = { 1: 0, 2: 0, 3: 0, 4: 0, R: 0 }, MAX = { 1: 3.5, 2: 9, 3: 7, 4: 8, R: 8 };
@@ -8134,7 +8178,16 @@ function makePatchKit() {
       mv.fired = true; const at = mv.at, from = handPos();
       const ball = new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 8), toon(PYARN));
       tempMesh(ball, 0.35, (m, k) => { m.position.lerpVectors(from, at, k); m.position.y += Math.sin(k * Math.PI) * 2; m.rotation.x += 0.3; });
-      later(0.35, () => { vfxWeb(at, 2.8); netOnly('pweb', [at, 2.8]); webs.push({ at, r: 2.8, t: 3, hit: new Set() }); });
+      later(0.35, () => {
+        const tg = nearestDummy(at, 10);
+        webs.push({ at, r: 2.6, t: 4.2 });
+        runYarnSpider(at, tg, (d) => {
+          if (!d || d.dead) return;
+          hitDummy(d, { dmg: 4, type: 'p', stun: 0.6, mats: [fxThread], spark: 0x8cff5a, ringColor: 0x8cff5a, label: 'VENOM BITE', awk: 3 });
+          const old = poisons.find((q) => q.d === d); if (old) old.left = 4; else poisons.push({ d, left: 4, tick: 0.5 });
+        });
+        netOnly('pspider', [at, tg]);
+      });
     } else if (mv.name === 'burst' && !mv.done && mv.t >= 0.2) {
       mv.done = true; const at = player.pos.clone(); vfxStuffing(at.clone().add(new THREE.Vector3(0, 1.2, 0)), 34, 11); netOnly('pstuff', [at.clone().add(new THREE.Vector3(0, 1.2, 0))]); ring(at.clone(), 0xfbf7ee, 6, true); addShake(0.4);
       bigHitAll(at, 3.6, { dmg: 6, type: 'x', kbOut: 10, kbUp: 5, big: true, mats: [fxFluff], spark: 0xfbf7ee, ringColor: PYARN, label: 'STUFFING BURST', awk: 4 });
@@ -8172,7 +8225,7 @@ function makePatchKit() {
       if (mv.t >= 2.4 && !mv.ended) { mv.ended = true; letterbox(false); later(0.1, endAwaken); }
     }
   };
-  const webs = [];
+  const webs = [], poisons = [];
   K.update = (dt) => {
     for (const k in cd) cd[k] = Math.max(0, cd[k] - dt);
     if (player.dead > 0) { releaseTether(); releaseHold(); }
@@ -8225,8 +8278,15 @@ function makePatchKit() {
         if (H.t <= 0 || d.dead) { if (!d.dead) floatText('DROPPED', d.pos.clone().add(new THREE.Vector3(0, 3, 0)), 'ink'); releaseHold(); }
       }
     }
-    // webs root anyone who walks in
-    for (const w of webs) { w.t -= dt; for (const d of aliveDummies()) if (!w.hit.has(d) && Math.hypot(d.pos.x - w.at.x, d.pos.z - w.at.z) < w.r && Math.abs(d.pos.y - w.at.y) < 2.5) { w.hit.add(d); hitDummy(d, { dmg: 4, type: 'n', stun: 0.8, mats: [fxThread], spark: PYARN, label: 'SNARED', awk: 3 }); if (d.remote) freezeTarget(d, 1.4, 'SNARED', 'Tangled in yarn'); else d.rooted = Math.max(d.rooted || 0, 1.8); applySlow(d, 2.5); } }
+    // the spider's web is sticky: anyone standing in it is slowed, so the spider can catch them
+    for (const w of webs) { w.t -= dt; for (const d of aliveDummies()) if (Math.hypot(d.pos.x - w.at.x, d.pos.z - w.at.z) < w.r && Math.abs(d.pos.y - w.at.y) < 2.5) applySlow(d, 0.5); }
+    // venom: damage over time, 2 every half second for 4 seconds
+    for (const q of poisons) {
+      q.left -= dt; q.tick -= dt;
+      if (Math.random() < 0.35 && !q.d.dead) P({ tex: 'glow', color: Math.random() < 0.5 ? 0x8cff5a : 0xb46aff, pos: q.d.pos.clone().add(new THREE.Vector3(rv(0.5), 0.4 + Math.random() * 1.6, rv(0.5))), vel: new THREE.Vector3(0, 1.2, 0), life: 0.6, s0: 0.25, s1: 0.05 });
+      if (q.tick <= 0 && !q.d.dead) { q.tick = 0.5; hitDummy(q.d, { dmg: 2, type: 'n', dot: true, stun: 0.01, otg: true, mats: [fxThread], spark: 0x8cff5a, awk: 0.6 }); }
+    }
+    for (let i = poisons.length - 1; i >= 0; i--) if (poisons[i].left <= 0 || poisons[i].d.dead) poisons.splice(i, 1);
     for (let i = webs.length - 1; i >= 0; i--) if (webs[i].t <= 0) webs.splice(i, 1);
     // dangling yarn strands on the Threadbare body
     for (const s of strands) { const a = s.anc.getWorldPosition(new THREE.Vector3()); if (s.anc === rig.neck) a.add(new THREE.Vector3(Math.sin(player.facing) * -0.22, 0.35, Math.cos(player.facing) * -0.22)); else a.y -= 0.08; ropeStep(s.r, dt, a, null, floor); }
@@ -8239,7 +8299,7 @@ function makePatchKit() {
   K.unawaken = () => {};
   return K;
 }
-Object.assign(FXF, { prestitch: vfxRestitch, previve: (p) => vfxStuffing(p.clone().add(new THREE.Vector3(0, 1.3, 0)), 40, 11), pslam: vfxSlamImpact, pweb: vfxWeb, pstuff: (p) => vfxStuffing(p, 34, 11), pfinal: vfxFinalStitch });
+Object.assign(FXF, { pspider: (at, tg) => runYarnSpider(at, tg, null), prestitch: vfxRestitch, previve: (p) => vfxStuffing(p.clone().add(new THREE.Vector3(0, 1.3, 0)), 40, 11), pslam: vfxSlamImpact, pweb: vfxWeb, pstuff: (p) => vfxStuffing(p, 34, 11), pfinal: vfxFinalStitch });
 KITS.patch = makePatchKit;
 
 // ---------- 1v1 duel vs the Sparring Master ----------
