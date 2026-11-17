@@ -357,7 +357,7 @@ body.curtains #curL, body.curtains #curR { transform: translateX(0); }
 <div id="overlay">
   <div class="card scrap">
     <h1>Windstep Village</h1>
-    <div class="build">Build 44 · Brick: real physics rubble · Pick your fighter</div>
+    <div class="build">Build 45 · Brick: real swing, grinding wall, right hand · Pick your fighter</div>
     <div class="roster" id="roster">
       <button class="fcard sel" data-id="juno" type="button"><span class="sw juno"></span><span class="fn">Juno Marrow</span><span class="fs">Ink · Hard</span></button>
       <button class="fcard" data-id="pip" type="button"><span class="sw pip"></span><span class="fn">Pip Hollow</span><span class="fs">Thread · Medium</span></button>
@@ -8877,6 +8877,22 @@ function brickFace(kind, g, ell) {
   g.fillStyle = 'rgba(200,110,80,.45)'; ell(36, 72, 5, 3.5, 'rgba(200,110,80,.45)'); ell(92, 72, 5, 3.5, 'rgba(200,110,80,.45)');
   return true;
 }
+// Brick holds his hammer in his right hand, so his attacks use mirrored copies of the usual animations
+// (name + 'M': left and right swapped). Made once, the first time a Brick is built on this screen.
+function bkMirrorClips() {
+  if (CLIPS.slamM) return;
+  const sw = { shL: 'shR', shR: 'shL', elL: 'elR', elR: 'elL', hipL: 'hipR', hipR: 'hipL', knL: 'knR', knR: 'knL' };
+  const mir = (p) => { const o = {}; for (const k in p) { const v = p[k]; o[sw[k] || k] = Array.isArray(v) ? [v[0], -v[1], -v[2]] : v; } return o; };
+  for (const n of Object.keys(CLIPS)) if (!/M$/.test(n)) { CLIPS[n + 'M'] = CLIPS[n].map((kf) => [kf[0], mir(kf[1])].concat(kf.slice(2))); if (ATTACK_CLIPS.has(n)) ATTACK_CLIPS.add(n + 'M'); }
+  // hauling the wrecking ball round and heaving it through
+  CLIPS.bkheave = [
+    [0, { chest: [-0.15, 0, 0], shL: [-2.5, 0, -0.3], shR: [-2.4, 0, 0.3], elL: [-0.4, 0, 0], elR: [-0.5, 0, 0], lift: -0.05 }],
+    [0.42, { chest: [-0.35, -0.45, 0], waist: [0, -0.35, 0], shL: [-2.9, 0, -0.5], shR: [-2.6, 0, 0.2], elL: [-0.5, 0, 0], elR: [-0.7, 0, 0], knL: [0.25, 0, 0], knR: [0.35, 0, 0], lift: -0.08 }],
+    [0.62, { chest: [0.35, 0.55, 0], waist: [0, 0.45, 0], shL: [-1.1, 0, -0.5], shR: [-1.3, 0, 0.3], elL: [-0.15, 0, 0], elR: [-0.3, 0, 0], knL: [0.5, 0, 0], knR: [0.2, 0, 0], lift: -0.16 }],
+    [1.05, { chest: [0.2, 0.75, 0], waist: [0, 0.55, 0], shL: [-1.5, 0, -0.3], shR: [-1.6, 0, 0.2], elL: [-0.3, 0, 0], elR: [-0.4, 0, 0], lift: -0.1 }],
+  ];
+  ATTACK_CLIPS.add('bkheave');
+}
 function buildBrick() {
   const rig = makeRig({ skin: 0xc98e64, upper: 0x4c5a68, armU: 0x4c5a68, armL: 0xc98e64, lower: 0x3a5a8a, hand: 0xc9a46a, leg: 0x3a5a8a, foot: 0x5a3a22, face: 'brick' });
   rig.root.scale.setScalar(1.06); rig.chest.scale.set(1.12, 1, 1.1);
@@ -8905,7 +8921,8 @@ function buildBrick() {
   for (const el of [rig.j.elL, rig.j.elR]) el.add(part(0.22, 0.07, 0.24, SM(0x4c5a68), 0, -0.02, 0));
   for (const kn of [rig.j.knL, rig.j.knR]) { kn.add(part(0.2, 0.14, 0.04, SM(0x2c4466), 0, -0.05, 0.145)); kn.add(part(0.3, 0.1, 0.18, SM(0x4a2c18), 0, -0.45, 0.2)); }
   // the sledgehammer
-  const grip = new THREE.Group(); grip.position.set(0, -0.06, 0.06); grip.rotation.x = -1.3; rig.handR.add(grip);
+  bkMirrorClips();
+  const grip = new THREE.Group(); grip.position.set(0, -0.06, 0.06); grip.rotation.x = -1.3; rig.handL.add(grip);   // his right hand
   const hammer = new THREE.Group(); grip.add(hammer);
   { const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.04, 1.15, 10), SM(0x9a6a3a)); handle.position.y = -0.38; hammer.add(handle);
     const head = new THREE.Mesh(boxGeo(0.24, 0.24, 0.52), SM(0x4a4f58)); head.position.y = -0.95; head.castShadow = true; hammer.add(head);
@@ -8929,10 +8946,6 @@ function bkWallBoxes(W) {
 }
 function bkSetBoxes(W) {
   for (const b of W.cols) { const i = colliders.indexOf(b); if (i >= 0) colliders.splice(i, 1); } W.cols = bkWallBoxes(W); for (const b of W.cols) colliders.push(b);
-  if (PHYS.world && window.CANNON) {
-    if (!W.body) { W.body = new CANNON.Body({ mass: 0, collisionFilterGroup: 1, collisionFilterMask: 2 }); W.body.addShape(new CANNON.Box(new CANNON.Vec3(1.5, 1.15, 0.25))); PHYS.world.addBody(W.body); }
-    W.body.position.set(W.pos.x, W.pos.y + 1.15, W.pos.z); W.body.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), W.fa);
-  }
 }
 function bkWallMesh(steel) {
   const g = new THREE.Group();
@@ -8946,14 +8959,13 @@ function bkWall(id, pos, fa, steel, owner) {
   const W = { id, pos: pos.clone(), fa, steel: !!steel, owner, hp: steel ? 80 : 40, t: steel ? 12 : 10, cols: [], mesh: bkWallMesh(steel), age: 0, hitT: new Map() };
   W.mesh.position.copy(W.pos).add(new THREE.Vector3(0, -2.3, 0)); W.mesh.rotation.y = fa; scene.add(W.mesh);
   bkSetBoxes(W); BK_WALLS.push(W);
-  dust(W.pos.clone().add(new THREE.Vector3(0, 0.2, 0)), 8, 4); crack(W.pos.clone(), 1.6);
+  vfxDustSlam(W.pos.clone(), 0.55, 0);
   return W;
 }
 function bkFind(id) { return BK_WALLS.find((w) => w.id === id); }
 function bkRemove(W, burst) {
   const i = BK_WALLS.indexOf(W); if (i < 0) return; BK_WALLS.splice(i, 1);
   for (const b of W.cols) { const k = colliders.indexOf(b); if (k >= 0) colliders.splice(k, 1); }
-  if (W.body && PHYS.world) { PHYS.world.removeBody(W.body); W.body = null; }
   scene.remove(W.mesh);
   if (burst) bkBrickBurst(W.pos.clone().add(new THREE.Vector3(0, 1.1, 0)), W.fa, W.steel, burst === 2);
 }
@@ -9022,19 +9034,30 @@ function rubbleTick(dt) {
     if (left <= 0 || b.position.y < -60) rubbleRemove(R);
   }
 }
-function bkBrickBurst(at, fa, steel, big) {
-  dust(at.clone(), big ? 14 : 8, big ? 7 : 4); addShake(big ? 0.5 : 0.25);
-  const geo = boxGeo(0.34, 0.17, 0.17), mat = steel ? SM(BK_STEEL) : SM(BK_RED), n = big ? 16 : 10; rubbleFloor(at, 3);
-  for (let i = 0; i < n; i++) {
-    const m = new THREE.Mesh(geo, mat); m.castShadow = true;
-    const p0 = at.clone().add(new THREE.Vector3(rv(1.3), rv(0.9), rv(1.3))), v = new THREE.Vector3(rv(7), 2.5 + Math.random() * 6, rv(7)), w = new THREE.Vector3(rv(12), rv(12), rv(12));
-    if (!rubbleAdd(m, p0, null, v, w, [[0.17, 0.085, 0.085]], 2)) {   // no physics engine: the old simple arc
-      const floor = groundY(at.x, at.z, at.y + 1); m.position.copy(p0);
-      tempMesh(m, 1.4, (o, k, dt) => { const d = dt || 1 / 60; v.y -= 22 * d; o.position.addScaledVector(v, d); if (o.position.y < floor + 0.09) { o.position.y = floor + 0.09; v.multiplyScalar(0.4); v.y = Math.abs(v.y) * 0.3; } o.rotation.x += w.x * d; o.rotation.y += w.y * d; if (k > 0.75) o.scale.setScalar((1 - k) * 4); });
+// a big slam: dust rolling out along the ground, a puff rising, grit and grain thrown up
+function vfxDustSlam(at, size, bricks) {
+  const k = size || 1, g0 = at.clone(); g0.y = groundY(at.x, at.z, at.y + 1.5) > -30 ? groundY(at.x, at.z, at.y + 1.5) : at.y;
+  ring(g0.clone().add(new THREE.Vector3(0, 0.05, 0)), 0xd8c8a8, 3.2 * k, true); crack(g0.clone(), 1.4 * k);
+  for (let i = 0; i < 18; i++) {   // dust rolling out low along the ground
+    const a = i / 18 * PI2 + rv(0.2), d = new THREE.Vector3(Math.cos(a), 0, Math.sin(a));
+    P({ tex: 'smoke', add: false, color: i % 3 ? 0xcdbb9c : 0xb8a888, pos: g0.clone().addScaledVector(d, 0.4 * k).add(new THREE.Vector3(0, 0.25, 0)), vel: d.multiplyScalar((6 + Math.random() * 5) * k).setY(0.4 + Math.random()), life: 0.9 + Math.random() * 0.5, s0: 0.7 * k, s1: 2.3 * k, a: 0.55, drag: 3 });
+  }
+  for (let i = 0; i < 6; i++) P({ tex: 'smoke', add: false, color: 0xd8cab0, pos: g0.clone().add(new THREE.Vector3(rv(0.8 * k), 0.4, rv(0.8 * k))), vel: new THREE.Vector3(rv(1), 2 + Math.random() * 2.5, rv(1)), life: 1.2, s0: 1 * k, s1: 2.8 * k, a: 0.45, drag: 1.5 });
+  for (let i = 0; i < 34; i++) {   // grit and grain
+    const c = [0x6b5a44, 0x8a7a62, 0x4a3e30, 0xa89878][i % 4];
+    P({ tex: 'square', add: false, color: c, pos: g0.clone().add(new THREE.Vector3(rv(1.2 * k), 0.15, rv(1.2 * k))), vel: new THREE.Vector3(rv(7 * k), 3 + Math.random() * 7 * k, rv(7 * k)), life: 0.7 + Math.random() * 0.5, s0: 0.07 + Math.random() * 0.07, s1: 0.05, grav: 24, floor: g0.y + 0.03 });
+  }
+  if (bricks) {   // a few chunks knocked loose (simple arcs, gone in a second)
+    const geo = boxGeo(0.3, 0.15, 0.15), mat = SM(bricks === 2 ? BK_STEEL : BK_RED);
+    for (let i = 0; i < 6; i++) {
+      const m = new THREE.Mesh(geo, mat); m.castShadow = true; m.position.copy(g0).add(new THREE.Vector3(rv(1), 0.6 + Math.random(), rv(1)));
+      const v = new THREE.Vector3(rv(6), 4 + Math.random() * 4, rv(6)), w = new THREE.Vector3(rv(10), rv(10), rv(10));
+      tempMesh(m, 1.0, (o, kk, dt) => { const d = dt || 1 / 60; v.y -= 24 * d; o.position.addScaledVector(v, d); if (o.position.y < g0.y + 0.08) { o.position.y = g0.y + 0.08; v.multiplyScalar(0.35); v.y = Math.abs(v.y) * 0.25; } o.rotation.x += w.x * d; o.rotation.z += w.z * d; if (kk > 0.7) o.scale.setScalar((1 - kk) / 0.3); });
     }
   }
+  addShake(0.35 * k);
 }
-// damage someone else's wall (your hits and shots chip away at it)
+function bkBrickBurst(at, fa, steel, big) { vfxDustSlam(at, big ? 1.1 : 0.8, steel ? 2 : 1); }
 function bkWallDamage(W, dmg) {
   if (!W || bkOwnerIsMe(W.owner)) return;
   const last = W.hitT.get('me') || -9; if (clock - last < 0.25) return; W.hitT.set('me', clock);
@@ -9056,32 +9079,70 @@ function bkAreaWalls(at, r, dmg) {
 // a wall sliding forward like a battering ram
 function bkPuntVis(id, dir, explode) {
   const W = bkFind(id); if (!W) return null;
-  W.punt = { dir: dir.clone().setY(0).normalize(), t: 0, explode: !!explode, hits: new Set() }; W.t = 99;
-  dust(W.pos.clone().add(new THREE.Vector3(0, 0.3, 0)), 8, 5); addShake(0.3);
-  return W;
+  const d = dir.clone().setY(0).normalize(), F = new THREE.Vector3(Math.sin(W.fa), 0, Math.cos(W.fa));
+  W.punt = { dir: d, v: 17, t: 0, phase: 'slide', a: 0, av: 0, sgn: d.dot(F) >= 0 ? 1 : -1, explode: !!explode, hits: new Set(), scr: 0, downT: 0 }; W.t = 99;
+  W.mesh.rotation.order = 'YXZ';
+  vfxDustSlam(W.pos.clone(), 0.6, 0); return W;
+}
+// two long scrape marks left on the ground under the wall's ends
+function bkScrape(W, along) {
+  const X = new THREE.Vector3(Math.cos(W.fa), 0, -Math.sin(W.fa));
+  for (const s of [-1.3, 1.3]) {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(0.14, along + 0.1), new THREE.MeshBasicMaterial({ color: 0x3a3026, transparent: true, opacity: 0.5, depthWrite: false }));
+    m.material.userData.lin = true; m.rotation.x = -Math.PI / 2; m.rotation.z = -Math.atan2(W.punt.dir.x, W.punt.dir.z);
+    m.position.copy(W.pos).addScaledVector(X, s).addScaledVector(W.punt.dir, -along / 2); m.position.y = W.pos.y + 0.03;
+    tempMesh(m, 4, (o, k) => { o.material.opacity = 0.5 * (1 - k); });
+  }
 }
 function bkWallTick(dt) {
   for (const W of BK_WALLS.slice()) {
     W.age += dt; W.t -= dt;
-    const rise = Math.min(1, W.age / 0.22); W.mesh.position.set(W.pos.x, W.pos.y - 2.3 * (1 - easeOut(rise)), W.pos.z);
-    if (W.punt) {
-      const pu = W.punt; pu.t += dt; const step = 16 * dt; W.pos.addScaledVector(pu.dir, step); W.pos.y = groundY(W.pos.x, W.pos.z, W.pos.y + 1.0);
-      bkSetBoxes(W); if (Math.random() < 0.6) dust(W.pos.clone().add(new THREE.Vector3(rv(1.2), 0.1, rv(1.2))), 1, 2);
-      if (bkOwnerIsMe(W.owner)) for (const d of aliveDummies()) if (!pu.hits.has(d) && bkSegDist(W, d.pos.x, d.pos.z) < 1.25 && Math.abs(d.pos.y - W.pos.y) < 2.4) {
-        pu.hits.add(d); hitDummy(d, { dmg: 10, type: 'b', heavy: true, stun: 0.9, kb: pu.dir.clone().multiplyScalar(15).setY(4), set: true, big: true, mats: [fxPaper], spark: BK_RED, ringColor: BK_HAT, label: 'BATTERING RAM', awk: 4, bkNoSplat: true });
+    const rise = Math.min(1, W.age / 0.22);
+    const pu = W.punt;
+    if (!pu) { W.mesh.position.set(W.pos.x, W.pos.y - 2.3 * (1 - easeOut(rise)), W.pos.z); if (W.t <= 0) bkRemove(W, 1); continue; }
+    pu.t += dt; const mine = bkOwnerIsMe(W.owner);
+    if (pu.phase === 'slide') {
+      // friction grinds it to a stop
+      const step = pu.v * dt; W.pos.addScaledVector(pu.dir, step); pu.v = Math.max(0, pu.v - 24 * dt);
+      const gy = groundY(W.pos.x, W.pos.z, W.pos.y + 1.0); if (gy > -30) W.pos.y = gy;
+      bkSetBoxes(W);
+      pu.scr += step; if (pu.scr > 0.6) { bkScrape(W, pu.scr); pu.scr = 0; }
+      const X = new THREE.Vector3(Math.cos(W.fa), 0, -Math.sin(W.fa));
+      for (let i = 0; i < 3; i++) {   // grit kicked up from the bottom edge, dust trailing behind
+        const at = W.pos.clone().addScaledVector(X, rv(1.5)).add(new THREE.Vector3(0, 0.1, 0));
+        P({ tex: 'square', add: false, color: [0x6b5a44, 0x8a7a62, 0x4a3e30][i], pos: at, vel: pu.dir.clone().multiplyScalar(-2 - Math.random() * 3).add(new THREE.Vector3(rv(2), 2 + Math.random() * 3, rv(2))), life: 0.5, s0: 0.08, s1: 0.05, grav: 22, floor: W.pos.y + 0.03 });
       }
-      if (pu.explode && pu.t >= 0.3) {   // steel wall: blows apart into a cone of bricks halfway there
-        const at = W.pos.clone(); bkRemove(W, 2); flash(at.clone().add(new THREE.Vector3(0, 1.2, 0)), BK_HAT, 4); ring(at.clone(), BK_VEST, 6, true);
-        if (bkOwnerIsMe(W.owner)) { for (const d of aliveDummies()) { const v = d.pos.clone().sub(at).setY(0), L = v.length(); if (L < 7.5 && L > 0.01 && v.dot(pu.dir) / L > 0.45 && !pu.hits.has(d)) hitDummy(d, { dmg: 9, type: 'x', stun: 1, kb: v.normalize().multiplyScalar(11).setY(5), set: true, big: true, mats: [fxPaper], spark: BK_RED, ringColor: BK_VEST, label: 'BRICK BLAST', awk: 4 }); } }
+      if (Math.random() < 0.7) P({ tex: 'smoke', add: false, color: 0xcdbb9c, pos: W.pos.clone().addScaledVector(X, rv(1.4)).add(new THREE.Vector3(0, 0.3, 0)), vel: pu.dir.clone().multiplyScalar(-1.5).setY(0.8), life: 0.9, s0: 0.6, s1: 1.8, a: 0.45, drag: 2 });
+      if (W.steel && Math.random() < 0.5) sparks(W.pos.clone().addScaledVector(X, rv(1.4)).add(new THREE.Vector3(0, 0.1, 0)), 2, 0xffd27a, 0.6);
+      // it grinds: shudders and leans back against the drag
+      W.mesh.position.copy(W.pos).add(new THREE.Vector3(rv(0.04), 0, rv(0.04))); W.mesh.rotation.set(-pu.sgn * (0.06 + 0.03 * Math.sin(pu.t * 50)), W.fa, 0);
+      if (pu.t > 0.05) addShake(0.06);
+      if (mine) for (const d of aliveDummies()) if (!pu.hits.has(d) && bkSegDist(W, d.pos.x, d.pos.z) < 1.25 && Math.abs(d.pos.y - W.pos.y) < 2.4) {
+        pu.hits.add(d); hitDummy(d, { dmg: 10, type: 'b', heavy: true, stun: 0.9, kb: pu.dir.clone().multiplyScalar(13).setY(4), set: true, big: true, mats: [fxPaper], spark: BK_RED, ringColor: BK_HAT, label: 'BATTERING RAM', awk: 4, bkNoSplat: true });
+      }
+      if (pu.explode && pu.t >= 0.3) {   // steel wall: blows apart halfway into a cone of debris
+        const at = W.pos.clone(); bkRemove(W, 0); vfxDustSlam(at, 1.3, 2); flash(at.clone().add(new THREE.Vector3(0, 1.2, 0)), BK_HAT, 4);
+        if (mine) for (const d of aliveDummies()) { const v = d.pos.clone().sub(at).setY(0), L = v.length(); if (L < 7.5 && L > 0.01 && v.dot(pu.dir) / L > 0.45 && !pu.hits.has(d)) hitDummy(d, { dmg: 9, type: 'x', stun: 1, kb: v.normalize().multiplyScalar(11).setY(5), set: true, big: true, mats: [fxPaper], spark: BK_RED, ringColor: BK_VEST, label: 'BRICK BLAST', awk: 4 }); }
         continue;
       }
-      if (pu.t >= 0.62) { bkRemove(W, 1); continue; }
+      if (pu.v <= 2) { pu.phase = 'fall'; pu.av = 0.6; for (const b of W.cols) { const k = colliders.indexOf(b); if (k >= 0) colliders.splice(k, 1); } W.cols = []; }
+    } else if (pu.phase === 'fall') {
+      // tips over its bottom edge, faster and faster, and slams flat
+      pu.av += (5 + 14 * Math.sin(pu.a)) * dt; pu.a = Math.min(Math.PI / 2, pu.a + pu.av * dt);
+      if (pu.a >= Math.PI / 2) {
+        pu.phase = 'down'; const mid = W.pos.clone().addScaledVector(pu.dir, 1.3);
+        vfxDustSlam(mid, 1.25, 0); addShake(0.6); crack(mid.clone(), 2.2);
+        if (mine) for (const d of aliveDummies()) { const v = d.pos.clone().sub(W.pos).setY(0), a = v.dot(pu.dir), s = Math.abs(v.x * pu.dir.z - v.z * pu.dir.x); if (a > -0.2 && a < 2.7 && s < 1.7 && Math.abs(d.pos.y - W.pos.y) < 2) hitDummy(d, { dmg: 8, type: 'x', heavy: true, stun: 1.1, kb: pu.dir.clone().multiplyScalar(3).setY(-2), set: true, down: 1.2, big: true, mats: [fxPaper], spark: BK_RED, ringColor: BK_HAT, label: 'TOPPLED', awk: 4, bkNoSplat: true }); }
+      }
+    } else { pu.downT += dt; if (pu.downT > 1.0) W.mesh.position.y -= dt * 1.2; if (pu.downT > 1.6) { bkRemove(W, 0); continue; } }
+    if (pu.phase !== 'slide') {
+      const a = pu.a, F = new THREE.Vector3(Math.sin(W.fa), 0, Math.cos(W.fa)), off = 0.25 * pu.sgn;
+      const lz = off - off * Math.cos(a), ly = 0.25 * Math.sin(a);
+      const y0 = pu.phase === 'down' ? W.mesh.position.y : W.pos.y;
+      W.mesh.position.set(W.pos.x + F.x * lz, y0 + (pu.phase === 'down' ? 0 : ly), W.pos.z + F.z * lz); W.mesh.rotation.set(pu.sgn * a, W.fa, 0);
     }
-    if (W.t <= 0) bkRemove(W, 1);
   }
 }
-
-// ---------------- ramps ----------------
 function bkRampMesh() {
   const g = new THREE.Group(), wood = SM(0xb07a44), dark = SM(0x7a5228);
   const L = 2.8, H = 1.05, ang = Math.atan2(H, L), slab = new THREE.Mesh(boxGeo(1.9, 0.14, Math.hypot(L, H)), wood);
@@ -9153,28 +9214,51 @@ function bkCraneVis(base, fa, at, dur, loadWall, follow) {
   });
   return st;
 }
-function bkCraneImpact(at, wall) { ring(at.clone(), BK_HAT, 5, true); dust(at.clone().add(new THREE.Vector3(0, 0.2, 0)), 12, 6); crack(at.clone(), 2.4); addShake(0.7); if (!wall) bkBrickBurst(at.clone().add(new THREE.Vector3(0, 0.6, 0)), 0, false, false); }
+function bkCraneImpact(at, wall) { ring(at.clone(), BK_HAT, 5, true); vfxDustSlam(at.clone(), 1.2, wall ? 0 : 1); addShake(0.4); }
 
 // ---------------- wrecking ball ----------------
 function bkWreckVis(owner, dbl) {
   const ball = new THREE.Mesh(new THREE.SphereGeometry(0.62, 18, 12), SM(0x2e3238)); ball.castShadow = true; outlineAll(ball);
-  const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1, 6), SM(0x6a6f78));
-  const dur = dbl ? 1.6 : 1.15; scene.add(chain);
-  const st = { ball, pos: new THREE.Vector3() };
+  const chain = new THREE.Group(); scene.add(chain);
+  const links = []; for (let i = 0; i < 14; i++) { const l = new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.03, 5, 10), SM(0x6a6f78)); chain.add(l); links.push(l); }
+  const dur = dbl ? 1.6 : 1.15, fa0 = owner.facing || 0, L = 3.6;
+  const F = new THREE.Vector3(Math.sin(fa0), 0, Math.cos(fa0)), R = new THREE.Vector3(-Math.cos(fa0), 0, Math.sin(fa0)), U = new THREE.Vector3(0, 1, 0);
+  const st = { ball, pos: new THREE.Vector3(), pivot: new THREE.Vector3(), swinging: false };
+  const sm = (x) => x * x * (3 - 2 * x);
   tempMesh(ball, dur, (o, k) => {
-    if (!owner || !owner.pos) return; const t = k * dur, fa = owner.facing || 0, c = owner.pos.clone().add(new THREE.Vector3(0, 1.4, 0));
-    let a, r, y;
-    if (t < 0.45) { a = fa + t * 18; r = 1.3; y = 3.0; }
-    else if (!dbl) { const u = Math.min(1, (t - 0.45) / 0.4); a = fa - 1.9 + u * 3.8; r = 4.2; y = 1.1 + Math.sin(u * Math.PI) * 0.3; }
-    else { const u = Math.min(1, (t - 0.4) / 1.0); a = fa + u * PI2 * 2; r = 4.4; y = 1.1; }
-    o.position.set(owner.pos.x + Math.sin(a) * r, owner.pos.y + y, owner.pos.z + Math.cos(a) * r); st.pos.copy(o.position);
-    const mid = c.clone().lerp(o.position, 0.5), L = c.distanceTo(o.position); chain.position.copy(mid); chain.scale.y = L; chain.lookAt(o.position); chain.rotateX(Math.PI / 2);
-    if (t > 0.45 && Math.random() < 0.5) dust(o.position.clone().setY(owner.pos.y + 0.1), 1, 2);
+    if (!owner || !owner.pos) return; const t = k * dur;
+    let pivot, dirv;
+    if (!dbl) {
+      // he holds the chain in his right hand. Lets the ball drop, hauls it round behind him,
+      // then heaves it through: it whips past low in front (fastest at the bottom of the arc), climbs
+      // up the far side, and swings back a little as gravity takes it
+      let ph;
+      if (t < 0.12) ph = 0.5;
+      else if (t < 0.5) ph = 0.5 + sm((t - 0.12) / 0.38) * 1.9;
+      else if (t < 0.9) ph = 0.25 + 2.15 * Math.cos(Math.PI * (t - 0.5) / 0.4);
+      else ph = -1.9 + sm(Math.min(1, (t - 0.9) / 0.25)) * 1.1;
+      st.swinging = t >= 0.5 && t < 0.9;
+      pivot = owner.pos.clone().addScaledVector(U, t < 0.5 ? 2.5 + (t / 0.5) * 0.4 : 2.1).addScaledVector(F, 0.25).addScaledVector(R, t < 0.5 ? 0.35 : 0);
+      const low = F.clone().multiplyScalar(0.91).addScaledVector(U, -0.41);
+      dirv = low.multiplyScalar(Math.cos(ph)).addScaledVector(R, Math.sin(ph)).addScaledVector(U, (1 - Math.cos(ph)) * 0.38).normalize();
+    } else {
+      // awakened: a hammer-throw spin, twice round, the ball flying out low as he turns with it
+      const u = Math.max(0, (t - 0.25) / 1.15), a = u * PI2 * 2 * sm(Math.min(1, u * 1.4)) / sm(1);
+      st.swinging = t >= 0.4 && t < 1.4; st.angle = fa0 + a;
+      pivot = owner.pos.clone().addScaledVector(U, 1.9);
+      const fa = fa0 + a; dirv = new THREE.Vector3(Math.sin(fa), -0.18 + (1 - Math.min(1, u * 3)) * -0.6, Math.cos(fa)).normalize();
+    }
+    o.position.copy(pivot).addScaledVector(dirv, L); const gy = groundY(o.position.x, o.position.z, o.position.y + 1) + 0.62; if (o.position.y < gy) o.position.y = gy;
+    st.pos.copy(o.position); st.pivot.copy(pivot);
+    // the chain: links strung from his hand to the ball, with a little sag when it's slack
+    const slack = st.swinging ? 0 : 0.35;
+    links.forEach((l, i) => { const u = (i + 0.5) / links.length; l.position.copy(pivot).lerp(o.position, u); l.position.y -= Math.sin(u * Math.PI) * slack; l.lookAt(o.position); l.rotateY(i % 2 ? Math.PI / 2 : 0); });
+    if (st.swinging && Math.random() < 0.5) P({ tex: 'streak', color: 0xdfe6ee, pos: o.position.clone(), vel: new THREE.Vector3(rv(1), 0, rv(1)), life: 0.15, s0: 0.5, s1: 0.1 });
+    if (st.swinging && o.position.y < gy + 0.4 && Math.random() < 0.6) { dust(o.position.clone().setY(gy - 0.55), 1, 2); P({ tex: 'square', add: false, color: 0x6b5a44, pos: o.position.clone().setY(gy - 0.5), vel: new THREE.Vector3(rv(3), 3 + Math.random() * 3, rv(3)), life: 0.5, s0: 0.07, s1: 0.05, grav: 22 }); }
     if (k >= 1) scene.remove(chain);
   });
   return st;
 }
-
 // ---------------- grand slam, topping out ----------------
 function bkRigOf(o) { return o === player ? rig : o && o.rig; }
 function bkHammerGrow(owner, up) {
@@ -9183,7 +9267,7 @@ function bkHammerGrow(owner, up) {
 }
 function bkGrandSlamFx(at) {
   ring(at.clone(), BK_HAT, 9, true); ring(at.clone().add(new THREE.Vector3(0, 0.3, 0)), BK_VEST, 6, true); crack(at.clone(), 4.5); crack(at.clone(), 3);
-  dust(at.clone().add(new THREE.Vector3(0, 0.3, 0)), 22, 10); flash(at.clone().add(new THREE.Vector3(0, 1, 0)), 0xffd27a, 6); lightFlash(at.clone().add(new THREE.Vector3(0, 2, 0)), 0xffb84a, 16);
+  vfxDustSlam(at.clone(), 2, 0); flash(at.clone().add(new THREE.Vector3(0, 1, 0)), 0xffd27a, 6); lightFlash(at.clone().add(new THREE.Vector3(0, 2, 0)), 0xffb84a, 16);
   addShake(1.5); impactFrame(0.14);
   const rock = SM(0x8a7d6a);
   for (let i = 0; i < 14; i++) {
@@ -9214,6 +9298,7 @@ function bkTopOutFx(base, fa) {
   });
   later(2.25, () => {
     ring(base.clone(), BK_HAT, 7, true); crack(base.clone(), 3); addShake(1); flash(base.clone().add(new THREE.Vector3(0, 1, 0)), 0xffd27a, 4);
+    vfxDustSlam(base.clone(), 1.6, 0); later(0.65, () => vfxDustSlam(base.clone(), 2.2, 1));
     if (!PHYS.world || !window.CANNON) return;
     // the hammer knocks the bottom floor out; everything above comes down on top of it
     const away = new THREE.Vector3(Math.sin(fa), 0, Math.cos(fa)), side = new THREE.Vector3(Math.cos(fa), 0, -Math.sin(fa)), lean = rv(1) > 0 ? 1 : -1;
@@ -9246,8 +9331,9 @@ function makeBrickKit() {
   K.moveMul = () => 0.9;
   K.m1Speed = () => (awakened ? 0.78 : 0.64);
   K.m1Dmg = (a) => (a.idx < 4 ? [4, 4, 5][a.idx - 1] : 8);
+  K.m1Anim = (a) => (a.idx < 4 ? ['m1aM', 'm1bM', 'm1cM'][a.idx - 1] : a.kind === 'upper' ? 'upperM' : a.kind === 'slam' ? 'slamM' : 'm1dM');
   K.m1Fx = (a, f) => {
-    if (a.idx === 4 && a.kind !== 'upper') { const at = groundAt(player.pos.clone().addScaledVector(f, 1.8)); crack(at, 1.6); dust(at.clone().add(new THREE.Vector3(0, 0.2, 0)), 6, 4); addShake(0.35); }
+    if (a.idx === 4 && a.kind !== 'upper') { const at = groundAt(player.pos.clone().addScaledVector(f, 1.8)); vfxDustSlam(at, 0.6, 0); }
     return false;
   };
   const cost = (n) => { if (awakened) return true; if (bricks < n) { toast('Out of bricks: land hammer hits to get more'); return false; } bricks -= n; return true; };
@@ -9271,13 +9357,13 @@ function makeBrickKit() {
       const near = myWalls().filter((w) => !w.punt && w.pos.distanceTo(player.pos) < 5.5).sort((a, b) => a.pos.distanceTo(player.pos) - b.pos.distanceTo(player.pos))[0];
       if (near && clock - near.bornAt > 0.35) {
         const dir = near.pos.clone().sub(player.pos).setY(0); if (dir.lengthSq() < 0.01) dir.copy(f); dir.normalize();
-        faceToward(near.pos); startMove('punt', 0.45, 'haymaker', { W: near, dir, done: false }); cd[1] = 0.6; return;
+        faceToward(near.pos); startMove('punt', 0.45, 'haymakerM', { W: near, dir, done: false }); cd[1] = 0.6; return;
       }
       if (!cost(2)) return;
       aimAt(6, 0.3); const ff = facingVec(), at = groundAt(player.pos.clone().addScaledVector(ff, 2.6)), id = bkNewId();
       const W = bkWall(id, at, player.facing, awakened, player); W.bornAt = clock; netOnly('bwall', [id, at, player.facing, awakened ? 1 : 0, player]);
       const cap = awakened ? 4 : 2, mine = myWalls(); while (mine.length > cap) { const old = mine.shift(); bkRemove(old, 1); netOnly('bwgone', [old.id, 1]); }
-      startMove('build', awakened ? 0.25 : 0.42, 'slam', {});
+      startMove('build', awakened ? 0.25 : 0.42, 'slamM', {});
       // anyone standing where it bursts up gets popped into the air
       for (const d of aliveDummies()) if (bkSegDist(W, d.pos.x, d.pos.z) < 0.75 && Math.abs(d.pos.y - at.y) < 1.5) hitDummy(d, { dmg: 5, type: 'x', stun: 1, kb: new THREE.Vector3(0, 14, 0).addScaledVector(ff, 3), set: true, big: true, mats: [fxPaper], spark: BK_RED, ringColor: BK_HAT, label: 'POPPED UP', awk: 3, bkNoSplat: true });
       cd[1] = awakened ? 0.6 : MAX[1];
@@ -9287,9 +9373,9 @@ function makeBrickKit() {
       if (!cost(1)) return;
       aimAt(5, 0.25); const at = groundAt(player.pos.clone().addScaledVector(facingVec(), 1.4)), id = bkNewId();
       bkRamp(id, at, player.facing, player); netOnly('bramp', [id, at, player.facing, player]);
-      startMove('build', 0.35, 'slam', {}); cd[2] = MAX[2];
+      startMove('build', 0.35, 'slamM', {}); cd[2] = MAX[2];
     }
-    if (k === '3') { aimAt(6, 0.3); startMove('wreck', awakened ? 1.6 : 1.15, 'spin', { vis: bkWreckVis(player, awakened), hits: new Set(), dbl: awakened }); netOnly('bwreck', [player, awakened ? 1 : 0]); cd[3] = awakened ? 6 : MAX[3]; }
+    if (k === '3') { aimAt(6, 0.3); startMove('wreck', awakened ? 1.6 : 1.15, awakened ? 'spin' : 'bkheave', { vis: bkWreckVis(player, awakened), hits: new Set(), dbl: awakened }); netOnly('bwreck', [player, awakened ? 1 : 0]); cd[3] = awakened ? 6 : MAX[3]; }
     if (k === '4') {
       aimAt(14, 0.26); const ff = facingVec(); let t = null, bd = 0.3;
       for (const d of aliveDummies()) { const v = d.pos.clone().sub(player.pos).setY(0), L = v.length(); if (L < 2 || L > 14 || Math.abs(d.pos.y - player.pos.y) > 4) continue; const a = Math.acos(Math.max(-1, Math.min(1, v.dot(ff) / L))); if (a < bd) { bd = a; t = d; } }
@@ -9297,9 +9383,9 @@ function makeBrickKit() {
       vfxMark(at, 2.3, 0xe03a2a, 1.2); netOnly('tmark', [at, 2.3, 0xe03a2a, 1.2]);
       crane = { at, t: 0, dropAt: 1.2, vis: bkCraneVis(player.pos.clone(), player.facing, at, 1.2, 0), dropped: false, swapped: false, steel: false };
       netOnly('bcrane', [player.pos.clone(), player.facing, at, 0]);
-      startMove('point', 0.4, 'point', {}); cd[4] = MAX[4];
+      startMove('point', 0.4, 'pointM', {}); cd[4] = MAX[4];
     }
-    if (k === 'R') { startMove('brace', 1.0, 'pose', { lockPos: true }); P({ tex: 'ring', color: BK_HAT, pos: player.pos.clone().add(new THREE.Vector3(0, 2.2, 0)), life: 0.35, s0: 0.4, s1: 2 }); cd.R = MAX.R; }
+    if (k === 'R') { startMove('brace', 1.0, 'poseM', { lockPos: true }); P({ tex: 'ring', color: BK_HAT, pos: player.pos.clone().add(new THREE.Vector3(0, 2.2, 0)), life: 0.35, s0: 0.4, s1: 2 }); cd.R = MAX.R; }
   };
   K.release = () => {};
   function swapCrane() {
@@ -9312,19 +9398,19 @@ function makeBrickKit() {
     for (const d of aliveDummies()) { const v = d.pos.clone().sub(player.pos).setY(0), L = v.length(); if (L > 10 || Math.abs(d.pos.y - player.pos.y) > 4) continue; const a = L < 0.5 ? 0 : Math.acos(Math.max(-1, Math.min(1, v.dot(ff) / L))); if (a < bd) { bd = a; t = d; } }
     const dist = t ? Math.max(1.5, Math.min(9, t.pos.distanceTo(player.pos) - 1)) : 5.5;
     player.vel.set(ff.x * dist / 1.05, 16.5, ff.z * dist / 1.05); player.grounded = false;
-    startMove('gslam', 2.2, 'slam', { a: true, dir: ff, hs: dist / 1.05, landed: false, air: 0 });
+    startMove('gslam', 2.2, 'slamM', { a: true, dir: ff, hs: dist / 1.05, landed: false, air: 0 });
     bkHammerGrow(player, true); netOnly('bgrow', [player, 1]); callout('GRAND SLAM');
   }
   function toppingOut() {
     aimAt(8, 0.35); const ff = facingVec();
     player.dashDir.copy(ff); player.dashT = 0.42; player.iframes = 0.5;
-    startMove('tcharge', 0.5, 'haymaker', { done: false });
+    startMove('tcharge', 0.5, 'haymakerM', { done: false });
     P({ tex: 'ring', color: BK_HAT, pos: player.pos.clone().add(new THREE.Vector3(0, 1.2, 0)), life: 0.3, s0: 1, s1: 4 });
   }
   function startTopOut(d) {
     player.dashT = 0; player.vel.set(0, 0, 0);
     const base = groundAt(d.pos.clone()), fa = player.facing;
-    startMove('topout', 3.6, 'pose', { a: true, lockPos: true, d, base, hit: false, ended: false, swung: false });
+    startMove('topout', 3.6, 'poseM', { a: true, lockPos: true, d, base, hit: false, ended: false, swung: false });
     player.iframes = 4; d.grabbed = 3.4; d.stun = 3.6; if (d.ai) d.ai.wind = 0;
     if (d.remote) netSend({ t: 'seize', to: d.id, dur: 3.4, title: 'TOPPING OUT', sub: 'Going up' });
     bkTopOutFx(base, fa); netOnly('btop', [base, fa]);
@@ -9339,7 +9425,7 @@ function makeBrickKit() {
       const dmg = Math.max(1, Math.round(o.dmg * 0.3)); player.hp = Math.max(1, player.hp - dmg);
       const at = player.pos.clone().add(new THREE.Vector3(0, 2, 0)); floatText('BRACED -' + dmg, at.clone().add(new THREE.Vector3(0, 0.6, 0)), 'big'); sparks(at, 10, BK_HAT, 1.4); ring(at, BK_HAT, 3); hitStop = 0.08;
       player.move = null; player.iframes = 0.35;
-      if (src && src.pos && !src.dead && (src.remote || dummies.includes(src))) { faceToward(src.pos); startMove('bash', 0.42, 'haymaker', { src, done: false }); player.dashDir.copy(facingVec()); player.dashT = 0.16; }
+      if (src && src.pos && !src.dead && (src.remote || dummies.includes(src))) { faceToward(src.pos); startMove('bash', 0.42, 'haymakerM', { src, done: false }); player.dashDir.copy(facingVec()); player.dashT = 0.16; }
       return 'braced';
     }
     // Heavy Boots: hard to push around
@@ -9358,7 +9444,7 @@ function makeBrickKit() {
       mv.done = true; const W = mv.W; if (!W || !BK_WALLS.includes(W)) return;
       bkPuntVis(W.id, mv.dir, W.steel); netOnly('bwpunt', [W.id, mv.dir, W.steel ? 1 : 0]); addShake(0.4); bricks = Math.min(6, bricks + (awakened ? 0 : 1));
     } else if (mv.name === 'wreck') {
-      const ball = mv.vis && mv.vis.pos; if (!ball || mv.t < 0.45) return;
+      const ball = mv.vis && mv.vis.pos; if (mv.dbl && mv.vis && mv.vis.angle != null && mv.vis.swinging) player.facing = mv.vis.angle; if (!ball || !mv.vis.swinging) return;
       // the ball and the chain both hit, so standing close to him doesn't dodge it
       const sx = ball.x - player.pos.x, sz = ball.z - player.pos.z, sl = sx * sx + sz * sz || 1;
       const swept = (d) => { const u = Math.max(0.25, Math.min(1, ((d.pos.x - player.pos.x) * sx + (d.pos.z - player.pos.z) * sz) / sl)); return Math.hypot(d.pos.x - player.pos.x - sx * u, d.pos.z - player.pos.z - sz * u) < (u > 0.85 ? 1.7 : 1.1); };
@@ -9376,7 +9462,7 @@ function makeBrickKit() {
       mv.air += dt; if (!mv.landed) { player.vel.x = mv.dir.x * mv.hs; player.vel.z = mv.dir.z * mv.hs; player.vel.y -= Math.max(0, 36 - G * 0.35) * dt; }   // moves normally float; this one comes down hard
       if (!mv.landed && mv.air > 0.25 && player.grounded) {
         mv.landed = true; const at = player.pos.clone(); player.vel.set(0, 0, 0);
-        bkGrandSlamFx(at); netOnly('bgslam', [at]); playAnim('slam', 1.4);
+        bkGrandSlamFx(at); netOnly('bgslam', [at]); playAnim('slamM', 1.4);
         bigHitAll(at, 7, { dmg: 16, type: 'x', heavy: true, kbOut: 10, kbUp: 9, down: 1.4, big: true, mats: [fxPaper], spark: BK_HAT, ringColor: BK_VEST, label: 'GRAND SLAM', awk: 0 });
         later(0.35, () => { bkHammerGrow(player, false); netOnly('bgrow', [player, 0]); });
         mv.dur = mv.t + 0.45;
@@ -9384,7 +9470,7 @@ function makeBrickKit() {
     } else if (mv.name === 'rslam') {
       player.vel.y = Math.min(player.vel.y, -26);
       if (!mv.done && player.grounded) {
-        mv.done = true; const at = player.pos.clone(); crack(at, 2.6); ring(at.clone(), BK_HAT, 5, true); dust(at.clone().add(new THREE.Vector3(0, 0.2, 0)), 12, 6); addShake(0.8); impactFrame(0.1);
+        mv.done = true; const at = player.pos.clone(); ring(at.clone(), BK_HAT, 5, true); vfxDustSlam(at.clone(), 1.1, 0); addShake(0.5); impactFrame(0.1);
         bigHitAll(at, 3.4, { dmg: 12, type: 'x', heavy: true, kbOut: 7, kbUp: 8, down: 1.2, big: true, mats: [fxPaper], spark: BK_HAT, ringColor: BK_VEST, label: 'RAMP SLAM', awk: 5 });
         mv.dur = mv.t + 0.3;
       }
@@ -9404,7 +9490,7 @@ function makeBrickKit() {
         let y = 0; if (t < 1.55) y = Math.max(0, (t - 0.25) / 1.3) * 10.3; else if (t < 2.3) y = 9.95; else y = Math.max(0, 9.95 - (t - 2.3) * (t - 2.3) * 26);
         d.pos.copy(mv.base).add(new THREE.Vector3(Math.sin(t * 3) * 0.15 * (t < 1.55 ? 1 : 0), y, 0)); d.vel.set(0, 0, 0);
       }
-      if (!mv.swung && t >= 1.85) { mv.swung = true; bkHammerGrow(player, true); netOnly('bgrow', [player, 1]); playAnim('haymaker', 0.9); }
+      if (!mv.swung && t >= 1.85) { mv.swung = true; bkHammerGrow(player, true); netOnly('bgrow', [player, 1]); playAnim('haymakerM', 0.9); }
       if (t >= 2.25 && !mv.shook) { mv.shook = true; impactFrame(0.14); hitStop = 0.1; }
       if (!mv.hit && t >= 2.95) {
         mv.hit = true; d.grabbed = 0;
@@ -9417,7 +9503,7 @@ function makeBrickKit() {
   // jumping off the ramp: click to hammer straight down
   K.blocksM1 = () => {
     if (player.grounded || clock - BK_STATE.rampAir > 2.5 || player.move) return false;
-    BK_STATE.rampAir = -9; startMove('rslam', 1.2, 'slam', { done: false }); player.vel.y = -26; return true;
+    BK_STATE.rampAir = -9; startMove('rslam', 1.2, 'slamM', { done: false }); player.vel.y = -26; return true;
   };
   K.update = (dt) => {
     for (const k in cd) cd[k] = Math.max(0, cd[k] - dt);
