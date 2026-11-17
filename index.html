@@ -357,7 +357,7 @@ body.curtains #curL, body.curtains #curR { transform: translateX(0); }
 <div id="overlay">
   <div class="card scrap">
     <h1>Windstep Village</h1>
-    <div class="build">Build 43 · New fighter: Brick the Builder · Pick your fighter</div>
+    <div class="build">Build 44 · Brick: real physics rubble · Pick your fighter</div>
     <div class="roster" id="roster">
       <button class="fcard sel" data-id="juno" type="button"><span class="sw juno"></span><span class="fn">Juno Marrow</span><span class="fs">Ink · Hard</span></button>
       <button class="fcard" data-id="pip" type="button"><span class="sw pip"></span><span class="fn">Pip Hollow</span><span class="fs">Thread · Medium</span></button>
@@ -2342,7 +2342,7 @@ const ARENA = new THREE.Vector3(0, 60, 150);
 }
 
 // ---------- Ragdoll physics (cannon.js) ----------
-const PHYS = { world: null, rags: [] };
+const PHYS = { world: null, rags: [], rubble: [], proxies: new Map() };
 if (window.CANNON) {
   const w = new CANNON.World(); w.gravity.set(0, -30, 0); w.broadphase = new CANNON.SAPBroadphase(w);
   w.solver.iterations = 12; w.defaultContactMaterial.friction = 0.55; w.defaultContactMaterial.restitution = 0.12;
@@ -2434,7 +2434,7 @@ function unpackRag(R, a) {
   RSEG.forEach(([k], i) => { quats[k] = new THREE.Quaternion(a[3 + i * 4], a[4 + i * 4], a[5 + i * 4], a[6 + i * 4]).normalize(); });
   poseRigFromWorld(R, hipP, quats);
 }
-function stepPhysics(dt) { if (PHYS.world && PHYS.rags.length && dt > 0) PHYS.world.step(1 / 60, dt, 4); }
+function stepPhysics(dt) { if (PHYS.world && (PHYS.rags.length || PHYS.rubble.length) && dt > 0) PHYS.world.step(1 / 60, dt, 4); }
 
 let hitStop = 0, shake = 0;
 function addShake(s) { shake = Math.min(1.2, shake + (reduceMotion ? s * 0.3 : s)); }
@@ -8927,7 +8927,13 @@ function bkWallBoxes(W) {
   for (let i = 0; i < 7; i++) { const s = -1.35 + i * 0.45, cx = W.pos.x + X.x * s, cz = W.pos.z + X.z * s, h = 0.33; out.push({ x1: cx - h, y1: W.pos.y, z1: cz - h, x2: cx + h, y2: W.pos.y + 2.3, z2: cz + h, wall: W }); }
   return out;
 }
-function bkSetBoxes(W) { for (const b of W.cols) { const i = colliders.indexOf(b); if (i >= 0) colliders.splice(i, 1); } W.cols = bkWallBoxes(W); for (const b of W.cols) colliders.push(b); }
+function bkSetBoxes(W) {
+  for (const b of W.cols) { const i = colliders.indexOf(b); if (i >= 0) colliders.splice(i, 1); } W.cols = bkWallBoxes(W); for (const b of W.cols) colliders.push(b);
+  if (PHYS.world && window.CANNON) {
+    if (!W.body) { W.body = new CANNON.Body({ mass: 0, collisionFilterGroup: 1, collisionFilterMask: 2 }); W.body.addShape(new CANNON.Box(new CANNON.Vec3(1.5, 1.15, 0.25))); PHYS.world.addBody(W.body); }
+    W.body.position.set(W.pos.x, W.pos.y + 1.15, W.pos.z); W.body.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), W.fa);
+  }
+}
 function bkWallMesh(steel) {
   const g = new THREE.Group();
   const mat = steel ? toon(0xffffff, { map: BK_STEEL_TEX }) : toon(0xffffff, { map: BK_BRICK_TEX });
@@ -8947,16 +8953,85 @@ function bkFind(id) { return BK_WALLS.find((w) => w.id === id); }
 function bkRemove(W, burst) {
   const i = BK_WALLS.indexOf(W); if (i < 0) return; BK_WALLS.splice(i, 1);
   for (const b of W.cols) { const k = colliders.indexOf(b); if (k >= 0) colliders.splice(k, 1); }
+  if (W.body && PHYS.world) { PHYS.world.removeBody(W.body); W.body = null; }
   scene.remove(W.mesh);
   if (burst) bkBrickBurst(W.pos.clone().add(new THREE.Vector3(0, 1.1, 0)), W.fa, W.steel, burst === 2);
 }
+// ---------------- rubble: real physics bricks ----------------
+// Loose pieces are real rigid bodies: they tumble, bounce and knock into each other and land on the ground.
+// Pieces that hit nobody shrink away after 1.8 s. Pieces that land on or around someone stay longer
+// (4.5 s), piled around them. At most 40 loose pieces at once, so it never lags.
+const RUB_MAX = 40, RUB_LIFE = 1.8, RUB_CAUGHT = 4.5;
+function rubbleAdd(obj, pos, quat, vel, spin, shapes, mass) {
+  if (!PHYS.world || !window.CANNON) return null;
+  const body = new CANNON.Body({ mass, collisionFilterGroup: 2, collisionFilterMask: 1 | 2 | 8, linearDamping: 0.04, angularDamping: 0.18 });
+  for (const [hx, hy, hz, ox, oy, oz, ry] of shapes) body.addShape(new CANNON.Box(new CANNON.Vec3(hx, hy, hz)), new CANNON.Vec3(ox || 0, oy || 0, oz || 0), ry ? new CANNON.Quaternion().setFromAxisAngle(new CANNON.Vec3(0, 1, 0), ry) : undefined);
+  body.position.set(pos.x, pos.y, pos.z); if (quat) body.quaternion.set(quat.x, quat.y, quat.z, quat.w);
+  body.velocity.set(vel.x, vel.y, vel.z); body.angularVelocity.set(spin.x, spin.y, spin.z);
+  const R = { obj, body, t: 0, life: RUB_LIFE, caught: false, floor: shapes.length === 1 ? groundY(pos.x, pos.z, pos.y + 1) : -99, s0: obj.scale.x };
+  body.addEventListener('collide', (e) => { if (e.body && e.body.isProxy) R.caught = true; });
+  PHYS.world.addBody(body); if (!obj.parent) scene.add(obj);
+  PHYS.rubble.push(R);
+  while (PHYS.rubble.length > RUB_MAX) rubbleRemove(PHYS.rubble[0]);
+  return R;
+}
+// a patch of physics floor wherever rubble lands on ground the physics world doesn't know about
+// (areas built after it, like the sky island), so pieces tip over and settle properly
+function rubbleFloor(at, half) {
+  if (!PHYS.world || !window.CANNON) return;
+  const fy = groundY(at.x, at.z, at.y + 1.5); if (fy < -30) return;
+  PHYS.patches = PHYS.patches || new Map();
+  const key = Math.round(at.x / 4) + ',' + Math.round(at.z / 4) + ',' + fy.toFixed(1); if (PHYS.patches.has(key)) return;
+  const ray = new CANNON.RaycastResult(), from = new CANNON.Vec3(at.x, fy + 1, at.z), to = new CANNON.Vec3(at.x, fy - 0.3, at.z);
+  PHYS.world.raycastClosest(from, to, { collisionFilterMask: 1, skipBackfaces: true }, ray);
+  if (ray.hasHit) { PHYS.patches.set(key, null); return; }   // real floor already there
+  const b = new CANNON.Body({ mass: 0, collisionFilterGroup: 1, collisionFilterMask: 2 }); b.addShape(new CANNON.Box(new CANNON.Vec3(half, 0.5, half)));
+  b.position.set(at.x, fy - 0.5, at.z); PHYS.world.addBody(b); PHYS.patches.set(key, b);
+  if (PHYS.patches.size > 60) { const [k0, b0] = PHYS.patches.entries().next().value; if (b0) PHYS.world.removeBody(b0); PHYS.patches.delete(k0); }
+}
+function rubbleRemove(R) {
+  const i = PHYS.rubble.indexOf(R); if (i >= 0) PHYS.rubble.splice(i, 1);
+  if (PHYS.world) PHYS.world.removeBody(R.body); if (R.obj.parent) R.obj.parent.remove(R.obj);
+}
+// everyone near rubble gets a solid stand-in body, so bricks bounce off them and pile around them
+function rubbleProxies() {
+  if (!PHYS.world || !window.CANNON) return;
+  const want = new Set();
+  if (PHYS.rubble.length) {
+    const near = (e) => PHYS.rubble.some((R) => Math.abs(R.body.position.x - e.pos.x) < 8 && Math.abs(R.body.position.z - e.pos.z) < 8);
+    const ents = [player].concat(dummies.filter((d) => !d.dead && (!d.duel || d.active)), [...remotes.values()].filter((r) => r.seen && !r.dead && !r.hidden));
+    for (const e of ents) if (e && e.pos && !(e === player && (player.dead > 0 || player.hidden)) && near(e)) want.add(e);
+  }
+  for (const [e, b] of PHYS.proxies) if (!want.has(e)) { PHYS.world.removeBody(b); PHYS.proxies.delete(e); }
+  for (const e of want) {
+    let b = PHYS.proxies.get(e);
+    if (!b) { b = new CANNON.Body({ mass: 0, type: CANNON.Body.KINEMATIC, collisionFilterGroup: 8, collisionFilterMask: 2 }); b.addShape(new CANNON.Box(new CANNON.Vec3(0.36, 0.95, 0.3))); b.isProxy = true; PHYS.world.addBody(b); PHYS.proxies.set(e, b); }
+    b.position.set(e.pos.x, e.pos.y + 0.95, e.pos.z);
+    const v = e.vel || { x: 0, y: 0, z: 0 }; b.velocity.set(v.x || 0, v.y || 0, v.z || 0);
+  }
+}
+function rubbleTick(dt) {
+  rubbleProxies();
+  for (const R of PHYS.rubble.slice()) {
+    R.t += dt; const b = R.body;
+    // places built after the physics world (like the sky island) have no physics floor: keep pieces on the ground
+    if (R.floor > -30 && b.position.y < R.floor - 0.05) { b.position.y = R.floor + 0.09; if (b.velocity.y < 0) b.velocity.y = -b.velocity.y * 0.2; b.velocity.x *= 0.9; b.velocity.z *= 0.9; }   // only if it fell through
+    if (R.caught) R.life = Math.max(R.life, RUB_CAUGHT);
+    R.obj.position.set(b.position.x, b.position.y, b.position.z); R.obj.quaternion.set(b.quaternion.x, b.quaternion.y, b.quaternion.z, b.quaternion.w);
+    const left = R.life - R.t; if (left < 0.35) R.obj.scale.setScalar(Math.max(0.01, R.s0 * left / 0.35));
+    if (left <= 0 || b.position.y < -60) rubbleRemove(R);
+  }
+}
 function bkBrickBurst(at, fa, steel, big) {
   dust(at.clone(), big ? 14 : 8, big ? 7 : 4); addShake(big ? 0.5 : 0.25);
-  const geo = boxGeo(0.34, 0.17, 0.17), mat = steel ? SM(BK_STEEL) : SM(BK_RED);
-  for (let i = 0; i < (big ? 16 : 10); i++) {
-    const m = new THREE.Mesh(geo, mat); m.castShadow = true; m.position.copy(at).add(new THREE.Vector3(rv(1.4), rv(1), rv(1.4)));
-    const v = new THREE.Vector3(rv(7), 3 + Math.random() * 6, rv(7)), spin = new THREE.Vector3(rv(12), rv(12), rv(12)), floor = groundY(at.x, at.z, at.y + 1);
-    tempMesh(m, 1.4, (o, k, dt) => { const d = dt || 1 / 60; v.y -= 22 * d; o.position.addScaledVector(v, d); if (o.position.y < floor + 0.09) { o.position.y = floor + 0.09; v.multiplyScalar(0.4); v.y = Math.abs(v.y) * 0.3; } o.rotation.x += spin.x * d; o.rotation.y += spin.y * d; if (k > 0.75) o.scale.setScalar((1 - k) * 4); });
+  const geo = boxGeo(0.34, 0.17, 0.17), mat = steel ? SM(BK_STEEL) : SM(BK_RED), n = big ? 16 : 10; rubbleFloor(at, 3);
+  for (let i = 0; i < n; i++) {
+    const m = new THREE.Mesh(geo, mat); m.castShadow = true;
+    const p0 = at.clone().add(new THREE.Vector3(rv(1.3), rv(0.9), rv(1.3))), v = new THREE.Vector3(rv(7), 2.5 + Math.random() * 6, rv(7)), w = new THREE.Vector3(rv(12), rv(12), rv(12));
+    if (!rubbleAdd(m, p0, null, v, w, [[0.17, 0.085, 0.085]], 2)) {   // no physics engine: the old simple arc
+      const floor = groundY(at.x, at.z, at.y + 1); m.position.copy(p0);
+      tempMesh(m, 1.4, (o, k, dt) => { const d = dt || 1 / 60; v.y -= 22 * d; o.position.addScaledVector(v, d); if (o.position.y < floor + 0.09) { o.position.y = floor + 0.09; v.multiplyScalar(0.4); v.y = Math.abs(v.y) * 0.3; } o.rotation.x += w.x * d; o.rotation.y += w.y * d; if (k > 0.75) o.scale.setScalar((1 - k) * 4); });
+    }
   }
 }
 // damage someone else's wall (your hits and shots chip away at it)
@@ -9122,10 +9197,10 @@ function bkTopOutFx(base, fa) {
   const g = new THREE.Group(), girder = SM(0xc8482a), steel = SM(0x6c7888), floors = 4, FH = 2.4, half = 1.6;
   const parts = [];
   for (let f = 0; f < floors; f++) {
-    const fl = new THREE.Group(); fl.position.set(0, f * FH, 0); fl.visible = false; g.add(fl);
-    for (const [x, z] of [[-half, -half], [half, -half], [-half, half], [half, half]]) { const c = new THREE.Mesh(boxGeo(0.22, FH, 0.22), girder); c.position.set(x, FH / 2, z); fl.add(c); }
-    for (const [x, z, r] of [[0, -half, 0], [0, half, 0], [-half, 0, Math.PI / 2], [half, 0, Math.PI / 2]]) { const b = new THREE.Mesh(boxGeo(half * 2 + 0.2, 0.22, 0.2), girder); b.position.set(x, FH, z); b.rotation.y = r; fl.add(b); }
-    if (f === floors - 1) { const roof = new THREE.Mesh(boxGeo(half * 2 + 0.3, 0.16, half * 2 + 0.3), steel); roof.position.y = FH + 0.12; fl.add(roof); }
+    const fl = new THREE.Group(); fl.position.set(0, f * FH, 0); fl.visible = false; g.add(fl); const sh = fl.userData.shapes = [];
+    for (const [x, z] of [[-half, -half], [half, -half], [-half, half], [half, half]]) { const c = new THREE.Mesh(boxGeo(0.22, FH, 0.22), girder); c.position.set(x, FH / 2, z); fl.add(c); sh.push([0.11, FH / 2 - 0.13, 0.11, x, FH / 2 - 0.02, z]); }
+    for (const [x, z, r] of [[0, -half, 0], [0, half, 0], [-half, 0, Math.PI / 2], [half, 0, Math.PI / 2]]) { const b = new THREE.Mesh(boxGeo(half * 2 + 0.2, 0.22, 0.2), girder); b.position.set(x, FH, z); b.rotation.y = r; fl.add(b); sh.push([half + 0.1, 0.1, 0.1, x, FH - 0.12, z, r]); }
+    if (f === floors - 1) { const roof = new THREE.Mesh(boxGeo(half * 2 + 0.3, 0.16, half * 2 + 0.3), steel); roof.position.y = FH + 0.12; fl.add(roof); sh.push([half + 0.15, 0.08, half + 0.15, 0, FH + 0.12, 0]); }
     parts.push(fl);
   }
   g.position.copy(base); g.rotation.y = fa; outlineAll(g);
@@ -9135,9 +9210,22 @@ function bkTopOutFx(base, fa) {
   tempMesh(g, 3.6, (o, k) => {
     const t = k * 3.6;
     parts.forEach((fl, i) => { const show = 0.35 + i * 0.25; if (t >= show && !fl.visible) { fl.visible = true; dust(base.clone().add(new THREE.Vector3(0, i * FH + 0.2, 0)), 4, 3); } if (t < show + 0.15) fl.scale.setScalar(Math.max(0.01, (t - show) / 0.15)); else fl.scale.setScalar(1); });
-    if (t > 2.25) { const u = t - 2.25; parts.forEach((fl, i) => { const S = shed[i]; fl.position.set(S.v.x * u * 0.6, i * FH + S.v.y * u - 9 * u * u, S.v.z * u * 0.6); fl.rotation.set(S.s.x * u, S.s.y * u, S.s.z * u); if (fl.position.y < -0.5) fl.visible = false; }); if (Math.random() < 0.6) dust(base.clone().add(new THREE.Vector3(rv(3), 0.3, rv(3))), 2, 5); }
+    if (t > 2.25 && !g.userData.phys) { const u = t - 2.25; parts.forEach((fl, i) => { const S = shed[i]; fl.position.set(S.v.x * u * 0.6, i * FH + S.v.y * u - 9 * u * u, S.v.z * u * 0.6); fl.rotation.set(S.s.x * u, S.s.y * u, S.s.z * u); if (fl.position.y < -0.5) fl.visible = false; }); if (Math.random() < 0.6) dust(base.clone().add(new THREE.Vector3(rv(3), 0.3, rv(3))), 2, 5); }
   });
-  later(2.25, () => { ring(base.clone(), BK_HAT, 7, true); crack(base.clone(), 3); addShake(1); flash(base.clone().add(new THREE.Vector3(0, 1, 0)), 0xffd27a, 4); });
+  later(2.25, () => {
+    ring(base.clone(), BK_HAT, 7, true); crack(base.clone(), 3); addShake(1); flash(base.clone().add(new THREE.Vector3(0, 1, 0)), 0xffd27a, 4);
+    if (!PHYS.world || !window.CANNON) return;
+    // the hammer knocks the bottom floor out; everything above comes down on top of it
+    const away = new THREE.Vector3(Math.sin(fa), 0, Math.cos(fa)), side = new THREE.Vector3(Math.cos(fa), 0, -Math.sin(fa)), lean = rv(1) > 0 ? 1 : -1;
+    g.userData.phys = true; rubbleFloor(base.clone(), 7);
+    parts.forEach((fl, i) => {
+      fl.visible = true; fl.scale.setScalar(1); fl.updateMatrixWorld(true);
+      const wp = new THREE.Vector3(), wq = new THREE.Quaternion(); fl.getWorldPosition(wp); fl.getWorldQuaternion(wq); scene.attach(fl);
+      const v = i === 0 ? away.clone().multiplyScalar(9).setY(2) : side.clone().multiplyScalar(lean * (1.2 + i * 0.9)).add(away.clone().multiplyScalar(1.5)).setY(0.5);
+      const spin = i === 0 ? new THREE.Vector3(rv(1), rv(2), rv(1)) : new THREE.Vector3(side.z * lean * (0.5 + i * 0.25), rv(0.6), -side.x * lean * (0.5 + i * 0.25));
+      rubbleAdd(fl, wp, wq, v, spin, fl.userData.shapes, 40);
+    });
+  });
   return crane;
 }
 
@@ -9364,7 +9452,7 @@ function makeBrickKit() {
 }
 // everyone's game: walls, ramps, other Bricks' beacons
 function brickTick(dt) {
-  bkWallTick(dt); bkRampTick(dt);
+  bkWallTick(dt); bkRampTick(dt); rubbleTick(dt);
   for (const r of remotes.values()) if (r.rig && r.rig.bBeacon) { r.rig.bBeacon.visible = !!r.aw; r.rig.bCracks.visible = !!r.aw; if (r.aw) r.rig.bBeacon.rotation.y += dt * 9; }
 }
 Object.assign(FXF, {
