@@ -343,7 +343,7 @@ body.curtains #curL, body.curtains #curR { transform: translateX(0); }
 <div id="overlay">
   <div class="card scrap">
     <h1>Windstep Village</h1>
-    <div class="build">Build 39 · Bear hand grab + connection fixes · Pick your fighter</div>
+    <div class="build">Build 40 · Big bear hand + connection fixes · Pick your fighter</div>
     <div class="roster" id="roster">
       <button class="fcard sel" data-id="juno" type="button"><span class="sw juno"></span><span class="fn">Juno Marrow</span><span class="fs">Ink · Hard</span></button>
       <button class="fcard" data-id="pip" type="button"><span class="sw pip"></span><span class="fn">Pip Hollow</span><span class="fs">Thread · Medium</span></button>
@@ -4695,7 +4695,11 @@ function netSend(m) {
 }
 function onMsg(m, conn) {
   if (!m || !m.t) return;
-  if (m.t === 'probe') { try { conn.send({ t: 'pinfo', n: Math.max(0, NET.conns.size - 1) }); } catch (err) { /* ok */ } return; }
+  if (m.t === 'probe') {   // another lone host asking whether a group is playing here
+    const reply = () => { try { conn.send({ t: 'pinfo', n: Math.max(0, NET.conns.size - (NET.conns.has(conn.peer) ? 1 : 0)) }); } catch (err) { /* ok */ } };
+    if (conn.open) reply(); else conn.on('open', () => setTimeout(reply, 0));
+    setTimeout(reply, 400); return;
+  }
   if (NET.isHost) {
     if (m.to && m.to !== NET.myId) { const c = NET.conns.get(m.to); if (c && c.open) c.send(m); return; }
     if (!m.to) broadcast(m, conn.peer);
@@ -5029,10 +5033,10 @@ setInterval(() => {
       if (done || NET.peer !== peer || NET.conns.size > 0) return;
       if (m.n > 0 || sl < mine) { finish(); NET.slot = sl; NET.slotFails = 0; NET.on = false; cleanupPeer(); joinAsClient(); }
     });
-    setTimeout(() => { try { c.close(); } catch (err) { /* ok */ } }, 5000);
+    setTimeout(() => { try { c.close(); } catch (err) { /* ok */ } }, 12000);
   }
-  setTimeout(finish, 5500);
-}, 7000);
+  setTimeout(finish, 12500);
+}, 8000);
 function hostGone() { for (const id of [...remotes.keys()]) removeRemote(id); NET.on = false; setNet('wait', 'Host left · reconnecting'); retryLater(true); }
 function netTick(dt) {
   if (NET.on && !NET.isHost && NET.hostConn && NET.lastMsg && realNow() - NET.lastMsg > 10) { NET.lastMsg = 0; hostGone(); return; }
@@ -8139,7 +8143,7 @@ function makeBigHand() {
   // the back of the hand sits on their chest; the arm plugs into it
   const back = mk(new THREE.SphereGeometry(1, 20, 14), felt, true);
   const pad = mk(new THREE.SphereGeometry(1, 14, 10), pink); pad.visible = false;
-  const cuff = mk(new THREE.CylinderGeometry(0.2, 0.23, 0.12, 18), toon(PYARN), true); cuff.rotation.x = Math.PI / 2;
+  const cuff = mk(new THREE.TorusGeometry(0.5, 0.075, 10, 32), toon(PYARN), true);
   g.userData = { inner, fingers, thumb, back, cuff, key: '', hulls: null, hullT: -1, wristZ: -0.6 };
   outlineAll(g);
   g.userData.shape = (curl, squeeze) => {
@@ -8158,8 +8162,9 @@ function makeBigHand() {
     U.fingers.forEach((D, i) => set(D, fingerPath(lps[i], lps[i].s0 - 0.12, 1, PAW.lens[i] * lps[i].P, curl, PAW.levels[i] - PAW.GY, 0)));
     set(U.thumb, fingerPath(lpT, lpT.s0 + 0.02, -1, PAW.thumbLen * lpT.P, curl, PAW.thumbY - PAW.GY, 0.07));
     const zf = loopAt(lp, lp.s0).z, midY = (PAW.levels[0] + PAW.levels[2]) / 2 - PAW.GY;
-    U.back.position.set(0.05, midY, zf - PAW.r * 0.55); U.back.scale.set(0.42, 0.42, 0.17);
-    U.cuff.position.set(0.05, midY, zf - PAW.r * 0.55 - 0.2); U.wristZ = zf - PAW.r * 0.55 - 0.32;
+    // the back of the hand is wider than the arm at its biggest, so the arm flows into it instead of shrinking
+    const bz = zf - 0.24; U.back.position.set(0.05, midY, bz); U.back.scale.set(0.66, 0.58, 0.32);
+    U.cuff.position.set(0.05, midY, bz - 0.25); U.wristZ = bz - 0.34;
   };
   g.userData.shape(0.4, 0);
   return g;
@@ -8447,7 +8452,7 @@ function stretchArmTick() {
     const fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(A.hand.quaternion), wrist = A.hand.position.clone().addScaledVector(fwd, A.hand.userData.wristZ != null ? A.hand.userData.wristZ * hs / 1.8 : -0.55 * hs);
     const ctrl = sh.clone().lerp(wrist, 0.5).add(new THREE.Vector3(0, 0.12 + sh.distanceTo(wrist) * 0.04, 0));
     const at = (u) => { const a = sh.clone().lerp(ctrl, u), b = ctrl.clone().lerp(wrist, u); return a.lerp(b, u); };
-    const rad = (u) => (0.16 + 0.36 * Math.pow(u, 1.6) * grow) * (1 + 0.09 * Math.sin(clock * 11 - u * 9)) * (1 - 0.38 * grow * Math.max(0, Math.min(1, (u - 0.8) / 0.2)));   // swells toward the paw, then necks into the cuff   // swells toward the hand, stuffing pulsing through it
+    const rad = (u) => (0.16 + 0.36 * Math.pow(u, 1.6) * grow) * (1 + 0.09 * Math.sin(clock * 11 - u * 9) * (1 - u * 0.6));   // swells all the way into the hand, no pinch at the wrist   // swells toward the paw, then necks into the cuff   // swells toward the hand, stuffing pulsing through it
     const N = A.segs.length, len = sh.distanceTo(wrist) / (N - 1);
     for (let i = 0; i < N; i++) { const u = i / (N - 1), p = at(u), q = at(Math.min(1, u + 0.05)), r = rad(u), m = A.segs[i]; m.position.copy(p); m.lookAt(q.equals(p) ? p.clone().add(fwd) : q); m.scale.set(r, r, Math.max(r, len * 0.75)); }
     A.rings.forEach((m, i) => { const u = 0.28 + i * 0.25, p = at(u); m.position.copy(p); m.lookAt(at(Math.min(1, u + 0.05))); m.scale.setScalar(rad(u) * 1.02); });
