@@ -338,7 +338,7 @@ body.curtains #curL, body.curtains #curR { transform: translateX(0); }
 <div id="overlay">
   <div class="card scrap">
     <h1>Windstep Village</h1>
-    <div class="build">Build 33 · Bulk stretch-arm grab · Pick your fighter</div>
+    <div class="build">Build 34 · Palm grab + ring outs · Pick your fighter</div>
     <div class="roster" id="roster">
       <button class="fcard sel" data-id="juno" type="button"><span class="sw juno"></span><span class="fn">Juno Marrow</span><span class="fs">Ink · Hard</span></button>
       <button class="fcard" data-id="pip" type="button"><span class="sw pip"></span><span class="fn">Pip Hollow</span><span class="fs">Thread · Medium</span></button>
@@ -2311,7 +2311,7 @@ const ARENA = new THREE.Vector3(0, 60, 150);
   }
   plane(A.x - 2, A.z - 2, A.x + 2, A.z + 2, A.y + 0.03, M(0xb8352b));
   // invisible walls keep fighters on the island
-  for (const [x1, z1, x2, z2] of [[-H - 1, -H - 1, H + 1, -H], [-H - 1, H, H + 1, H + 1], [-H - 1, -H, -H, H], [H, -H, H + 1, H]]) colliders.push({ x1: A.x + x1, y1: A.y - 3, z1: A.z + z1, x2: A.x + x2, y2: A.y + 12, z2: A.z + z2 });
+  for (const [x1, z1, x2, z2] of [[-H - 1, -H - 1, H + 1, -H], [-H - 1, H, H + 1, H + 1], [-H - 1, -H, -H, H], [H, -H, H + 1, H]]) colliders.push({ x1: A.x + x1, y1: A.y - 3, z1: A.z + z1, x2: A.x + x2, y2: A.y + 40, z2: A.z + z2 });
 }
 
 // ---------- Ragdoll physics (cannon.js) ----------
@@ -4038,6 +4038,24 @@ function respawn() {
   ring(p.pos.clone().add(new THREE.Vector3(0, 0.1, 0)), kit.color, 3, true);
   toast('Back on your feet');
 }
+// how far you can fall before it counts: arenas and the island are floating, so falling off them is a ring out
+function fallLimit() {
+  const p = player.pos;
+  if (TEAM && TEAM.state !== 'off' && TEAM.state !== 'wait' && TEAM.state !== 'asked' && TEAM.state !== 'pick') return ARENA.y - 14;
+  if (duel.on) return (duel.lv ? duel.lv.at.y : ARENA.y) - 14;
+  if (Math.hypot(p.x - ARENA.x, p.z - ARENA.z) < 60) return ARENA.y - 14;
+  if (Math.hypot(p.x - ISL.x, p.z - ISL.z) < ISL_R + 60) return ISL.y - 14;
+  return -25;
+}
+function fellOff() {
+  const p = player; p.vel.set(0, 0, 0); p.stun = 0; p.move = null; p.seized = 0;
+  if (p.rag) { endRagdoll(p.rag, null); p.rag = null; }
+  if (TEAM && (TEAM.state === 'count' || TEAM.state === 'fight')) { callout('RING OUT', 'You fell off the arena'); p.dead = 0; teamOnKO(); return; }
+  if (TEAM && TEAM.state === 'over') { placeInArena(); p.hp = p.maxHp; return; }
+  if (duel.on) { const isl = !!duel.lv; endDuel('lose'); callout('RING OUT', 'You fell off'); p.hp = p.maxHp; p.dead = 0; if (isl) p.pos.copy(ISL_SPAWN); else p.pos.set(0, T1, 44); camTarget.copy(p.pos).add(new THREE.Vector3(0, 1.8, 0)); return; }
+  if (Math.hypot(p.pos.x - ISL.x, p.pos.z - ISL.z) < ISL_R + 60) { p.pos.copy(ISL_SPAWN); p.dead = 0; p.hp = Math.max(p.hp, 1); toast('You fell off the island'); camTarget.copy(p.pos).add(new THREE.Vector3(0, 1.8, 0)); return; }
+  p.pos.copy(SPAWN); p.dead = 0; toast('You fell off the mountain. Back to the village');
+}
 function updatePlayer(dt) {
   const p = player;
   if (p.rag) {
@@ -4045,7 +4063,7 @@ function updatePlayer(dt) {
     const pel = ragPelvis(p.rag);
     p.pos.set(pel.x, groundY(pel.x, pel.z, pel.y + 0.5), pel.z); p.vel.set(0, 0, 0); p.speedNow = 0; p.ragGround = ragGrounded(p.rag);
     p.iframes = Math.max(0, p.iframes - dt);
-    if (pel.y < -25) { endRagdoll(p.rag, null); p.rag = null; p.dead = 0; respawn(); return; }
+    if (pel.y < fallLimit()) { endRagdoll(p.rag, null); p.rag = null; p.dead = 0; fellOff(); return; }
     if (p.dead > 0) { p.dead -= dt; if (p.dead <= 0) { endRagdoll(p.rag, null); p.rag = null; respawn(); } return; }
     p.ragT -= dt; p.stun = Math.max(p.stun, 0.2);
     if (p.ragT <= 0 && ((p.ragGround && ragSpeed(p.rag) < 2.5) || p.rag.t > 5)) {
@@ -4114,7 +4132,7 @@ function updatePlayer(dt) {
     const dx = p.pos.x - d.pos.x, dz = p.pos.z - d.pos.z, dist = Math.hypot(dx, dz), min = p.r + d.r;
     if (dist < min && dist > 0.001 && Math.abs(p.pos.y - d.pos.y) < 2) { p.pos.x = d.pos.x + dx / dist * min; p.pos.z = d.pos.z + dz / dist * min; }
   }
-  if (p.pos.y < -25) { p.pos.copy(SPAWN); p.vel.set(0, 0, 0); toast('You fell off the mountain. Back to the village'); }
+  if (p.pos.y < fallLimit()) fellOff();
   p.speedNow = Math.hypot(p.vel.x, p.vel.z);
 }
 
@@ -8222,6 +8240,9 @@ Object.assign(FXF, {
 
 // ---- Bulk's grab: his own arm swells and stretches out, getting fatter toward a giant hand ----
 const STRETCH_ARMS = [], GHOST_ARMS = new Map();
+// the hand is turned palm-up: fingers curl UP around whoever is standing in the palm
+function handPose(h, curl) { h.userData.fingers.forEach((fg, i) => { fg.rotation.x = curl * (0.9 + i * 0.05); }); h.userData.thumb.rotation.z = -0.2 - curl * 0.5; }
+function palmTop(h) { return 0.13 * h.scale.x; }
 function attachStretchArm(hand, ownerRig) {
   if (!ownerRig || !ownerRig.j) return;
   const felt = toon(0xffffff, { map: FELT_TEX }), fluff = toon(0xfbf7ee), thread = toon(0x2a1c14), N = 11, segs = [], rings = [], puffs = [];
@@ -8254,11 +8275,12 @@ function ghostArmTick(dt) {
     G.t += dt;
     if (!owner.pos || !G.hand.parent || G.t > 6) { scene.remove(G.hand); GHOST_ARMS.delete(owner); continue; }
     const fa = owner.facing || 0, f = new THREE.Vector3(Math.sin(fa), 0, Math.cos(fa)), h = G.hand; h.rotation.y = fa;
-    if (G.mode === 'reach') { const k = Math.min(1, G.t / 0.3); h.position.copy(owner.pos).addScaledVector(f, 1 + easeOut(k) * 5.2).add(new THREE.Vector3(0, 1.4, 0)); h.scale.setScalar(Math.min(1, G.t * 6) * 1.8 + 0.01); if (G.t > 0.9) { scene.remove(h); continue; } }
-    const base = owner.pos.clone().addScaledVector(f, 3.2).add(new THREE.Vector3(0, 2.2, 0));
-    if (G.mode === 'hold') { G.sq = Math.max(0, (G.sq || 0) - dt); h.position.copy(base); h.scale.setScalar(1.8 * (1 - G.sq * 0.4)); }
-    if (G.mode === 'smash') { const k = Math.min(1, G.t / 0.35); h.position.copy(base).add(new THREE.Vector3(0, k < 0.4 ? k * 4 : (1 - k) * 2.6 - 1.4, 0)); if (k >= 1) scene.remove(h); }
-    h.userData.fingers.forEach((fg) => { fg.rotation.x = G.mode === 'reach' ? 0.2 : 1.3; }); h.userData.thumb.rotation.z = G.mode === 'reach' ? 0 : 0.9;
+    h.rotation.set(0, fa, Math.PI);
+    if (G.mode === 'reach') { const k = Math.min(1, G.t / 0.3); h.position.copy(owner.pos).addScaledVector(f, 1 + easeOut(k) * 5.2).add(new THREE.Vector3(0, 0.45, 0)); h.scale.setScalar(Math.min(1, G.t * 6) * 1.8 + 0.01); if (G.t > 0.9) { scene.remove(h); continue; } }
+    const base = owner.pos.clone().addScaledVector(f, 3.0).add(new THREE.Vector3(0, 1.35, 0));
+    if (G.mode === 'hold') { G.sq = Math.max(0, (G.sq || 0) - dt); h.position.copy(base); h.scale.setScalar(1.8 * (1 - G.sq * 0.12)); }
+    if (G.mode === 'smash') { const k = Math.min(1, G.t / 0.35); h.position.copy(base).add(new THREE.Vector3(0, k < 0.4 ? k * 3 : (1 - k) * 2 - 1.2, 0)); if (k >= 1) scene.remove(h); }
+    handPose(h, G.mode === 'reach' ? 0.25 : 1.25 + (G.sq || 0) * 1.2);
   }
 }
 Object.assign(FXF, {
@@ -8413,10 +8435,9 @@ function makePatchKit() {
         tick: (pr) => { grp.rotation.y += 0.4; if (curRope) { curRope.len = Math.max(1, handPos().distanceTo(pr.pos) * 1.08); ropeStep(curRope, 1 / 60, handPos(), pr.pos.clone(), groundY(pr.pos.x, pr.pos.z, pr.pos.y + 1)); } },
         onHit: (d) => lassoHit(d), onWorld: () => { if (curRope) { looseRopes.push({ r: curRope, t: 0.6 }); curRope = null; } }, noExpire: false });
     } else if (mv.name === 'bighand') {
-      const h = mv.hand, k = Math.min(1, mv.t / 0.3), reach = mv.caught ? 3.2 : 1 + easeOut(k) * 5.2;
-      h.position.copy(player.pos).addScaledVector(f, reach).add(new THREE.Vector3(0, 1.4 + (mv.caught ? 0.8 : 0), 0)); h.rotation.y = player.facing; h.scale.setScalar(Math.min(1, mv.t * 6) * 1.8 + 0.01);
-      h.userData.fingers.forEach((fg) => { fg.rotation.x = mv.caught ? 1.3 : 0.2; }); h.userData.thumb.rotation.z = mv.caught ? 0.9 : 0;
-      if (!mv.caught && k < 1) for (const d of aliveDummies()) if (d.pos.distanceTo(h.position.clone().setY(d.pos.y)) < 1.7 && Math.abs(d.pos.y + 1.2 - h.position.y) < 2.2) {
+      const h = mv.hand, k = Math.min(1, mv.t / 0.3), reach = 1 + easeOut(k) * 5.2;
+      if (!mv.caught) { h.position.copy(player.pos).addScaledVector(f, reach).add(new THREE.Vector3(0, 0.45, 0)); h.rotation.set(0, player.facing, Math.PI); h.scale.setScalar(Math.min(1, mv.t * 6) * 1.8 + 0.01); handPose(h, 0.25); }
+      if (!mv.caught && k < 1) for (const d of aliveDummies()) if (Math.hypot(d.pos.x - h.position.x, d.pos.z - h.position.z) < 1.9 && Math.abs(d.pos.y - player.pos.y) < 2.2) {
         mv.caught = true; hold = { d, hand: h, t: 4, sq: 0, smash: null, squeeze: 0 }; mv.dur = mv.t + 0.15;
         d.grabbed = 4.5; d.stun = 1; if (d.ai) d.ai.wind = 0; if (d.remote) netSend({ t: 'seize', to: d.id, dur: 4, title: 'GRABBED', sub: 'In the big hand', quiet: true });
         floatText('CAUGHT', d.pos.clone().add(new THREE.Vector3(0, 3.2, 0)), 'ink'); addShake(0.3); vfxStuffing(h.position.clone(), 8, 3); netOnly('pcatch', [player]); break;
@@ -8516,14 +8537,15 @@ function makePatchKit() {
     // the big hand
     if (hold) {
       const H = hold, d = H.d, f = facingVec(); H.t -= dt;
-      const base = player.pos.clone().addScaledVector(f, 3.2).add(new THREE.Vector3(0, 2.2, 0));
+      const base = player.pos.clone().addScaledVector(f, 3.0).add(new THREE.Vector3(0, 1.35, 0));
       if (H.smash) {
-        H.smash.t += dt; const k = Math.min(1, H.smash.t / 0.35); const p = base.clone().add(new THREE.Vector3(0, k < 0.4 ? k * 4 : (1 - k) * 2.6 - 1.4, 0)); H.hand.position.copy(p);
-        d.pos.copy(p).add(new THREE.Vector3(0, -0.9, 0)); d.vel.set(0, 0, 0);
+        H.smash.t += dt; const k = Math.min(1, H.smash.t / 0.35); const p = base.clone().add(new THREE.Vector3(0, k < 0.4 ? k * 3 : (1 - k) * 2 - 1.2, 0)); H.hand.position.copy(p); H.hand.rotation.set(0, player.facing, Math.PI); handPose(H.hand, 1.45);
+        d.pos.copy(p).add(new THREE.Vector3(0, palmTop(H.hand), 0)); d.vel.set(0, 0, 0);
         if (k >= 1) { const land = groundAt(p); vfxSlamImpact(land); netOnly('pslam', [land.clone()]); addShake(1); impactFrame(0.1); hitDummy(d, { dmg: 12, type: 'g', otg: true, kb: f.clone().multiplyScalar(6).setY(3), set: true, down: 1.4, big: true, mats: [fxFluff], spark: 0xb8875a, ringColor: PYARN, label: 'SMASH', awk: 6 }); releaseHold(); }
       } else {
-        H.squeeze = Math.max(0, H.squeeze - dt); H.hand.position.copy(base); H.hand.rotation.y = player.facing; H.hand.scale.setScalar(1.8 * (1 - H.squeeze * 0.4));
-        d.pos.copy(base).add(new THREE.Vector3(0, -1.1, 0)); d.vel.set(0, 0, 0); d.grabbed = Math.max(d.grabbed || 0, 0.4);
+        H.squeeze = Math.max(0, H.squeeze - dt); const lift = Math.min(1, (4 - H.t) / 0.3);
+        H.hand.position.copy(base).add(new THREE.Vector3(0, (lift - 1) * 0.9, 0)); H.hand.rotation.set(0, player.facing, Math.PI); H.hand.scale.setScalar(1.8 * (1 - H.squeeze * 0.12)); handPose(H.hand, 1.25 + H.squeeze * 1.2);
+        d.pos.copy(H.hand.position).add(new THREE.Vector3(0, palmTop(H.hand), 0)); d.vel.set(0, 0, 0); d.grabbed = Math.max(d.grabbed || 0, 0.4);
         if (H.t <= 0 || d.dead) { if (!d.dead) floatText('DROPPED', d.pos.clone().add(new THREE.Vector3(0, 3, 0)), 'ink'); releaseHold(); }
       }
     }
