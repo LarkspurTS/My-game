@@ -338,7 +338,7 @@ body.curtains #curL, body.curtains #curR { transform: translateX(0); }
 <div id="overlay">
   <div class="card scrap">
     <h1>Windstep Village</h1>
-    <div class="build">Build 36 · Bulk cup-grip grab · Pick your fighter</div>
+    <div class="build">Build 37 · Bulk grab: no clipping + struggle · Pick your fighter</div>
     <div class="roster" id="roster">
       <button class="fcard sel" data-id="juno" type="button"><span class="sw juno"></span><span class="fn">Juno Marrow</span><span class="fs">Ink · Hard</span></button>
       <button class="fcard" data-id="pip" type="button"><span class="sw pip"></span><span class="fn">Pip Hollow</span><span class="fs">Thread · Medium</span></button>
@@ -4256,7 +4256,8 @@ function updateDummies(dt) {
     if (d.g.scale.x < 1) d.g.scale.setScalar(Math.min(1, d.g.scale.x + dt * 3));
     const blocking = (d.duel ? d.duelBlock > 0 : dummyMode === 'block') && !d.dead && d.guardBreak <= 0 && d.down <= 0 && d.blind <= 0;
     const facingPlayer = blocking || ((dummyMode === 'attack' || d.duel) && !d.dead && d.down <= 0);
-    if (facingPlayer) { const tgt = d.face != null && (dummyMode === 'attack' || d.duel) ? d.face : Math.atan2(player.pos.x - d.pos.x, player.pos.z - d.pos.z); let df = tgt - d.g.rotation.y; df = Math.atan2(Math.sin(df), Math.cos(df)); d.g.rotation.y += df * (1 - Math.exp(-8 * dt)); }
+    if (d.struggleT && clock - d.struggleT < 0.15 && d.holdFace != null) d.g.rotation.y = d.holdFace;
+    else if (facingPlayer) { const tgt = d.face != null && (dummyMode === 'attack' || d.duel) ? d.face : Math.atan2(player.pos.x - d.pos.x, player.pos.z - d.pos.z); let df = tgt - d.g.rotation.y; df = Math.atan2(Math.sin(df), Math.cos(df)); d.g.rotation.y += df * (1 - Math.exp(-8 * dt)); }
     d.shield.visible = blocking; d.shield.material.opacity = 0.15 + 0.3 * (d.guard / 100);
     // body animation
     let P = dummyPose(d, blocking);
@@ -4281,6 +4282,11 @@ function dummyPose(d, blocking) {
     return basePose(ps);
   }
   if (d.dead || d.down > 0) return { shL: [-0.3, 0, -0.9], shR: [-0.3, 0, 0.9], elL: [-0.2, 0, 0], elR: [-0.2, 0, 0], neck: [0.4, 0, 0], knL: [0.2, 0, 0], knR: [0.5, 0, 0] };
+  if (d.struggleT && clock - d.struggleT < 0.15) {
+    const t = clock * 11 + (d.home ? d.home.x : 0), a = Math.sin(t), b = Math.sin(t * 1.3 + 1), c = Math.sin(t * 0.7 + 2);
+    return { shL: [-2.5 + a * 0.45, 0, -0.55 + b * 0.25], elL: [-0.6 - b * 0.5, 0, 0], shR: [-2.5 - b * 0.45, 0, 0.55 - a * 0.25], elR: [-0.6 - a * 0.5, 0, 0],
+      hipL: [-0.2 + a * 0.32, 0, -0.04], knL: [0.45 + b * 0.3, 0, 0], hipR: [-0.2 - a * 0.32, 0, 0.04], knR: [0.45 - b * 0.3, 0, 0], neck: [0.15 + c * 0.25, c * 0.4, 0], chest: [0, b * 0.15, a * 0.06], waist: [0, 0, 0] };
+  }
   if (d.grabbed > 0) return { shL: [-2.6, 0, -0.5], shR: [-2.4, 0, 0.6], elL: [-0.6, 0, 0], elR: [-0.4, 0, 0], hipL: [-0.6, 0, 0], knL: [1.2, 0, 0], hipR: [0.3, 0, 0], knR: [0.5, 0, 0], neck: [-0.4, 0, Math.sin(clock * 20) * 0.3] };
   if (d.blind > 0) return { shL: [-2.2, 0, 0.6], elL: [-2.0, 0, 0], shR: [-2.2, 0, -0.6], elR: [-2.0, 0, 0], neck: [0.3, 0, 0], body: [0, 0, Math.sin(clock * 6) * 0.08], knL: [0.3, 0, 0], knR: [0.3, 0, 0] };
   if (d.stun > 0.3 || d.guardBreak > 0) return { body: [-0.15, 0, Math.sin(clock * 12) * 0.07], chest: [-0.15, 0, 0], neck: [-0.35, 0, Math.sin(clock * 9) * 0.2], shL: [0.3, 0, -0.35], shR: [0.3, 0, 0.35], elL: [-0.3, 0, 0], elR: [-0.3, 0, 0], knL: [0.45, 0, 0], knR: [0.45, 0, 0], hipL: [-0.25, 0, 0], hipR: [-0.25, 0, 0], lift: -0.1 };
@@ -8007,10 +8013,10 @@ function makeBigHand() {
   const palm = new THREE.Mesh(new THREE.SphereGeometry(0.42, 18, 12), felt); palm.scale.set(1, 0.38, 0.95); g.add(palm);
   const fingers = [];
   for (let i = 0; i < 4; i++) {
-    const f = new THREE.Group(); f.position.set(-0.27 + i * 0.18, 0, 0.3 - Math.abs(i - 1.5) * 0.04); g.add(f);
-    const a = new THREE.Mesh(boxGeo(0.17, 0.17, 0.34), felt); a.position.z = 0.15; f.add(a);
+    const f = new THREE.Group(); f.position.set(-0.2 + i * 0.133, 0, 0.3 - Math.abs(i - 1.5) * 0.04); g.add(f);
+    const a = new THREE.Mesh(boxGeo(0.13, 0.17, 0.34), felt); a.position.z = 0.15; f.add(a);
     const k = new THREE.Group(); k.position.z = 0.3; f.add(k);
-    const b2 = new THREE.Mesh(boxGeo(0.16, 0.16, 0.28), felt); b2.position.z = 0.12; k.add(b2);
+    const b2 = new THREE.Mesh(boxGeo(0.125, 0.16, 0.28), felt); b2.position.z = 0.12; k.add(b2);
     const st = part(0.012, 0.05, 0.012, dark, 0, 0.085, 0.0); st.userData.noOutline = true; k.add(st);
     f.userData.tip = k; fingers.push(f);
   }
@@ -8259,7 +8265,20 @@ function orientGrab(h, fa, pitch) {
   const Z = f.clone().multiplyScalar(Math.cos(pitch)).add(new THREE.Vector3(0, Math.sin(pitch), 0)).normalize(), Y = r.clone(), X = new THREE.Vector3().crossVectors(Y, Z).normalize();
   h.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(X, Y, Z));
 }
-function gripPos(h, fa) { const k = h.scale.x / 1.8, f = new THREE.Vector3(Math.sin(fa), 0, Math.cos(fa)), r = new THREE.Vector3(Math.cos(fa), 0, -Math.sin(fa)); return h.position.clone().addScaledVector(r, -0.74 * k).addScaledVector(f, 0.38 * k).add(new THREE.Vector3(0, -1.05, 0)); }
+const GRIP = { R: 0.42 / 1.8, cy: -0.393, cz: 0.12, L1: 0.3, L2: 0.26 };
+function solveFinger(bz, rho) {
+  const cy = GRIP.cy, cz = GRIP.cz, at = (y, z) => Math.hypot(y - cy, z - cz);
+  let t1 = 0; for (; t1 < 3; t1 += 0.01) if (at(-Math.sin(t1) * GRIP.L1, bz + Math.cos(t1) * GRIP.L1) <= rho) break;
+  const ky = -Math.sin(t1) * GRIP.L1, kz = bz + Math.cos(t1) * GRIP.L1;
+  let t2 = 0; for (; t2 < 3; t2 += 0.01) { const a = t1 + t2; if (at(ky - Math.sin(a) * GRIP.L2, kz + Math.cos(a) * GRIP.L2) <= rho) break; }
+  return [t1, t2];
+}
+function handGrip(h, squeeze) {
+  const rho = 0.375 - Math.min(1, squeeze || 0) * 0.018;
+  h.userData.fingers.forEach((fg) => { const [a, b] = solveFinger(fg.position.z, rho); fg.rotation.x = a; fg.userData.tip.rotation.x = b; });
+  h.userData.thumb.rotation.z = -0.35;
+}
+function gripPos(h, fa) { const s = h.scale.x, f = new THREE.Vector3(Math.sin(fa), 0, Math.cos(fa)), r = new THREE.Vector3(Math.cos(fa), 0, -Math.sin(fa)); return h.position.clone().addScaledVector(r, GRIP.cy * s).addScaledVector(f, GRIP.cz * s).add(new THREE.Vector3(0, -0.95, 0)); }
 function handPose(h, curl) { h.userData.fingers.forEach((fg, i) => { fg.rotation.x = curl * (0.75 + i * 0.04); fg.userData.tip.rotation.x = curl * 0.95; }); h.userData.thumb.rotation.z = -0.2 - curl * 0.5; }
 function palmTop(h) { return 0.15 * h.scale.x; }
 function attachStretchArm(hand, ownerRig) {
@@ -8296,9 +8315,9 @@ function ghostArmTick(dt) {
     const fa = owner.facing || 0, f = new THREE.Vector3(Math.sin(fa), 0, Math.cos(fa)), h = G.hand; h.rotation.y = fa;
     if (G.mode === 'reach') { const k = Math.min(1, G.t / 0.3); h.position.copy(grabSpot(owner, 1 + easeOut(k) * 5.2, 1.7)); orientGrab(h, fa, 0.15); h.scale.setScalar(Math.min(1, G.t * 6) * 1.8 + 0.01); if (G.t > 0.9) { scene.remove(h); continue; } }
     const base = grabSpot(owner, 2.6, 3.1);
-    if (G.mode === 'hold') { G.sq = Math.max(0, (G.sq || 0) - dt); const lift = Math.min(1, G.t / 0.3); h.position.copy(base).add(new THREE.Vector3(0, (easeOut(lift) - 1) * 1.4, 0)); orientGrab(h, fa, 0.15 + 0.3 * lift); h.scale.setScalar(1.8 * (1 - G.sq * 0.08)); }
-    if (G.mode === 'smash') { const k = Math.min(1, G.t / 0.35); h.position.copy(base).add(new THREE.Vector3(0, smashUp(k), 0)); orientGrab(h, fa, 0.45 - k * 0.6); if (k >= 1) scene.remove(h); }
-    handPose(h, G.mode === 'reach' ? 0.2 : G.mode === 'smash' ? 1.6 : 1.45 + (G.sq || 0) * 0.8);
+    if (G.mode === 'hold') { G.sq = Math.max(0, (G.sq || 0) - dt); const lift = Math.min(1, G.t / 0.3); h.position.copy(base).add(new THREE.Vector3(0, (easeOut(lift) - 1) * 1.4, 0)); orientGrab(h, fa, 0); h.scale.setScalar(1.8); }
+    if (G.mode === 'smash') { const k = Math.min(1, G.t / 0.35); h.position.copy(base).add(new THREE.Vector3(0, smashUp(k), 0)); orientGrab(h, fa, 0); if (k >= 1) scene.remove(h); }
+    if (G.mode === 'reach') handPose(h, 0.2); else handGrip(h, (G.sq || 0) * 4);
   }
 }
 Object.assign(FXF, {
@@ -8557,13 +8576,13 @@ function makePatchKit() {
       const H = hold, d = H.d, f = facingVec(); H.t -= dt;
       const base = grabSpot(player, 2.6, 3.1);
       if (H.smash) {
-        H.smash.t += dt; const k = Math.min(1, H.smash.t / 0.35); const p = base.clone().add(new THREE.Vector3(0, smashUp(k), 0)); H.hand.position.copy(p); orientGrab(H.hand, player.facing, 0.45 - k * 0.6); handPose(H.hand, 1.6);
-        d.pos.copy(gripPos(H.hand, player.facing)); d.vel.set(0, 0, 0);
+        H.smash.t += dt; const k = Math.min(1, H.smash.t / 0.35); const p = base.clone().add(new THREE.Vector3(0, smashUp(k), 0)); H.hand.position.copy(p); orientGrab(H.hand, player.facing, 0); handGrip(H.hand, 1); H.hand.scale.setScalar(1.8);
+        d.pos.copy(gripPos(H.hand, player.facing)); d.struggleT = clock; d.holdFace = player.facing - Math.PI / 2; d.vel.set(0, 0, 0);
         if (k >= 1) { const land = groundAt(p); vfxSlamImpact(land); netOnly('pslam', [land.clone()]); addShake(1); impactFrame(0.1); hitDummy(d, { dmg: 12, type: 'g', otg: true, kb: f.clone().multiplyScalar(6).setY(3), set: true, down: 1.4, big: true, mats: [fxFluff], spark: 0xb8875a, ringColor: PYARN, label: 'SMASH', awk: 6 }); releaseHold(); }
       } else {
         H.squeeze = Math.max(0, H.squeeze - dt); H.age += dt; const lift = Math.min(1, H.age / 0.3);
-        H.hand.position.copy(base).add(new THREE.Vector3(0, (easeOut(Math.max(0, lift)) - 1) * 1.4, 0)); orientGrab(H.hand, player.facing, 0.15 + 0.3 * lift); H.hand.scale.setScalar(1.8 * (1 - H.squeeze * 0.08)); handPose(H.hand, 1.45 + H.squeeze * 0.8);
-        d.pos.copy(gripPos(H.hand, player.facing)); d.vel.set(0, 0, 0); d.grabbed = Math.max(d.grabbed || 0, 0.4);
+        H.hand.position.copy(base).add(new THREE.Vector3(0, (easeOut(Math.max(0, lift)) - 1) * 1.4, 0)); orientGrab(H.hand, player.facing, 0); H.hand.scale.setScalar(1.8); handGrip(H.hand, H.squeeze * 4);
+        d.pos.copy(gripPos(H.hand, player.facing)); d.struggleT = clock; d.holdFace = player.facing - Math.PI / 2; d.vel.set(0, 0, 0); d.grabbed = Math.max(d.grabbed || 0, 0.4);
         if (H.t <= 0 || d.dead) { if (!d.dead) floatText('DROPPED', d.pos.clone().add(new THREE.Vector3(0, 3, 0)), 'ink'); releaseHold(); }
       }
     }
