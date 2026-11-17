@@ -338,7 +338,7 @@ body.curtains #curL, body.curtains #curR { transform: translateX(0); }
 <div id="overlay">
   <div class="card scrap">
     <h1>Windstep Village</h1>
-    <div class="build">Build 30 · Patch: Yarn Spider · Pick your fighter</div>
+    <div class="build">Build 31 · New Patchwork look · Pick your fighter</div>
     <div class="roster" id="roster">
       <button class="fcard sel" data-id="juno" type="button"><span class="sw juno"></span><span class="fn">Juno Marrow</span><span class="fs">Ink · Hard</span></button>
       <button class="fcard" data-id="pip" type="button"><span class="sw pip"></span><span class="fn">Pip Hollow</span><span class="fs">Thread · Medium</span></button>
@@ -7838,6 +7838,16 @@ const PATCH_TEXES = [['#e86a8a', '#f7b2c4'], ['#5aa86a', '#9fd6a2'], ['#f2c24a',
   g.fillStyle = a; g.fillRect(0, 0, S, S); g.fillStyle = b; for (let i = 0; i < S; i += 16) { g.fillRect(i, 0, 6, S); g.fillRect(0, i, S, 6); }
   g.strokeStyle = '#2a1c14'; g.lineWidth = 3; g.setLineDash([6, 5]); g.strokeRect(5, 5, S - 10, S - 10);
 }));
+const SOCK_TEX = canvasTex(64, (g, S) => { g.fillStyle = '#c9c3d3'; g.fillRect(0, 0, S, S); for (let i = 0; i < S; i += 3) { g.fillStyle = 'rgba(90,80,110,.12)'; g.fillRect(0, i, S, 1); } for (let i = 0; i < 300; i++) { g.fillStyle = 'rgba(255,255,255,.15)'; g.fillRect(Math.random() * S, Math.random() * S, 1, 1); } });
+const STRIPE_TEX = canvasTex(64, (g, S) => { const c = ['#e0263a', '#f4f2ee', '#3a8a8a', '#f4f2ee']; for (let i = 0; i < 8; i++) { g.fillStyle = c[i % 4]; g.fillRect(0, i * 8, S, 8); } });
+const DOT_TEX = canvasTex(64, (g, S) => { g.fillStyle = '#6a3a9a'; g.fillRect(0, 0, S, S); g.fillStyle = '#f2c24a'; for (let y = 6; y < S; y += 16) for (let x = (y / 16 % 2) * 8 + 4; x < S; x += 16) { g.beginPath(); g.arc(x, y, 3.5, 0, PI2); g.fill(); } });
+const QUILT_TEXES = [['#3a8a8a', '#7fc8c0'], ['#e0263a', '#f78a8a'], ['#f2c24a', '#e08a2a'], ['#6a3a9a', '#b48cd8']].map(([a, b], n) => canvasTex(64, (g, S) => {
+  g.fillStyle = a; g.fillRect(0, 0, S, S); g.fillStyle = b;
+  if (n === 0) for (let i = 0; i < S; i += 16) for (let j = (i / 16 % 2) * 8; j < S; j += 16) g.fillRect(j, i, 8, 8);
+  else if (n === 1) for (let i = -S; i < S; i += 12) { g.save(); g.translate(i, 0); g.rotate(0.6); g.fillRect(0, 0, 4, S * 2); g.restore(); }
+  else if (n === 2) { g.beginPath(); for (let i = 0; i < 6; i++) { const a2 = i / 6 * PI2; g.moveTo(S / 2, S / 2); g.arc(S / 2, S / 2, S * 0.4, a2, a2 + 0.5); } g.fill(); }
+  else for (let i = 0; i < 40; i++) { g.beginPath(); g.arc(Math.random() * S, Math.random() * S, 2 + Math.random() * 3, 0, PI2); g.fill(); }
+}));
 function patchFace(kind, g, ell) {
   if (!/^patch/.test(kind)) return false;
   const second = /2$/.test(kind), big = /big/.test(kind), thread = /thread/.test(kind);
@@ -7861,21 +7871,32 @@ function buildPatch(id) {
   const form = id === 'patch-big' ? 'big' : id === 'patch-thread' ? 'thread' : 'plush';
   let rig;
   if (form === 'plush') {
-    rig = makeRig({ skin: 0xd8b48a, upper: 0xd8b48a, armU: 0xd8b48a, armL: 0xd8b48a, lower: 0x4a6a9a, hand: 0xd8b48a, leg: 0x4a6a9a, foot: 0x6b4a33, face: 'patch' });
-    const burlap = toon(0xffffff, { map: BURLAP_TEX }), denim = SM(0x4a6a9a);
-    rig.root.traverse((o) => { if (o.isMesh && o.material === SM(0xd8b48a)) o.material = burlap; });
-    // overalls bib + straps + buttons
-    rig.chest.add(part(0.44, 0.3, 0.04, denim, 0, 0.15, 0.19)); for (const sd of [-1, 1]) { rig.chest.add(part(0.07, 0.36, 0.03, denim, sd * 0.16, 0.36, 0.195)); rig.chest.add(part(0.07, 0.36, 0.03, denim, sd * 0.16, 0.36, -0.195)); const bt = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.02, 10), SM(0xf2c24a)); bt.position.set(sd * 0.16, 0.26, 0.215); bt.rotation.x = Math.PI / 2; rig.chest.add(bt); }
-    patchSquare(rig.chest, 0, 0.16, 0.14, 0.08, 0.15, 0.212); patchSquare(rig.j.hipL, 1, 0.14, 0.14, 0, -0.2, 0.152); patchSquare(rig.j.shR, 2, 0.12, 0.12, 0.101, -0.14, 0, Math.PI / 2); patchSquare(rig.chest, 3, 0.14, 0.12, -0.2, 0.36, -0.182, Math.PI);
-    stitchLine(rig.chest, -0.35, 0.02, 0.0, -0.35, 0.48, 0.0); stitchLine(rig.chest, 0.35, 0.02, 0.0, 0.35, 0.48, 0.0);
+    // a patchwork quilt doll: grey sock-felt head, mismatched quilt-square body, striped stocking cap
+    rig = makeRig({ unique: true, skin: 0xc9c3d3, upper: 0xc9c3d3, armU: 0xc9c3d3, armL: 0xc9c3d3, lower: 0xc9c3d3, hand: 0xc9c3d3, leg: 0xc9c3d3, foot: 0x3a2a4a, face: 'patch' });
+    const sock = toon(0xffffff, { map: SOCK_TEX }), quilt = (i) => toon(0xffffff, { map: QUILT_TEXES[i] });
+    rig.head.material = sock; rig.handL.material = sock; rig.handR.material = sock;
+    // torso: four different quilt squares front and back, cross-stitched together
+    rig.chest.children.forEach((c) => { if (c.isMesh && !c.userData.outline) c.material = quilt(0); });
+    [[0, -0.17, 0.4], [1, 0.17, 0.4], [2, -0.17, 0.13], [3, 0.17, 0.13]].forEach(([i, x, y]) => { patchSquare(rig.chest, i, 0.34, 0.27, x, y, 0.183); patchSquare(rig.chest, (i + 2) % 4, 0.34, 0.27, x, y, -0.183, Math.PI); });
+    stitchLine(rig.chest, 0, 0.02, 0.19, 0, 0.5, 0.19); stitchLine(rig.chest, -0.34, 0.27, 0.19, 0.34, 0.27, 0.19);
+    // heart patch, sewn on crooked
+    const heart = new THREE.Mesh(new THREE.ShapeGeometry((() => { const h = new THREE.Shape(); h.moveTo(0, -0.08); h.bezierCurveTo(-0.13, 0.01, -0.07, 0.11, 0, 0.05); h.bezierCurveTo(0.07, 0.11, 0.13, 0.01, 0, -0.08); return h; })()), toon(0xe0263a));
+    heart.position.set(-0.12, 0.36, 0.19); heart.rotation.z = 0.25; rig.chest.add(heart);
+    // mismatched limbs: striped right arm, polka-dot left arm, one checkered leg
+    for (const c of rig.j.shR.children.concat(rig.j.elR.children)) if (c.isMesh && !c.userData.outline && c !== rig.handR) c.material = toon(0xffffff, { map: STRIPE_TEX });
+    for (const c of rig.j.shL.children.concat(rig.j.elL.children)) if (c.isMesh && !c.userData.outline && c !== rig.handL) c.material = toon(0xffffff, { map: DOT_TEX });
+    for (const j of ['hipL', 'knL']) for (const c of rig.j[j].children) if (c.isMesh && !c.userData.outline) c.material = quilt(1);
+    for (const j of ['hipR', 'knR']) for (const c of rig.j[j].children) if (c.isMesh && !c.userData.outline) c.material = quilt(3);
+    rig.waist.children.forEach((c) => { if (c.isMesh && !c.userData.outline) c.material = quilt(2); });
     stitchLine(rig.neck, -0.15, 0.02, 0.24, 0.15, 0.02, 0.24);
-    // yarn hair: chunky loops on top
-    const yarn = toon(PYARN);
-    for (let i = 0; i < 7; i++) { const t = new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.035, 8, 14), yarn); const a = i / 7 * PI2; t.position.set(Math.cos(a) * 0.15, 0.48 + (i % 2) * 0.04, Math.sin(a) * 0.15 - 0.02); t.rotation.set(Math.random() * 2, a, 0); rig.neck.add(t); }
-    { const bun = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 8), yarn); bun.position.set(0, 0.5, -0.02); rig.neck.add(bun); }
-    for (const sd of [-1, 1]) { const tuft = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.03, 6, 12), yarn); tuft.position.set(sd * 0.26, 0.38, -0.05); tuft.rotation.y = Math.PI / 2; rig.neck.add(tuft); }
-    // a safety pin on the strap
-    const pin = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.008, 4, 12), STEEL); pin.position.set(0.16, 0.44, 0.215); pin.scale.y = 0.4; rig.chest.add(pin);
+    // long floppy striped stocking cap with a pom-pom, flopping to one side
+    const capMat = toon(0xffffff, { map: STRIPE_TEX });
+    const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.27, 0.27, 0.09, 20), toon(0x3a2a4a)); brim.position.y = 0.44; rig.neck.add(brim);
+    let base = new THREE.Group(); base.position.y = 0.46; rig.neck.add(base);
+    const segs = 6; let r = 0.26;
+    for (let i = 0; i < segs; i++) { const h = 0.14, r2 = r * 0.8; const sg = new THREE.Mesh(new THREE.CylinderGeometry(r2, r, h, 16), capMat); sg.position.y = h / 2; base.add(sg); const nx = new THREE.Group(); nx.position.y = h; nx.rotation.z = -0.32 - i * 0.05; base.add(nx); base = nx; r = r2; }
+    const pom = new THREE.Mesh(new THREE.SphereGeometry(0.09, 10, 8), toon(0xf4f2ee)); pom.position.y = 0.06; base.add(pom);
+    rig.patchCapTip = base;
   } else if (form === 'big') {
     rig = makeRig({ unique: true, skin: 0xb8875a, upper: 0xb8875a, armU: 0xb8875a, armL: 0xb8875a, lower: 0xb8875a, hand: 0xb8875a, leg: 0xb8875a, foot: 0x8a5a32, face: 'patch-big' });
     const felt = toon(0xffffff, { map: FELT_TEX }), fluff = toon(0xfbf7ee), dark = SM(0x2a1c14);
@@ -7987,28 +8008,36 @@ function vfxFinalStitch(tg) {
   });
   later(1.75, () => { vfxStuffing(c.clone().add(new THREE.Vector3(0, 1.4, 0)), 30, 10); flash(c.clone().add(new THREE.Vector3(0, 1.4, 0)), PYARN, 5); });
 }
+const SPIDER_TEX = canvasTex(128, (g, S) => {
+  g.fillStyle = '#e0141e'; g.fillRect(0, 0, S, S);
+  for (let y = -S; y < S * 2; y += 7) { g.strokeStyle = 'rgba(255,120,110,.5)'; g.lineWidth = 2; g.beginPath(); g.moveTo(0, y); g.lineTo(S, y + S * 0.35); g.stroke(); g.strokeStyle = 'rgba(110,0,8,.5)'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(0, y + 3.5); g.lineTo(S, y + 3.5 + S * 0.35); g.stroke(); }
+});
 function makeYarnSpider() {
-  const g = new THREE.Group(), yarn = toon(0xffffff, { map: YARN_TEX }), dark = toon(0x8a2a22);
+  const g = new THREE.Group(), yarn = toon(0xffffff, { map: SPIDER_TEX }), dark = toon(0xa8141a);
   const abd = new THREE.Mesh(new THREE.SphereGeometry(0.32, 16, 12), yarn); abd.scale.set(1, 0.8, 1.2); abd.position.set(0, 0.45, -0.28); g.add(abd);
   for (let i = 0; i < 3; i++) { const w = new THREE.Mesh(new THREE.TorusGeometry(0.27 - i * 0.04, 0.025, 6, 18), dark); w.position.set(0, 0.45, -0.18 - i * 0.12); w.scale.set(1, 0.8, 1); g.add(w); }
   const tho = new THREE.Mesh(new THREE.SphereGeometry(0.2, 14, 10), yarn); tho.position.set(0, 0.42, 0.08); g.add(tho);
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.14, 12, 10), yarn); head.position.set(0, 0.44, 0.26); g.add(head);
-  [[-0.07, 0xf2c24a], [0.07, 0x5a8ae8]].forEach(([x, c]) => { const e = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.02, 12), toon(c)); e.rotation.x = Math.PI / 2; e.position.set(x, 0.5, 0.385); g.add(e); const h = new THREE.Mesh(new THREE.SphereGeometry(0.012, 6, 4), toon(0x1a120c)); h.position.set(x, 0.5, 0.398); g.add(h); });
-  const fangs = []; for (const sd of [-1, 1]) { const fg = new THREE.Mesh(new THREE.ConeGeometry(0.025, 0.12, 6), toon(0xf4f2ee)); fg.position.set(sd * 0.05, 0.36, 0.37); fg.rotation.x = Math.PI; g.add(fg); fangs.push(fg); }
+  // no face: just a yarn ball for a head, with a few loose loops of yarn wrapped around the body
+  for (let i = 0; i < 4; i++) { const lp = new THREE.Mesh(new THREE.TorusGeometry(0.22 + i * 0.05, 0.018, 5, 18), dark); lp.position.set(rv(0.05), 0.45, -0.2 + rv(0.1)); lp.rotation.set(Math.random() * 3, Math.random() * 3, 0); g.add(lp); }
+  const fangs = [];
   const legs = [];
   for (const sd of [-1, 1]) for (let i = 0; i < 4; i++) {
     const hip = new THREE.Group(); hip.position.set(sd * 0.12, 0.42, 0.14 - i * 0.1); hip.rotation.y = sd * (i - 1.5) * -0.42; g.add(hip);
     const up = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.035, 0.4, 6), yarn); up.position.set(sd * 0.16, 0.12, 0); up.rotation.z = -sd * 0.95; hip.add(up);
+    hip.rotation.z = sd * -0.12 * (i % 2 ? 1 : 0.4);
     const lo = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.03, 0.69, 6), yarn); lo.position.set(sd * 0.435, -0.095, 0); lo.rotation.z = sd * 2.8; hip.add(lo);
     legs.push({ hip, sd, i });
   }
   g.traverse((o) => { if (o.isMesh) { o.userData.noOutline = true; o.castShadow = true; } });
-  g.userData.legs = legs; g.userData.fangs = fangs; g.scale.setScalar(1.25); return g;
+  g.userData.legs = legs; g.userData.fangs = fangs; g.userData.body = [abd, tho, head]; g.scale.setScalar(1.25); return g;
 }
 // a yarn ball lands, unravels into a spider, spins a web, scuttles to its target and bites once.
 // onBite is only passed on the thrower's screen; other players just see the show.
 function runYarnSpider(at, tg, onBite) {
   const sp = makeYarnSpider(), LIFE = 4.6, pos = at.clone(); let bit = -1, phaseFace = 0, walk = 0;
+  const tails = [0, 1, 2].map(() => { const r = makeRope(8, 0xe0141e, 0.016); r.len = 0.55 + Math.random() * 0.35; return r; });
+  later(LIFE, () => tails.forEach(dropRope));
   sp.position.copy(pos); sp.scale.setScalar(0.01);
   vfxWeb(at, 2.6); for (let i = 0; i < 10; i++) P({ tex: 'streak', color: PYARN, pos: at.clone().add(new THREE.Vector3(0, 0.4, 0)), vel: randDir(0.9).multiplyScalar(4), life: 0.4, s0: 0.3, s1: 0.05 });
   tempMesh(sp, LIFE, (m, k, dt) => {
@@ -8027,7 +8056,11 @@ function runYarnSpider(at, tg, onBite) {
     if (fade > 0) { s = 1.25 * Math.max(0.01, 1 - fade / 0.4); m.rotation.y += dt * 10; if (Math.random() < 0.7) P({ tex: 'streak', color: PYARN, pos: pos.clone().add(new THREE.Vector3(0, 0.5, 0)), vel: randDir(0.8).multiplyScalar(3), life: 0.4, s0: 0.3, s1: 0.05 }); }
     m.scale.setScalar(s); m.position.x = pos.x; m.position.z = pos.z; if (bit < 0) m.position.y = pos.y;
     walk += dt * (moving ? 22 : 0);
-    for (const lg of L) { const ph = walk + lg.i * 1.6 + (lg.sd > 0 ? Math.PI : 0); lg.hip.rotation.x = moving ? Math.sin(ph) * 0.35 : 0; lg.hip.rotation.z = moving ? Math.max(0, Math.sin(ph + 1.5)) * 0.3 * lg.sd : 0; }
+    for (const lg of L) { const ph = walk + lg.i * 1.6 + (lg.sd > 0 ? Math.PI : 0); lg.hip.rotation.x = (moving ? Math.sin(ph) * 0.45 : 0) + Math.sin(t * 3 + lg.i) * 0.06; lg.hip.rotation.z = lg.sd * (-0.12 * (lg.i % 2 ? 1 : 0.4) + (moving ? Math.max(0, Math.sin(ph + 1.5)) * 0.35 : 0) - 0.06 * Math.sin(t * 2.3 + lg.i * 2)); }
+    // floppy body: the yarn sags and jiggles
+    const jig = moving ? Math.sin(walk * 0.5) : Math.sin(t * 3) * 0.4; m.userData.body.forEach((b2, n) => { b2.position.y = (n === 0 ? 0.45 : n === 1 ? 0.42 : 0.44) - 0.03 + jig * 0.025 * (n + 1); }); m.rotation.z = jig * 0.06;
+    // loose threads trailing from the body
+    const sc = m.scale.x; if (sc > 0.05) tails.forEach((r, n) => { const off = new THREE.Vector3((n - 1) * 0.15, 0.4, -0.55).multiplyScalar(sc).applyAxisAngle(new THREE.Vector3(0, 1, 0), m.rotation.y); ropeStep(r, Math.min(dt, 0.033), m.position.clone().add(off), null, pos.y); r.mesh.visible = true; }); else tails.forEach((r) => { r.mesh.visible = false; });
   });
 }
 function makePatchKit() {
@@ -8288,6 +8321,7 @@ function makePatchKit() {
     }
     for (let i = poisons.length - 1; i >= 0; i--) if (poisons[i].left <= 0 || poisons[i].d.dead) poisons.splice(i, 1);
     for (let i = webs.length - 1; i >= 0; i--) if (webs[i].t <= 0) webs.splice(i, 1);
+    if (rig && rig.patchCapTip) { rig.patchCapTip.rotation.x = Math.sin(clock * 6) * 0.15 * Math.min(1, player.speedNow / 5); }
     // dangling yarn strands on the Threadbare body
     for (const s of strands) { const a = s.anc.getWorldPosition(new THREE.Vector3()); if (s.anc === rig.neck) a.add(new THREE.Vector3(Math.sin(player.facing) * -0.22, 0.35, Math.cos(player.facing) * -0.22)); else a.y -= 0.08; ropeStep(s.r, dt, a, null, floor); }
     if (awakened && Math.random() < 0.3) P({ tex: 'glow', color: PYARN, pos: player.pos.clone().add(new THREE.Vector3(rv(1), 0.4 + Math.random() * 1.8, rv(1))), vel: new THREE.Vector3(0, 1.4, 0), life: 0.5, s0: 0.3, s1: 0.05 });
