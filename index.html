@@ -338,7 +338,7 @@ body.curtains #curL, body.curtains #curR { transform: translateX(0); }
 <div id="overlay">
   <div class="card scrap">
     <h1>Windstep Village</h1>
-    <div class="build">Build 32 · Yarn Spider pet · Pick your fighter</div>
+    <div class="build">Build 33 · Bulk stretch-arm grab · Pick your fighter</div>
     <div class="roster" id="roster">
       <button class="fcard sel" data-id="juno" type="button"><span class="sw juno"></span><span class="fn">Juno Marrow</span><span class="fs">Ink · Hard</span></button>
       <button class="fcard" data-id="pip" type="button"><span class="sw pip"></span><span class="fn">Pip Hollow</span><span class="fs">Thread · Medium</span></button>
@@ -8125,6 +8125,7 @@ function makeYarnTrap(tg, dur) {
 }
 function dropTrap(T) { scene.remove(T.grp); T.ropes.forEach((r) => { dropRope(r.rp); scene.remove(r.blob); }); for (let i = 0; i < 14; i++) P({ tex: 'streak', color: 0xc63a30, pos: T.grp.position.clone().add(new THREE.Vector3(rv(0.6), 0.4 + Math.random() * 1.4, rv(0.6))), vel: randDir(0.8).multiplyScalar(4), life: 0.45, s0: 0.35, s1: 0.05 }); }
 function spiderTick(dt) {
+  stretchArmTick(); ghostArmTick(dt);
   for (const T of YARN_TRAPS) {
     T.t -= dt; const p = T.tg.pos; if (!p) { T.t = 0; continue; }
     T.grp.position.copy(p); T.grp.scale.setScalar(Math.min(1, (T.max - T.t) * 6) + 0.01); T.grp.rotation.y += dt * 0.2;
@@ -8219,6 +8220,55 @@ Object.assign(FXF, {
   yend: (owner) => petUnravel(ghostPetOf(owner)),
 });
 
+// ---- Bulk's grab: his own arm swells and stretches out, getting fatter toward a giant hand ----
+const STRETCH_ARMS = [], GHOST_ARMS = new Map();
+function attachStretchArm(hand, ownerRig) {
+  if (!ownerRig || !ownerRig.j) return;
+  const felt = toon(0xffffff, { map: FELT_TEX }), fluff = toon(0xfbf7ee), thread = toon(0x2a1c14), N = 11, segs = [], rings = [], puffs = [];
+  for (let i = 0; i < N; i++) { const m = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 10), felt); m.castShadow = true; scene.add(m); segs.push(m); }
+  for (let i = 0; i < 3; i++) { const r = new THREE.Mesh(new THREE.TorusGeometry(1, 0.05, 6, 20), thread); scene.add(r); rings.push(r); }
+  for (let i = 0; i < 4; i++) { const p = new THREE.Mesh(new THREE.SphereGeometry(1, 8, 6), fluff); scene.add(p); puffs.push({ m: p, u: 0.35 + i * 0.15, a: i * 2.1 }); }
+  // hide his normal right arm while the stretched one is out
+  const hidden = []; for (const j of [ownerRig.j.shR, ownerRig.j.elR]) for (const c of j.children) if (c.isMesh && c.visible) { c.visible = false; hidden.push(c); }
+  STRETCH_ARMS.push({ hand, rig: ownerRig, segs, rings, puffs, hidden });
+}
+function stretchArmTick() {
+  for (let n = STRETCH_ARMS.length - 1; n >= 0; n--) {
+    const A = STRETCH_ARMS[n];
+    if (!A.hand.parent || !A.rig.root.parent) { A.segs.forEach((m) => scene.remove(m)); A.rings.forEach((m) => scene.remove(m)); A.puffs.forEach((p) => scene.remove(p.m)); A.hidden.forEach((c) => { c.visible = true; }); STRETCH_ARMS.splice(n, 1); continue; }
+    const sh = A.rig.j.shR.getWorldPosition(new THREE.Vector3()), hs = A.hand.scale.x, grow = Math.min(1, hs / 1.8);
+    const fwd = new THREE.Vector3(Math.sin(A.hand.rotation.y), 0, Math.cos(A.hand.rotation.y)), wrist = A.hand.position.clone().addScaledVector(fwd, -0.36 * hs);
+    const ctrl = sh.clone().lerp(wrist, 0.5).add(new THREE.Vector3(0, 0.5 + sh.distanceTo(wrist) * 0.08, 0));
+    const at = (u) => { const a = sh.clone().lerp(ctrl, u), b = ctrl.clone().lerp(wrist, u); return a.lerp(b, u); };
+    const rad = (u) => (0.16 + 0.52 * Math.pow(u, 1.6) * grow) * (1 + 0.09 * Math.sin(clock * 11 - u * 9));   // swells toward the hand, stuffing pulsing through it
+    const N = A.segs.length, len = sh.distanceTo(wrist) / (N - 1);
+    for (let i = 0; i < N; i++) { const u = i / (N - 1), p = at(u), q = at(Math.min(1, u + 0.05)), r = rad(u), m = A.segs[i]; m.position.copy(p); m.lookAt(q.equals(p) ? p.clone().add(fwd) : q); m.scale.set(r, r, Math.max(r, len * 0.75)); }
+    A.rings.forEach((m, i) => { const u = 0.28 + i * 0.25, p = at(u); m.position.copy(p); m.lookAt(at(Math.min(1, u + 0.05))); m.scale.setScalar(rad(u) * 1.02); });
+    A.puffs.forEach((P2) => { const p = at(P2.u), r = rad(P2.u); P2.m.position.copy(p).add(new THREE.Vector3(Math.cos(P2.a) * r * 0.9, Math.sin(P2.a) * r * 0.9 + r * 0.3, 0)); P2.m.scale.setScalar(r * 0.32 * (1 + 0.2 * Math.sin(clock * 9 + P2.a))); });
+  }
+}
+// other players see the arm too: it is driven by small events from the grabber
+function ghostArm(owner) { return GHOST_ARMS.get(owner); }
+function ghostArmTick(dt) {
+  for (const [owner, G] of GHOST_ARMS) {
+    G.t += dt;
+    if (!owner.pos || !G.hand.parent || G.t > 6) { scene.remove(G.hand); GHOST_ARMS.delete(owner); continue; }
+    const fa = owner.facing || 0, f = new THREE.Vector3(Math.sin(fa), 0, Math.cos(fa)), h = G.hand; h.rotation.y = fa;
+    if (G.mode === 'reach') { const k = Math.min(1, G.t / 0.3); h.position.copy(owner.pos).addScaledVector(f, 1 + easeOut(k) * 5.2).add(new THREE.Vector3(0, 1.4, 0)); h.scale.setScalar(Math.min(1, G.t * 6) * 1.8 + 0.01); if (G.t > 0.9) { scene.remove(h); continue; } }
+    const base = owner.pos.clone().addScaledVector(f, 3.2).add(new THREE.Vector3(0, 2.2, 0));
+    if (G.mode === 'hold') { G.sq = Math.max(0, (G.sq || 0) - dt); h.position.copy(base); h.scale.setScalar(1.8 * (1 - G.sq * 0.4)); }
+    if (G.mode === 'smash') { const k = Math.min(1, G.t / 0.35); h.position.copy(base).add(new THREE.Vector3(0, k < 0.4 ? k * 4 : (1 - k) * 2.6 - 1.4, 0)); if (k >= 1) scene.remove(h); }
+    h.userData.fingers.forEach((fg) => { fg.rotation.x = G.mode === 'reach' ? 0.2 : 1.3; }); h.userData.thumb.rotation.z = G.mode === 'reach' ? 0 : 0.9;
+  }
+}
+Object.assign(FXF, {
+  parm: (owner) => { if (!owner || !owner.pos) return; const old = ghostArm(owner); if (old) scene.remove(old.hand); const hand = makeBigHand(); scene.add(hand); GHOST_ARMS.set(owner, { hand, mode: 'reach', t: 0 }); attachStretchArm(hand, owner.rig); },
+  pcatch: (owner) => { const G = ghostArm(owner); if (G) { G.mode = 'hold'; G.t = 0; } },
+  psq: (owner) => { const G = ghostArm(owner); if (G) G.sq = 0.25; },
+  psmash: (owner) => { const G = ghostArm(owner); if (G) { G.mode = 'smash'; G.t = 0; } },
+  pdrop: (owner) => { const G = ghostArm(owner); if (G) scene.remove(G.hand); },
+});
+
 function makePatchKit() {
   const K = { id: 'patch', name: 'PATCH', sub: 'The Ragdoll Stitchling', color: PYARN, accent: '#c8443a',
     desc: 'A stitched-up rag doll with a second life: the first KO just knocks his stuffing out, and he sews himself back together (that life lasts until he goes down again). R re-stitches him into a whole new body: Patchwork (balanced), Bulk (huge, slow, hits hard) or Threadbare (skinny and fast). Threadbare throws a yarn spider that follows him: press 2 again and it webs someone to the ground, press 2 again and it leaps on them and bites for venom damage over time. Yarn Lasso ties someone up and drags them wherever you go; click to slam them (3 slams) before they break free.',
@@ -8237,7 +8287,7 @@ function makePatchKit() {
   function makeStrands() { clearStrands(); if (form !== 'thread' || !rig.strandAnchors) return; rig.strandAnchors.forEach((anc, i) => { const r = makeRope(10, 0xe8643a, 0.022); r.len = i === 2 ? 0.9 : 0.75; strands.push({ r, anc, off: i === 2 ? new THREE.Vector3(0, 0.35, -0.22) : new THREE.Vector3(0, -0.08, 0) }); }); }
   function releaseTether(msg) { if (!tether) return; const t = tether; tether = null; if (t.d && !t.d.dead) { t.d.grabbed = 0; if (msg) floatText(msg, t.d.pos.clone().add(new THREE.Vector3(0, 2.8, 0)), 'ink'); } looseRopes.push({ r: t.rope, t: 0.6 }); }
   const looseRopes = [];
-  function releaseHold() { if (!hold) return; scene.remove(hold.hand); if (hold.d && !hold.d.dead) hold.d.grabbed = 0; hold = null; }
+  function releaseHold() { if (!hold) return; scene.remove(hold.hand); netOnly('pdrop', [player]); if (hold.d && !hold.d.dead) hold.d.grabbed = 0; hold = null; }
   K.reset = () => { for (const k in cd) cd[k] = 0; releaseTether(); releaseHold(); clearStrands(); if (pet && !pet.done) petUnravel(pet); pet = null; revived = false; if (form !== 'plush') { form = 'plush'; swapBody(); } };
   K.slotsNow = () => (awakened ? SL[form].slice(0, 3).concat([{ k: '4', name: 'Final Stitch', tag: 'u' }, { k: 'R', name: 'Re-Stitch', tag: 'n' }]) : SL[form].concat([{ k: 'R', name: 'Re-Stitch', tag: 'n' }]));
   K.resLabel = () => PFORM_NAME[form] + (revived ? ' · 2nd life' : ' · 1 spare life');
@@ -8295,12 +8345,12 @@ function makePatchKit() {
     tether.slam = { t: 0, from: tether.d.pos.clone() }; playAnim('overhead', 1.5);
   }
   K.blocksM1 = () => { if (tether) { startSlam(); return true; } if (hold) { holdSmash(); return true; } return false; };
-  function holdSmash() { if (!hold || hold.smash) return; hold.smash = { t: 0 }; playAnim('slam', 1.4); }
+  function holdSmash() { if (!hold || hold.smash) return; hold.smash = { t: 0 }; netOnly('psmash', [player]); playAnim('slam', 1.4); }
   K.press = (k) => {
     if (tether && k === '2') { startSlam(); return; }
     if (hold && k === '2') { holdSmash(); return; }
     if (k === '2' && pet && !pet.done && (pet.state === 'follow' || pet.state === 'pop')) { spiderCommand(); return; }
-    if (hold && k === '1') { if (hold.sq < 3 && !hold.smash) { hold.sq++; hold.squeeze = 0.25; hitDummy(hold.d, { dmg: 4, type: 'g', stun: 1, mats: [fxPaper], spark: PYARN, label: 'SQUEEZE', awk: 3 }); addShake(0.2); vfxStuffing(hold.d.pos.clone().add(new THREE.Vector3(0, 1.2, 0)), 6, 3); } return; }
+    if (hold && k === '1') { if (hold.sq < 3 && !hold.smash) { hold.sq++; hold.squeeze = 0.25; netOnly('psq', [player]); hitDummy(hold.d, { dmg: 4, type: 'g', stun: 1, mats: [fxPaper], spark: PYARN, label: 'SQUEEZE', awk: 3 }); addShake(0.2); vfxStuffing(hold.d.pos.clone().add(new THREE.Vector3(0, 1.2, 0)), 6, 3); } return; }
     if (busy() || player.blocking) return;
     if (k === 'R') { if (cd.R > 0) return; restitch(); return; }
     if (awakened && k === '4') { finalStitch(); return; }
@@ -8315,7 +8365,7 @@ function makePatchKit() {
     }
     if (k === '2') {
       if (form === 'plush') { aimFace14(16); startMove('lasso', 0.5, 'throw', { fired: false }); }
-      if (form === 'big') { aimFace14(7); const hand = makeBigHand(); scene.add(hand); hold = null; startMove('bighand', 0.75, 'point', { hand, caught: false }); }
+      if (form === 'big') { aimFace14(7); const hand = makeBigHand(); scene.add(hand); hand.scale.setScalar(0.01); attachStretchArm(hand, rig); netOnly('parm', [player]); hold = null; startMove('bighand', 0.75, 'point', { hand, caught: false }); }
       if (form === 'thread') {
         if (pet && !pet.done) return;
         const t = aim14(14), dir = shiftLock ? camForward() : t ? t.pos.clone().sub(player.pos).setY(0).normalize() : facingVec(); player.facing = Math.atan2(dir.x, dir.z);
@@ -8364,14 +8414,14 @@ function makePatchKit() {
         onHit: (d) => lassoHit(d), onWorld: () => { if (curRope) { looseRopes.push({ r: curRope, t: 0.6 }); curRope = null; } }, noExpire: false });
     } else if (mv.name === 'bighand') {
       const h = mv.hand, k = Math.min(1, mv.t / 0.3), reach = mv.caught ? 3.2 : 1 + easeOut(k) * 5.2;
-      h.position.copy(player.pos).addScaledVector(f, reach).add(new THREE.Vector3(0, 1.4 + (mv.caught ? 0.8 : 0), 0)); h.rotation.y = player.facing; h.scale.setScalar(Math.min(1, mv.t * 6) * 1.4 + 0.01);
+      h.position.copy(player.pos).addScaledVector(f, reach).add(new THREE.Vector3(0, 1.4 + (mv.caught ? 0.8 : 0), 0)); h.rotation.y = player.facing; h.scale.setScalar(Math.min(1, mv.t * 6) * 1.8 + 0.01);
       h.userData.fingers.forEach((fg) => { fg.rotation.x = mv.caught ? 1.3 : 0.2; }); h.userData.thumb.rotation.z = mv.caught ? 0.9 : 0;
       if (!mv.caught && k < 1) for (const d of aliveDummies()) if (d.pos.distanceTo(h.position.clone().setY(d.pos.y)) < 1.7 && Math.abs(d.pos.y + 1.2 - h.position.y) < 2.2) {
         mv.caught = true; hold = { d, hand: h, t: 4, sq: 0, smash: null, squeeze: 0 }; mv.dur = mv.t + 0.15;
         d.grabbed = 4.5; d.stun = 1; if (d.ai) d.ai.wind = 0; if (d.remote) netSend({ t: 'seize', to: d.id, dur: 4, title: 'GRABBED', sub: 'In the big hand', quiet: true });
-        floatText('CAUGHT', d.pos.clone().add(new THREE.Vector3(0, 3.2, 0)), 'ink'); addShake(0.3); vfxStuffing(h.position.clone(), 8, 3); break;
+        floatText('CAUGHT', d.pos.clone().add(new THREE.Vector3(0, 3.2, 0)), 'ink'); addShake(0.3); vfxStuffing(h.position.clone(), 8, 3); netOnly('pcatch', [player]); break;
       }
-      if (!mv.caught && mv.t >= 0.7) { scene.remove(h); }
+      if (!mv.caught && mv.t >= 0.7 && h.parent) { scene.remove(h); netOnly('pdrop', [player]); }
     } else if (mv.name === 'web' && !mv.fired && mv.t >= 0.15) {
       mv.fired = true; const at = mv.at, from = handPos();
       const ball = new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 8), toon(PYARN));
@@ -8472,7 +8522,7 @@ function makePatchKit() {
         d.pos.copy(p).add(new THREE.Vector3(0, -0.9, 0)); d.vel.set(0, 0, 0);
         if (k >= 1) { const land = groundAt(p); vfxSlamImpact(land); netOnly('pslam', [land.clone()]); addShake(1); impactFrame(0.1); hitDummy(d, { dmg: 12, type: 'g', otg: true, kb: f.clone().multiplyScalar(6).setY(3), set: true, down: 1.4, big: true, mats: [fxFluff], spark: 0xb8875a, ringColor: PYARN, label: 'SMASH', awk: 6 }); releaseHold(); }
       } else {
-        H.squeeze = Math.max(0, H.squeeze - dt); H.hand.position.copy(base); H.hand.rotation.y = player.facing; H.hand.scale.setScalar(1.4 * (1 - H.squeeze * 0.4));
+        H.squeeze = Math.max(0, H.squeeze - dt); H.hand.position.copy(base); H.hand.rotation.y = player.facing; H.hand.scale.setScalar(1.8 * (1 - H.squeeze * 0.4));
         d.pos.copy(base).add(new THREE.Vector3(0, -1.1, 0)); d.vel.set(0, 0, 0); d.grabbed = Math.max(d.grabbed || 0, 0.4);
         if (H.t <= 0 || d.dead) { if (!d.dead) floatText('DROPPED', d.pos.clone().add(new THREE.Vector3(0, 3, 0)), 'ink'); releaseHold(); }
       }
