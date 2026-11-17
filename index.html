@@ -338,7 +338,7 @@ body.curtains #curL, body.curtains #curR { transform: translateX(0); }
 <div id="overlay">
   <div class="card scrap">
     <h1>Windstep Village</h1>
-    <div class="build">Build 35 · Bulk grab rebuilt · Pick your fighter</div>
+    <div class="build">Build 36 · Bulk cup-grip grab · Pick your fighter</div>
     <div class="roster" id="roster">
       <button class="fcard sel" data-id="juno" type="button"><span class="sw juno"></span><span class="fn">Juno Marrow</span><span class="fs">Ink · Hard</span></button>
       <button class="fcard" data-id="pip" type="button"><span class="sw pip"></span><span class="fn">Pip Hollow</span><span class="fs">Thread · Medium</span></button>
@@ -8252,7 +8252,14 @@ Object.assign(FXF, {
 const STRETCH_ARMS = [], GHOST_ARMS = new Map();
 // the hand is turned palm-up: fingers curl UP around whoever is standing in the palm
 function grabSpot(owner, forward, up) { const fa = owner.facing || 0; return owner.pos.clone().add(new THREE.Vector3(Math.sin(fa) * forward + Math.cos(fa) * 0.55, up, Math.cos(fa) * forward - Math.sin(fa) * 0.55)); }
-function smashUp(k) { return k < 0.4 ? (k / 0.4) * 1.1 : 1.1 - ((k - 0.4) / 0.6) * 3.35; }
+function smashUp(k) { return k < 0.4 ? (k / 0.4) * 0.8 : 0.8 - ((k - 0.4) / 0.6) * 2.75; }
+// palm stands on its side against the target, fingers point forward and wrap around their front, hand tipped up with the arm
+function orientGrab(h, fa, pitch) {
+  const f = new THREE.Vector3(Math.sin(fa), 0, Math.cos(fa)), r = new THREE.Vector3(Math.cos(fa), 0, -Math.sin(fa));
+  const Z = f.clone().multiplyScalar(Math.cos(pitch)).add(new THREE.Vector3(0, Math.sin(pitch), 0)).normalize(), Y = r.clone(), X = new THREE.Vector3().crossVectors(Y, Z).normalize();
+  h.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(X, Y, Z));
+}
+function gripPos(h, fa) { const k = h.scale.x / 1.8, f = new THREE.Vector3(Math.sin(fa), 0, Math.cos(fa)), r = new THREE.Vector3(Math.cos(fa), 0, -Math.sin(fa)); return h.position.clone().addScaledVector(r, -0.74 * k).addScaledVector(f, 0.38 * k).add(new THREE.Vector3(0, -1.05, 0)); }
 function handPose(h, curl) { h.userData.fingers.forEach((fg, i) => { fg.rotation.x = curl * (0.75 + i * 0.04); fg.userData.tip.rotation.x = curl * 0.95; }); h.userData.thumb.rotation.z = -0.2 - curl * 0.5; }
 function palmTop(h) { return 0.15 * h.scale.x; }
 function attachStretchArm(hand, ownerRig) {
@@ -8270,7 +8277,7 @@ function stretchArmTick() {
     const A = STRETCH_ARMS[n];
     if (!A.hand.parent || !A.rig.root.parent) { A.segs.forEach((m) => scene.remove(m)); A.rings.forEach((m) => scene.remove(m)); A.puffs.forEach((p) => scene.remove(p.m)); A.hidden.forEach((c) => { c.visible = true; }); STRETCH_ARMS.splice(n, 1); continue; }
     const sh = A.rig.j.shR.getWorldPosition(new THREE.Vector3()), hs = A.hand.scale.x, grow = Math.min(1, hs / 1.8);
-    const fwd = new THREE.Vector3(Math.sin(A.hand.rotation.y), 0, Math.cos(A.hand.rotation.y)), wrist = A.hand.position.clone().addScaledVector(fwd, -0.36 * hs);
+    const fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(A.hand.quaternion), wrist = A.hand.position.clone().addScaledVector(fwd, -0.4 * hs);
     const ctrl = sh.clone().lerp(wrist, 0.5).add(new THREE.Vector3(0, 0.12 + sh.distanceTo(wrist) * 0.04, 0));
     const at = (u) => { const a = sh.clone().lerp(ctrl, u), b = ctrl.clone().lerp(wrist, u); return a.lerp(b, u); };
     const rad = (u) => (0.16 + 0.52 * Math.pow(u, 1.6) * grow) * (1 + 0.09 * Math.sin(clock * 11 - u * 9));   // swells toward the hand, stuffing pulsing through it
@@ -8287,12 +8294,11 @@ function ghostArmTick(dt) {
     G.t += dt;
     if (!owner.pos || !G.hand.parent || G.t > 6) { scene.remove(G.hand); GHOST_ARMS.delete(owner); continue; }
     const fa = owner.facing || 0, f = new THREE.Vector3(Math.sin(fa), 0, Math.cos(fa)), h = G.hand; h.rotation.y = fa;
-    h.rotation.set(0, fa, Math.PI);
-    if (G.mode === 'reach') { const k = Math.min(1, G.t / 0.3); h.position.copy(grabSpot(owner, 1 + easeOut(k) * 5.2, 1.6)); h.scale.setScalar(Math.min(1, G.t * 6) * 1.8 + 0.01); if (G.t > 0.9) { scene.remove(h); continue; } }
-    const base = grabSpot(owner, 3.0, 2.3);
-    if (G.mode === 'hold') { G.sq = Math.max(0, (G.sq || 0) - dt); h.position.copy(base); h.scale.setScalar(1.8 * (1 - G.sq * 0.12)); }
-    if (G.mode === 'smash') { const k = Math.min(1, G.t / 0.35); h.position.copy(base).add(new THREE.Vector3(0, smashUp(k), 0)); if (k >= 1) scene.remove(h); }
-    handPose(h, G.mode === 'reach' ? 0.25 : 1.25 + (G.sq || 0) * 1.2);
+    if (G.mode === 'reach') { const k = Math.min(1, G.t / 0.3); h.position.copy(grabSpot(owner, 1 + easeOut(k) * 5.2, 1.7)); orientGrab(h, fa, 0.15); h.scale.setScalar(Math.min(1, G.t * 6) * 1.8 + 0.01); if (G.t > 0.9) { scene.remove(h); continue; } }
+    const base = grabSpot(owner, 2.6, 3.1);
+    if (G.mode === 'hold') { G.sq = Math.max(0, (G.sq || 0) - dt); const lift = Math.min(1, G.t / 0.3); h.position.copy(base).add(new THREE.Vector3(0, (easeOut(lift) - 1) * 1.4, 0)); orientGrab(h, fa, 0.15 + 0.3 * lift); h.scale.setScalar(1.8 * (1 - G.sq * 0.08)); }
+    if (G.mode === 'smash') { const k = Math.min(1, G.t / 0.35); h.position.copy(base).add(new THREE.Vector3(0, smashUp(k), 0)); orientGrab(h, fa, 0.45 - k * 0.6); if (k >= 1) scene.remove(h); }
+    handPose(h, G.mode === 'reach' ? 0.2 : G.mode === 'smash' ? 1.6 : 1.45 + (G.sq || 0) * 0.8);
   }
 }
 Object.assign(FXF, {
@@ -8448,7 +8454,7 @@ function makePatchKit() {
         onHit: (d) => lassoHit(d), onWorld: () => { if (curRope) { looseRopes.push({ r: curRope, t: 0.6 }); curRope = null; } }, noExpire: false });
     } else if (mv.name === 'bighand') {
       const h = mv.hand, k = Math.min(1, mv.t / 0.3), reach = 1 + easeOut(k) * 5.2;
-      if (!mv.caught) { h.position.copy(grabSpot(player, reach, 1.6)); h.rotation.set(0, player.facing, Math.PI); h.scale.setScalar(Math.min(1, mv.t * 6) * 1.8 + 0.01); handPose(h, 0.25); }
+      if (!mv.caught) { h.position.copy(grabSpot(player, reach, 1.7)); orientGrab(h, player.facing, 0.15); h.scale.setScalar(Math.min(1, mv.t * 6) * 1.8 + 0.01); handPose(h, 0.2); }
       if (!mv.caught && k < 1) for (const d of aliveDummies()) if (Math.hypot(d.pos.x - h.position.x, d.pos.z - h.position.z) < 2.0 && Math.abs(d.pos.y - player.pos.y) < 2.2) {
         mv.caught = true; hold = { d, hand: h, t: 4, age: 0, sq: 0, smash: null, squeeze: 0 }; mv.dur = mv.t + 0.15;
         d.grabbed = 4.5; d.stun = 1; if (d.ai) d.ai.wind = 0; if (d.remote) netSend({ t: 'seize', to: d.id, dur: 4, title: 'GRABBED', sub: 'In the big hand', quiet: true });
@@ -8549,15 +8555,15 @@ function makePatchKit() {
     // the big hand
     if (hold) {
       const H = hold, d = H.d, f = facingVec(); H.t -= dt;
-      const base = grabSpot(player, 3.0, 2.3);
+      const base = grabSpot(player, 2.6, 3.1);
       if (H.smash) {
-        H.smash.t += dt; const k = Math.min(1, H.smash.t / 0.35); const p = base.clone().add(new THREE.Vector3(0, smashUp(k), 0)); H.hand.position.copy(p); H.hand.rotation.set(0, player.facing, Math.PI); handPose(H.hand, 1.45);
-        d.pos.copy(p).add(new THREE.Vector3(0, palmTop(H.hand), 0)); d.vel.set(0, 0, 0);
+        H.smash.t += dt; const k = Math.min(1, H.smash.t / 0.35); const p = base.clone().add(new THREE.Vector3(0, smashUp(k), 0)); H.hand.position.copy(p); orientGrab(H.hand, player.facing, 0.45 - k * 0.6); handPose(H.hand, 1.6);
+        d.pos.copy(gripPos(H.hand, player.facing)); d.vel.set(0, 0, 0);
         if (k >= 1) { const land = groundAt(p); vfxSlamImpact(land); netOnly('pslam', [land.clone()]); addShake(1); impactFrame(0.1); hitDummy(d, { dmg: 12, type: 'g', otg: true, kb: f.clone().multiplyScalar(6).setY(3), set: true, down: 1.4, big: true, mats: [fxFluff], spark: 0xb8875a, ringColor: PYARN, label: 'SMASH', awk: 6 }); releaseHold(); }
       } else {
         H.squeeze = Math.max(0, H.squeeze - dt); H.age += dt; const lift = Math.min(1, H.age / 0.3);
-        H.hand.position.copy(base).add(new THREE.Vector3(0, (easeOut(Math.max(0, lift)) - 1) * 0.7, 0)); H.hand.rotation.set(0, player.facing, Math.PI); H.hand.scale.setScalar(1.8 * (1 - H.squeeze * 0.12)); handPose(H.hand, 1.25 + H.squeeze * 1.2);
-        d.pos.copy(H.hand.position).add(new THREE.Vector3(0, palmTop(H.hand), 0)); d.vel.set(0, 0, 0); d.grabbed = Math.max(d.grabbed || 0, 0.4);
+        H.hand.position.copy(base).add(new THREE.Vector3(0, (easeOut(Math.max(0, lift)) - 1) * 1.4, 0)); orientGrab(H.hand, player.facing, 0.15 + 0.3 * lift); H.hand.scale.setScalar(1.8 * (1 - H.squeeze * 0.08)); handPose(H.hand, 1.45 + H.squeeze * 0.8);
+        d.pos.copy(gripPos(H.hand, player.facing)); d.vel.set(0, 0, 0); d.grabbed = Math.max(d.grabbed || 0, 0.4);
         if (H.t <= 0 || d.dead) { if (!d.dead) floatText('DROPPED', d.pos.clone().add(new THREE.Vector3(0, 3, 0)), 'ink'); releaseHold(); }
       }
     }
