@@ -364,7 +364,7 @@ body.curtains #curL, body.curtains #curR { transform: translateX(0); }
 <div id="overlay">
   <div class="card scrap">
     <h1>Windstep Village</h1>
-    <div class="build">Build 51 · Natural rocks, bridge clear · Pick your fighter</div>
+    <div class="build">Build 52 · Rocks as before (no overlaps), fewer bushes · Pick your fighter</div>
     <div class="roster" id="roster">
       <button class="fcard sel" data-id="juno" type="button"><span class="sw juno"></span><span class="fn">Juno Marrow</span><span class="fs">Ink · Hard</span></button>
       <button class="fcard" data-id="pip" type="button"><span class="sw pip"></span><span class="fn">Pip Hollow</span><span class="fs">Thread · Medium</span></button>
@@ -574,6 +574,7 @@ let seed = 7;
 function rnd() { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }
 const TAU = Math.PI * 2;
 // ---------- map art (v2): textures, merged trees, instanced rock/foliage ----------
+let MSEED = 90731; const mrand = () => { MSEED = (MSEED * 16807) % 2147483647; return (MSEED - 1) / 2147483646; };
 const ART = {};
 function artTex(kind) {
   if (ART[kind]) return ART[kind];
@@ -656,7 +657,7 @@ function flushTrees() {
 function schedTrees() { if (!TREES.sched) { TREES.sched = true; Promise.resolve().then(flushTrees); } }
 // cherry tree: a curved trunk that splits into branches, with clusters of blossom at the ends
 function tree(x, y, z, s) {
-  s = s || 1; TREE_POS.push([x, y, z, s]); const sd = x * 7.3 + z * 3.1, R = (k) => { const v = Math.sin(sd * 12.9898 + k * 78.233) * 43758.5453; return v - Math.floor(v); };
+  s = s || 1; const sd = x * 7.3 + z * 3.1, R = (k) => { const v = Math.sin(sd * 12.9898 + k * 78.233) * 43758.5453; return v - Math.floor(v); };
   const wood = _lc(0xffffff), lean = (R(1) - 0.5) * 0.25, ry = R(2) * TAU;
   const seg = (x0, y0, z0, x1, y1, z1, r0, r1) => { const a = new THREE.Vector3(x0, y0, z0), b = new THREE.Vector3(x1, y1, z1), d = b.clone().sub(a), L = d.length();
     const g = new THREE.CylinderGeometry(r1, r0, L, 7, 1); const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize());
@@ -699,43 +700,18 @@ function pine(x, y, z, s) {
 }
 // ---- rock chunks for cliffs and terrace faces: one instanced mesh, many sizes and shades ----
 const ROCKS = { list: [] };
-// natural placement: a half-buried main stone with a few smaller ones and pebbles around it (never on the bridge)
+function rockAt(x, y, z, r, sx, sy, sz, shade) { ROCKS.list.push([x, y, z, r, sx || 1, sy || 1, sz || 1, shade == null ? 0.8 + mrand() * 0.35 : shade]); }
+// nothing on the bridge or its stone ends
 const NO_ROCK = [[11.4, 38.6, -23.5, -19.5]];
-const rockOK = (x, z, r) => !NO_ROCK.some(([x1, x2, z1, z2]) => x + r > x1 && x - r < x2 && z + r > z1 && z - r < z2);
-function rockCluster(x, y, z, size, opts) {
-  opts = opts || {}; const R = Math.random, tang = opts.tang == null ? R() * TAU : opts.tang;
-  if (rockOK(x, z, size * 1.3)) rockAt(x, y - size * 0.3, z, size, 1 + R() * 0.45, 0.55 + R() * 0.3, 0.9 + R() * 0.4, 0.74 + R() * 0.36);
-  const n = opts.n == null ? 1 + Math.floor(R() * 3) : opts.n;
-  for (let i = 0; i < n; i++) { const a = tang + (R() - 0.5) * 1.6 + (i % 2) * Math.PI, d = size * (0.95 + R() * 0.7), r = size * (0.3 + R() * 0.32), px = x + Math.cos(a) * d, pz = z + Math.sin(a) * d;
-    if (rockOK(px, pz, r * 1.3)) rockAt(px, y - r * 0.3, pz, r, 1 + R() * 0.5, 0.5 + R() * 0.35, 0.9 + R() * 0.5, 0.7 + R() * 0.4); }
-  const pb = opts.pebbles == null ? 2 + Math.floor(R() * 4) : opts.pebbles;
-  for (let i = 0; i < pb; i++) { const a = R() * TAU, d = size * (1.2 + R() * 1.5), r = 0.07 + R() * 0.13, px = x + Math.cos(a) * d, pz = z + Math.sin(a) * d; if (rockOK(px, pz, r)) rockAt(px, y + r * 0.15, pz, r, 1.3, 0.6, 1.1, 0.8 + R() * 0.4); }
-}
-// a shoreline: clusters of stones along the edge with grassy gaps between them, uneven sizes and spacing
-function shoreRocks(cx, cz, rx, rz, sd, wob, y, opts) {
-  opts = opts || {}; const R = Math.random, skip = opts.skip || (() => false), circ = 8 / Math.max(rx, rz);
-  let a = R() * 0.3;
-  while (a < TAU) {
-    const k = 1 + (Math.sin(a * 3 + sd) * 0.5 + Math.sin(a * 5 + sd * 2.1) * 0.3) * wob;
-    const dens = 0.5 + Math.sin(a * 2.3 + sd * 1.7) * 0.35 + Math.sin(a * 5.7 + sd * 0.6) * 0.2;
-    const out = 1 + (R() - 0.3) * 0.09 * (opts.spread || 1), x = cx + Math.cos(a) * rx * k * out, z = cz + Math.sin(a) * rz * k * out;
-    if (skip(x, z)) { a += 0.1; continue; }
-    if (dens > (opts.gap == null ? 0.42 : opts.gap)) {
-      const size = (opts.size || 0.55) * (0.6 + dens * 0.7) * (0.75 + R() * 0.55);
-      rockCluster(x, y, z, size, { tang: a + Math.PI / 2, n: R() < 0.6 ? 1 + Math.floor(R() * 2) : 0, pebbles: 1 + Math.floor(R() * 3) });
-      a += (0.2 + R() * 0.35) * (opts.step || 1) * circ;
-    } else { if (R() < 0.5) rockAt(x, y, z, 0.08 + R() * 0.12, 1.3, 0.6, 1.1); a += (0.3 + R() * 0.45) * circ; }
-  }
-}
-const TREE_POS = [];
-function rockAt(x, y, z, r, sx, sy, sz, shade) { ROCKS.list.push([x, y, z, r, sx || 1, sy || 1, sz || 1, shade == null ? 0.8 + Math.random() * 0.35 : shade]); }
 function flushRocks() {
   const structs = colliders.filter((b) => b.y1 > -30 && !b.wall && !b.rock && (b.x2 - b.x1) * (b.z2 - b.z1) < 400 && (b.y2 - b.y1) < 25 && !((b.x2 - b.x1) > 2.5 && (b.z2 - b.z1) < 1) && !((b.z2 - b.z1) > 2.5 && (b.x2 - b.x1) < 1));
-  ROCKS.list = ROCKS.list.filter(([x, y, z, r, sx, sy, sz]) => { if (r > 0.95) return true; const R = r * Math.max(sx, sz) * 0.8, top = y + r * sy * 0.8;
+  ROCKS.list = ROCKS.list.filter(([x, y, z, r, sx, sy, sz]) => { const R = r * Math.max(sx, sz) * 0.8, top = y + r * sy * 0.8;
+    if (NO_ROCK.some(([x1, x2, z1, z2]) => x + R > x1 && x - R < x2 && z + R > z1 && z - R < z2 && y - r * sy < T2 + 3)) return false;
+    if (r > 0.95) return true;
     return !structs.some((b) => x + R > b.x1 && x - R < b.x2 && z + R > b.z1 && z - R < b.z2 && top > b.y1 + 0.05 && y - r * sy < b.y2); });
   const geo = lumpGeo(1, 1, 0.18, 3.3); const mat = new THREE.MeshLambertMaterial({ map: TM('rock', 1, 1).map, color: 0xffffff, flatShading: true }); mat.userData.lin = true;
   const inst = new THREE.InstancedMesh(geo, mat, ROCKS.list.length), q = new THREE.Quaternion(), e = new THREE.Euler(), c = new THREE.Color();
-  ROCKS.list.forEach(([x, y, z, r, sx, sy, sz, sh], i) => { e.set(Math.random() * 3, Math.random() * 3, Math.random() * 3); q.setFromEuler(e);
+  ROCKS.list.forEach(([x, y, z, r, sx, sy, sz, sh], i) => { e.set(mrand() * 3, mrand() * 3, mrand() * 3); q.setFromEuler(e);
     inst.setMatrixAt(i, new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), q, new THREE.Vector3(r * sx, r * sy, r * sz)));
     c.setRGB(0.62 * sh, 0.6 * sh, 0.57 * sh); inst.setColorAt(i, c); });
   inst.receiveShadow = true; inst.castShadow = false; scene.add(inst);
@@ -743,8 +719,13 @@ function flushRocks() {
 // ---- bushes, moss, flowers: instanced too ----
 const FOL = { bush: [], moss: [], flower: [] };
 function flushFoliage() {
+  const structs = colliders.filter((b) => b.y1 > -30 && !b.wall && !b.rock && (b.x2 - b.x1) * (b.z2 - b.z1) < 400 && (b.y2 - b.y1) < 25 && !((b.x2 - b.x1) > 2.5 && (b.z2 - b.z1) < 1) && !((b.z2 - b.z1) > 2.5 && (b.x2 - b.x1) < 1));
+  const wet = (x, z, y) => (Math.abs(y - T2) < 1.5 && (((x - 25) / 8.9) ** 2 + ((z + 22.2) / 7.6) ** 2 < 1 || ((x - 9.5) / 3.9) ** 2 + ((z + 7) / 4.1) ** 2 < 1)) || (Math.abs(y - T3) < 1.5 && z > -49 && z < -29.4 && Math.abs(x - (25 + Math.sin(z * 0.32) * 1.1 - Math.max(0, (-38 - z) / 8.2) * 0.9)) < 3.4);
+  const clear = ([x, y, z, r]) => { const R = r * 0.9; if (y < 30 && NO_ROCK.some(([x1, x2, z1, z2]) => x + R > x1 && x - R < x2 && z + R > z1 && z - R < z2)) return false; if (wet(x, z, y)) return false;
+    return !structs.some((b) => x + R > b.x1 && x - R < b.x2 && z + R > b.z1 && z - R < b.z2 && y + r * 0.5 > b.y1 + 0.05 && y - r < b.y2); };
+  FOL.bush = FOL.bush.filter(clear); FOL.flower = FOL.flower.filter(clear);
   const mk = (list, geo, mat, cast) => { if (!list.length) return; const inst = new THREE.InstancedMesh(geo, mat, list.length), c = new THREE.Color();
-    list.forEach(([x, y, z, r, sy, col], i) => { inst.setMatrixAt(i, new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.random() * 6, 0)), new THREE.Vector3(r, r * sy, r))); c.setHex(col).convertSRGBToLinear(); inst.setColorAt(i, c); });
+    list.forEach(([x, y, z, r, sy, col], i) => { inst.setMatrixAt(i, new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, mrand() * 6, 0)), new THREE.Vector3(r, r * sy, r))); c.setHex(col).convertSRGBToLinear(); inst.setColorAt(i, c); });
     inst.castShadow = cast; inst.receiveShadow = true; scene.add(inst); };
   const bm = new THREE.MeshLambertMaterial({ map: TM('grass', 1, 1).map, color: 0xffffff }); bm.userData.lin = true; patchSway(bm, 'leaf', 0.25);
   mk(FOL.bush, lumpGeo(1, 1, 0.3, 7.7), bm, true);
@@ -753,8 +734,8 @@ function flushFoliage() {
   const fm = new THREE.MeshLambertMaterial({ color: 0xffffff }); fm.userData.lin = true;
   mk(FOL.flower, new THREE.IcosahedronGeometry(1, 0), fm, false);
 }
-function bush(x, y, z, s) { const greens = [0x9ccf7a, 0xb0d98a, 0x8cc06c, 0xc2e09a]; for (let i = 0; i < 3; i++) FOL.bush.push([x + (Math.random() - 0.5) * s, y + 0.35 * s, z + (Math.random() - 0.5) * s, (0.55 + Math.random() * 0.35) * s, 0.75, greens[i % 4]]); }
-function flowers(x, y, z, n, spread) { const cols = [0xf4f1e8, 0xf2d24a, 0xe58aa6, 0xa98be0, 0xf4a35a]; for (let i = 0; i < n; i++) FOL.flower.push([x + (Math.random() - 0.5) * spread, y + 0.12, z + (Math.random() - 0.5) * spread, 0.09, 0.6, cols[Math.floor(Math.random() * cols.length)]]); }
+function bush(x, y, z, s) { const greens = [0x9ccf7a, 0xb0d98a, 0x8cc06c, 0xc2e09a]; for (let i = 0; i < 3; i++) FOL.bush.push([x + (mrand() - 0.5) * s, y + 0.35 * s, z + (mrand() - 0.5) * s, (0.55 + mrand() * 0.35) * s, 0.75, greens[i % 4]]); }
+function flowers(x, y, z, n, spread) { const cols = [0xf4f1e8, 0xf2d24a, 0xe58aa6, 0xa98be0, 0xf4a35a]; for (let i = 0; i < n; i++) FOL.flower.push([x + (mrand() - 0.5) * spread, y + 0.12, z + (mrand() - 0.5) * spread, 0.09, 0.6, cols[Math.floor(mrand() * cols.length)]]); }
 // ---- water ----
 const WATER = { tex: [], drift: [] };
 function blobShape(cx, cz, rx, rz, sd, wob) {
@@ -782,7 +763,7 @@ function waterTick(dt) {
     else { w.t1.offset.x += dt * 0.012; w.t1.offset.y += dt * 0.007; w.t2.offset.x -= dt * 0.009; w.t2.offset.y += dt * 0.011; }
   }  if (WATER.fallMist) WATER.fallMist.offset.y -= dt * 2.6;
   // spray where the waterfall lands
-  if (WATER.spray && Math.random() < 0.45) P({ tex: 'smoke', add: false, color: 0xffffff, pos: WATER.spray.clone().add(new THREE.Vector3((Math.random() - 0.5) * 5, 0, (Math.random() - 0.5) * 0.8)), vel: new THREE.Vector3((Math.random() - 0.5) * 1.2, 1.2 + Math.random() * 1.6, 0.6 + Math.random()), life: 1.1, s0: 0.6, s1: 1.9, a: 0.32, drag: 1 });
+  if (WATER.spray && mrand() < 0.45) P({ tex: 'smoke', add: false, color: 0xffffff, pos: WATER.spray.clone().add(new THREE.Vector3((mrand() - 0.5) * 5, 0, (mrand() - 0.5) * 0.8)), vel: new THREE.Vector3((mrand() - 0.5) * 1.2, 1.2 + mrand() * 1.6, 0.6 + mrand()), life: 1.1, s0: 0.6, s1: 1.9, a: 0.32, drag: 1 });
 }
 // ---- roofs: a curved hip roof with upturned corners (square to the building, so it sits centered) ----
 function curvedRoof(w, d, h, opts) {
@@ -976,8 +957,7 @@ waterSurface(blobShape(25, -22.4, 5.2, 4.2, 2.2, 0.12), T2 + 0.045, 0x3a80aa, { 
   sh.moveTo(L[0][0], -L[0][1]); for (const p of L) sh.lineTo(p[0], -p[1]); for (let i = Rr.length - 1; i >= 0; i--) sh.lineTo(Rr[i][0], -Rr[i][1]);
   waterSurface(sh, T3 + 0.05, 0x5aa6cc, { bed: 0x22526a, flow: [0, -0.32] });
   waterSurface(blobShape(23.6, -46.6, 2.2, 1.9, 0.7), T3 + 0.05, 0x5aa6cc, { bed: 0x22526a });
-  rockCluster(26.1, T3 + 0.06, -45.1, 0.42, { n: 1, pebbles: 2 }); rockCluster(21.6, T3 + 0.06, -45.3, 0.36, { n: 1, pebbles: 2 });
-  L.concat(Rr).forEach(([x, z], i) => { if (Math.random() < 0.22) rockCluster(x + (i < L.length ? -0.25 : 0.25), T3 + 0.06, z, 0.28 + Math.random() * 0.32, { n: Math.random() < 0.5 ? 1 : 0, pebbles: 1 + Math.floor(Math.random() * 2) }); });
+  L.concat(Rr).forEach(([x, z], i) => { if (i % 2) rockAt(x + (i < L.length ? -0.35 : 0.35), T3 + 0.12, z, 0.32 + mrand() * 0.25, 1, 0.6, 1); });
 }
 let fallTex;
 {
@@ -991,25 +971,23 @@ let fallTex;
   const mist = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: mistT, transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide })); mist.material.userData.lin = true;
   mist.position.set(25, T2 + 3.3, -29.75); mist.scale.set(1.04, 1, 1.15); mist.renderOrder = 4; scene.add(mist);
   // rocks framing the fall, and a white lip where the water tips over
-  for (let y = T2 + 0.3; y < T3 + 0.6; y += 1.25) { rockAt(21.2 + Math.random() * 0.4, y, -30.1, 0.95 + Math.random() * 0.5, 1, 0.9, 0.7); rockAt(28.8 - Math.random() * 0.4, y, -30.1, 0.95 + Math.random() * 0.5, 1, 0.9, 0.7); }
+  for (let y = T2 + 0.3; y < T3 + 0.6; y += 1.25) { rockAt(21.2 + mrand() * 0.4, y, -30.1, 0.95 + mrand() * 0.5, 1, 0.9, 0.7); rockAt(28.8 - mrand() * 0.4, y, -30.1, 0.95 + mrand() * 0.5, 1, 0.9, 0.7); }
   const lip = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 6.2, 10, 1, false, 0, Math.PI), new THREE.MeshBasicMaterial({ color: 0xeaf6fb, transparent: true, opacity: 0.85 })); lip.material.userData.lin = true;
   lip.rotation.z = Math.PI / 2; lip.rotation.x = Math.PI; lip.position.set(25, T3 + 0.06, -30.0); scene.add(lip);
 }
 const foam = [];
 for (let i = 0; i < 10; i++) { const a = Math.PI * (0.1 + i * 0.09), f = deco(lumpGeo(0.55 + rnd() * 0.45, 1, 0.3, i), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.75 }), 25 + Math.cos(a) * 3.2, T2 + 0.15, -29.4 + Math.sin(a) * 1.1, { cast: false, receive: false }); f.material.userData.lin = true; foam.push(f); }
 WATER.spray = new THREE.Vector3(25, T2 + 0.4, -28.9);
-// the pond's shore: clusters of stones with grassy gaps; a few big boulders you can stand on
-shoreRocks(25, -22.2, 8.4, 7.1, 1.3, 0.08, T2 + 0.06, { size: 0.62, skip: (x, z) => (z < -28.3 && Math.abs(x - 25) < 3.9) || (Math.abs(z + 21.5) < 2.4 && (x < 18 || x > 32)) });
-[[15.6, -26.4], [34.9, -16.6], [18.6, -14.9], [32.4, -28.3]].forEach(([x, z]) => {
-  const r = 0.85 + rnd() * 0.5; rockAt(x, T2 + r * 0.32, z, r, 1.15, 0.72, 1.05, 0.92);
-  rockCluster(x + 0.9, T2, z + 0.4, r * 0.45, { n: 1, pebbles: 3 });
-  colliders.push({ x1: x - r * 0.8, y1: T2, z1: z - r * 0.8, x2: x + r * 0.8, y2: T2 + r * 0.95, z2: z + r * 0.8, rock: true });
+// the pond's shore: stones of all sizes around the edge, a few big boulders you can stand on
+for (let i = 0; i < 44; i++) { const a = i / 44 * Math.PI * 2, k = 1 + (Math.sin(a * 3 + 1.3) * 0.5 + Math.sin(a * 5 + 2.73) * 0.3) * 0.08, x = 25 + Math.cos(a) * 8.4 * k * 1.02, z = -22.2 + Math.sin(a) * 7.1 * k * 1.02;
+  if (z < -28.6 && Math.abs(x - 25) < 3.6) continue; if (Math.abs(z + 21.5) < 1.3) continue; rockAt(x, T2 + 0.1, z, 0.35 + mrand() * 0.45, 1.2, 0.55, 1.2); }
+[[15.5, -24.5], [34.4, -18], [17.2, -15.8], [33.2, -27.6], [19.5, -14.6]].forEach(([x, z]) => {
+  const r = 0.8 + rnd() * 0.6; rockAt(x, T2 + r * 0.45, z, r, 1.1, 0.75, 1.1, 0.95);
+  colliders.push({ x1: x - r * 0.8, y1: T2, z1: z - r * 0.8, x2: x + r * 0.8, y2: T2 + r, z2: z + r * 0.8, rock: true });
 });
 // Hot spring: a round, steaming pool in a ring of stones, with a wooden bucket and a sign
 waterSurface(blobShape(9.5, -7, 3.4, 3.6, 4.1, 0.1), T2 + 0.05, 0x5fc4b6, { bed: 0x2a6e6a });
-shoreRocks(9.5, -7, 3.4, 3.6, 4.1, 0.1, T2 + 0.06, { gap: 0.1, step: 0.42, size: 0.5, spread: 0.7, skip: (x, z) => z > -3.6 && Math.abs(x - 9.5) < 1 });
-rockAt(10.2, T2 + 0.35, -10.9, 1.05, 1.3, 0.8, 1, 0.8); rockAt(8.7, T2 + 0.15, -11.0, 0.6, 1.2, 0.7, 1, 0.75);
-rockAt(9.5, T2 + 0.02, -3.0, 0.55, 1.4, 0.22, 1.1, 0.95);
+for (let i = 0; i < 18; i++) { const a = i / 18 * Math.PI * 2, x = 9.5 + Math.cos(a) * 3.85, z = -7 + Math.sin(a) * 4.05; rockAt(x, T2 + 0.18, z, 0.45 + mrand() * 0.3, 1.1, 0.7, 1.1, 0.7); }
 { const bk = new THREE.Group(); bk.position.set(13.8, T2, -4.2); scene.add(bk);
   const tub = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.27, 0.42, 12, 1, true), M(0x9a6b3e, { side: THREE.DoubleSide })); tub.position.y = 0.21; bk.add(tub);
   [0.08, 0.34].forEach((y) => { const b = new THREE.Mesh(new THREE.TorusGeometry(0.31, 0.025, 4, 14), M(0x3a3a3a)); b.rotation.x = Math.PI / 2; b.position.y = y; bk.add(b); });
@@ -2531,7 +2509,7 @@ patchSway(M(0x37583a, { flatShading: true }), 'leaf', 0.35);
 tree(-25, T1, 9, 1.1); tree(18, T1, 3, 0.9); tree(9, T2, -27, 1); tree(33, T3, -35, 1); tree(-30, T3, -37, 1.1);
 // ---------- ground detail: rocky cliffs and terrace faces, dirt paths, rocks, bushes, flowers ----------
 {
-  const R = () => Math.random(), groundZ = (z) => (z > 0 ? T1 : z > -30 ? T2 : T3);
+  const R = mrand, groundZ = (z) => (z > 0 ? T1 : z > -30 ? T2 : T3);
   // side cliffs: rock chunks stacked up the face, stepping back as they rise, with mossy ledges and pines along the top
   for (const sx of [-1, 1]) for (let z = -57; z <= 50; z += 2.3) {
     const g0 = groundZ(z);
@@ -2540,7 +2518,7 @@ tree(-25, T1, 9, 1.1); tree(18, T1, 3, 0.9); tree(9, T2, -27, 1); tree(33, T3, -
       rockAt(sx * (45.15 + r * sxx * 0.75 + recess + R() * 0.3), y + R() * 0.8, z + (R() - 0.5) * 1.2, r, sxx, 0.8 + R() * 0.4, 1 + R() * 0.3, 0.7 + R() * 0.45);
     }
     if (R() < 0.55) FOL.moss.push([sx * (46.8 + R()), g0 + 12.5 + R() * 4, z, 1 + R() * 0.8, 0.4, 0x7f9a5c]);
-    if (R() < 0.35) bush(sx * (47 + R()), g0 + 12.8 + R() * 3, z, 1.2);
+    if (R() < 0.25) bush(sx * (47 + R()), g0 + 12.8 + R() * 3, z, 1.2);
     if (z % 6.9 < 2.3) pine(sx * (48.6 + R() * 2), 34, z + (R() - 0.5) * 2, 1.2 + R() * 0.7);
     FOL.moss.push([sx * (47.5 + R() * 1.5), 34.2, z, 1.4 + R(), 0.35, 0x7a9558]);
   }
@@ -2551,7 +2529,7 @@ tree(-25, T1, 9, 1.1); tree(18, T1, 3, 0.9); tree(9, T2, -27, 1); tree(33, T3, -
       rockAt(x + (R() - 0.5) * 1.2, y + R() * 0.8, -(58.15 + r * szz * 0.75 + recess + R() * 0.3), r, 1 + R() * 0.3, 0.8 + R() * 0.4, szz, 0.7 + R() * 0.45);
     }
     if (R() < 0.5) FOL.moss.push([x, T3 + 14 + R() * 6, -(60 + R()), 1 + R() * 0.8, 0.4, 0x7f9a5c]);
-    if (R() < 0.3) bush(x, T3 + 14.5 + R() * 5, -(60.2 + R()), 1.2);
+    if (R() < 0.2) bush(x, T3 + 14.5 + R() * 5, -(60.2 + R()), 1.2);
     if (Math.abs(x) % 6.9 < 2.3) pine(x + (R() - 0.5) * 2, 44, -(61.5 + R() * 2), 1.3 + R() * 0.8);
   }
   // terrace faces between the tiers: rubble along the bottom, moss and bushes along the top edge
@@ -2560,15 +2538,14 @@ tree(-25, T1, 9, 1.1); tree(18, T1, 3, 0.9); tree(9, T2, -27, 1); tree(33, T3, -
       if (skip.some(([a, b]) => x > a - 0.8 && x < b + 0.8)) continue;
       for (const dy of [0.5, 2.3, 4.2]) { const r = 0.85 + R() * 0.6; rockAt(x + (R() - 0.5) * 0.8, lo + dy + R() * 0.4, zf + 0.15 + r * 0.25, r, 1 + R() * 0.3, 0.8 + R() * 0.3, 0.55, 0.75 + R() * 0.4); }
       if (R() < 0.6) FOL.moss.push([x, lo + 6.02, zf - 0.4 - R() * 0.4, 0.7 + R() * 0.5, 0.3, 0x87a45f]);
-      if (R() < 0.18 && !(zf === -30 && x > -44 && x < -13)) bush(x, lo + 6, zf - 1.2 - R(), 0.9);
+      if (R() < 0.14 && !(zf === -30 && x > -44 && x < -13)) bush(x, lo + 6, zf - 1.2 - R(), 0.9);
     }
   }
   colliders.push({ x1: -45, y1: T1, z1: 0, x2: -17.8, y2: T1 + 6, z2: 0.85 }, { x1: -8.2, y1: T1, z1: 0, x2: -5.2, y2: T1 + 6, z2: 0.85 }, { x1: 5.2, y1: T1, z1: 0, x2: 45, y2: T1 + 6, z2: 0.85 });
   colliders.push({ x1: -45, y1: T2, z1: -30, x2: -5.2, y2: T2 + 6, z2: -29.15 }, { x1: 5.2, y1: T2, z1: -30, x2: 20.2, y2: T2 + 6, z2: -29.15 }, { x1: 29.8, y1: T2, z1: -30, x2: 45, y2: T2 + 6, z2: -29.15 });
   // dirt paths: overlapping soft patches along a few routes, merged into one mesh per route
   const pathParts = [], dirtC = _lc(0xffffff);
-  const path = (pts, y, w) => { for (let i = 0; i < pts.length - 1; i++) { const a = pts[i], b = pts[i + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]); for (let d = 0; d <= L; d += 0.9) { const t = d / L, x = a[0] + (b[0] - a[0]) * t + (R() - 0.5) * 0.4, z = a[1] + (b[1] - a[1]) * t + (R() - 0.5) * 0.4, rr = w * (0.45 + R() * 0.2); pathParts.push({ geo: new THREE.CircleGeometry(rr, 10), m: _mx4(x, y + 0.03, z, -Math.PI / 2, 0, R() * 3, 1, 1, 1), c: dirtC });
-      if (R() < 0.09) { const nx = -(b[1] - a[1]) / L, nz = (b[0] - a[0]) / L, side = R() < 0.5 ? -1 : 1, off = w * (0.55 + R() * 0.35) * side; rockAt(x + nx * off, y + 0.04, z + nz * off, 0.1 + R() * 0.18, 1.3, 0.55, 1.1, 0.85 + R() * 0.3); } } } };
+  const path = (pts, y, w) => { for (let i = 0; i < pts.length - 1; i++) { const a = pts[i], b = pts[i + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]); for (let d = 0; d <= L; d += 0.9) { const t = d / L, x = a[0] + (b[0] - a[0]) * t + (R() - 0.5) * 0.4, z = a[1] + (b[1] - a[1]) * t + (R() - 0.5) * 0.4, rr = w * (0.45 + R() * 0.2); pathParts.push({ geo: new THREE.CircleGeometry(rr, 10), m: _mx4(x, y + 0.03, z, -Math.PI / 2, 0, R() * 3, 1, 1, 1), c: dirtC }); } } };
   path([[4.5, 13.5], [12, 12], [20, 9], [26, 7]], T1, 2.2);
   path([[-4.5, 13.5], [-12, 14], [-20, 18], [-27, 22]], T1, 2.2);
   path([[0, -1.5], [5, -4], [9.5, -2.5]], T2, 1.8);
@@ -2582,24 +2559,15 @@ tree(-25, T1, 9, 1.1); tree(18, T1, 3, 0.9); tree(9, T2, -27, 1); tree(33, T3, -
   const keepOut = [[-15, 15, 15, 41], [-37, -23, -1, 51], [-42, -37.5, 2, 50], [23, 45, 4, 50], [-6, 6, -32, 15], [15, 36, -31, -13], [5, 14.5, -12, -2], [-13, 13, -56, -35], [-42, -24, -56, -40], [24, 37, -51, -39], [-5, 5, -42, -29], [20, 30, -48, -29], [8, 14, 18, 24], [-17, -9, 0, 9], [-44, -13, -29, -2.5]];
   const free = (x, z) => !keepOut.some(([x1, x2, z1, z2]) => x > x1 && x < x2 && z > z1 && z < z2);
   let placed = 0;
-  for (let i = 0; i < 900 && placed < 150; i++) {
+  for (let i = 0; i < 900 && placed < 128; i++) {
     const x = -43 + R() * 86, z = -56 + R() * 104; if (!free(x, z)) continue; const y = groundZ(z); placed++;
     const k = R();
-    if (k < 0.6) bush(x, y, z, 0.7 + R() * 0.6);
+    if (k < 0.35) rockAt(x, y + 0.1, z, 0.25 + R() * 0.4, 1.2, 0.6, 1.1, 0.85 + R() * 0.3);
+    else if (k < 0.75) bush(x, y, z, 0.7 + R() * 0.6);
     else flowers(x, y, z, 10, 1.6);
   }
-  // rocks where rocks actually collect: fallen rubble at the foot of the cliffs and terrace drops,
-  // a few stones at the base of trees, pebbles along the paths, and some big mossy boulders out in the open
-  for (const sx of [-1, 1]) for (let z = -56; z <= 48; z += 2.5 + R() * 4) { if (R() < 0.75) rockCluster(sx * (43.7 + R() * 0.7), groundZ(z), z, 0.4 + R() * 0.65, { n: 1 + Math.floor(R() * 3) }); }
-  for (let x = -43; x <= 43; x += 2.5 + R() * 4) if (R() < 0.75 && !(x > 20 && x < 30)) rockCluster(x, T3, -56.9 - R() * 0.4, 0.4 + R() * 0.65, { n: 1 + Math.floor(R() * 3) });
-  for (const [zf, lo] of [[1.4, T1], [-28.6, T2]]) for (let x = -43; x <= 43; x += 3 + R() * 5) { if (R() < 0.5 && free(x, zf)) rockCluster(x, lo, zf + (R() - 0.5) * 0.4, 0.35 + R() * 0.45, { n: Math.floor(R() * 3) }); }
-  for (const [tx, ty, tz, ts] of TREE_POS) { if (R() > 0.45) continue; const a = R() * Math.PI * 2, d = 1.3 + R() * 0.6; const x = tx + Math.cos(a) * d * ts, z = tz + Math.sin(a) * d * ts; if (free(x, z)) rockCluster(x, ty, z, 0.25 + R() * 0.25, { n: R() < 0.5 ? 1 : 0, pebbles: 2 }); }
-  for (const [x, y, z] of [[-21, T1, 34], [12, T1, 46.5], [-29, T2, -1.4], [40, T2, -14], [37.5, T3, -36.5], [-38, T3, -38.5], [-17, T3, -50.5]]) {
-    const r = 1.2 + R() * 0.5; rockAt(x, y + r * 0.25, z, r, 1.25, 0.72, 1.1, 0.88); FOL.moss.push([x, y + r * 0.92, z, r * 0.75, 0.32, 0x87a45f]); rockCluster(x + r * 1.2, y, z - r * 0.4, r * 0.35, { n: 1, pebbles: 3 });
-    colliders.push({ x1: x - r * 0.9, y1: y, z1: z - r * 0.85, x2: x + r * 0.9, y2: y + r * 0.95, z2: z + r * 0.85, rock: true });
-  }
   // bushes along the bottom of the cliffs
-  for (const sx of [-1, 1]) for (let z = -55; z <= 48; z += 4.5) { const x = sx * (43.3 + R()); if (free(x, z) || R() < 0.5) bush(x, groundZ(z), z, 0.9 + R() * 0.5); }
+  for (const sx of [-1, 1]) for (let z = -55; z <= 48; z += 5.6) { const x = sx * (43.3 + R()); if (free(x, z) || R() < 0.5) bush(x, groundZ(z), z, 0.9 + R() * 0.5); }
   Promise.resolve().then(() => { flushRocks(); flushFoliage(); });
 }
 
@@ -2629,7 +2597,6 @@ function banner(x, y, z, c1, c2) {
     const ti = tries % 3, [ty, z1, z2] = tops[ti === 0 ? 0 : ti];
     const x = -44 + rnd() * 88, z = z1 + rnd() * (z2 - z1);
     if (paved.some((r) => x > r[0] && x < r[1] && z > r[2] && z < r[3])) continue;
-    // no grass in the stream on the top terrace or its spring pool
     if (ty === T3 && z > -49 && z < -29.4) { const cx = 25 + Math.sin(z * 0.32) * 1.1 - Math.max(0, (-38 - z) / 8.2) * 0.9, w = (z > -31 ? 3.1 : 2.6) + 0.35; if (Math.abs(x - cx) < w || ((x - 23.6) / 2.6) ** 2 + ((z + 46.6) / 2.3) ** 2 < 1) continue; }
     if (groundY(x, z, ty + 0.3) !== ty) continue;
     if (colliders.some((b) => x > b.x1 - 0.2 && x < b.x2 + 0.2 && z > b.z1 - 0.2 && z < b.z2 + 0.2 && b.y2 > ty + 0.05 && b.y1 <= ty + 0.5)) continue;
