@@ -4205,7 +4205,7 @@ function animateFighter(dt) {
   const p = player, R = rig;
   if (p.rag) { R.root.visible = true; applyRagdoll(p.rag); for (const tr of trails) updateTrail(tr, p.pos, p.pos, false, 0xffffff); return; }
   R.root.position.copy(p.pos); R.root.position.y -= p.sinkY;
-  R.root.visible = !p.hidden && camDist > 1.4 && !(p.ultHideT > clock);
+  R.root.visible = !p.hidden && camDist > 1.4 && !p.ultHide;
   let fy = p.facing - R.root.rotation.y; fy = Math.atan2(Math.sin(fy), Math.cos(fy));
   R.root.rotation.y += fy * (1 - Math.exp(-25 * dt));
   const moving = p.grounded && (p.speedNow || 0) > 0.5 && p.dashT <= 0;
@@ -5014,7 +5014,7 @@ function updateRemotes(dt) {
     const R = r.rig;
     if (r.rg) { R.root.visible = !r.hidden; unpackRag(R, r.rg); r.wasRg = true; updateRemoteAnchor(r); const s0 = toScreen(v3.copy(r.pos).add(new THREE.Vector3(0, 1.6, 0))); r.tag.style.display = s0.ok ? 'block' : 'none'; if (s0.ok) { r.tag.style.left = s0.x + 'px'; r.tag.style.top = s0.y + 'px'; r.tagHp.style.width = Math.max(0, r.hp) + '%'; } continue; }
     if (r.wasRg) { r.wasRg = false; rebaseHip(R, () => { R.root.position.copy(r.pos); R.root.rotation.set(0, r.facing, 0); }); }
-    R.root.position.copy(r.pos); R.root.position.y -= r.sinkY; R.root.rotation.y = r.facing; R.root.visible = !r.hidden && !(r.ultHideT > clock);
+    R.root.position.copy(r.pos); R.root.position.y -= r.sinkY; R.root.rotation.y = r.facing; R.root.visible = !r.hidden && !r.ultHide;
     r.walkPhase += dt * (r.grounded && r.speedNow > 0.5 ? r.speedNow * 1.15 : 0);
     let RP = basePose(r);
     if (r.anim && !r.dead) {
@@ -8239,7 +8239,7 @@ function vfxAllOfMe(owner, tg, base, fa, cb) {
   const P0 = owner.pos.clone(), B = base.clone(), F = new THREE.Vector3(B.x - P0.x, 0, B.z - P0.z);
   if (F.lengthSq() < 0.01) F.set(Math.sin(fa), 0, Math.cos(fa)); F.normalize();
   const Rt = new THREE.Vector3(-F.z, 0, F.x), face = Math.atan2(F.x, F.z), gy = P0.y, UP = new THREE.Vector3(0, 1, 0), END = 10.7;
-  owner.ultHideT = clock + 10.3;
+  owner.ultHide = true;
   const cam = owner === player || tg === player;                       // the attacker and the victim get the full cinematic
   const showCut = cam || camera.position.distanceTo(B) < 32;
   const drive = tg === player || (!tg.remote && tg.ai && tg.home);      // whose game moves the victim: the victim's own, or the dummy's owner
@@ -8394,13 +8394,13 @@ function vfxAllOfMe(owner, tg, base, fa, cb) {
     }
     // ===== 5. the three run back together into one Patch =====
     if (t >= 9.6 && once('s6')) shot({ focus: () => P0.clone(), dur: 1.0, dist: 5, height: 1.4, yaw: face + 0.35, spin: 0.3 });
-    if (t >= 9.6) { const u = Math.min(1, (t - 9.6) / 0.55); for (const a of actors) { if (!a.from) { a.from = a.rig.root.position.clone(); lookAt(a, P0); play(a, 'm1a', 1); } a.rig.root.position.copy(a.from).lerp(P0, sm(u)); a.rig.root.position.y = gy + Math.sin(u * Math.PI) * 0.5; a.rig.root.scale.setScalar(Math.max(0.01, a.sc * (1 - u * u))); } if (u >= 1 && once('merged')) { vfxStuffing(P0.clone().add(new THREE.Vector3(0, 1.2, 0)), 24, 8); owner.ultHideT = 0; ring(P0.clone(), PYARN, 3, true); } }
+    if (t >= 9.6) { const u = Math.min(1, (t - 9.6) / 0.55); for (const a of actors) { if (!a.from) { a.from = a.rig.root.position.clone(); lookAt(a, P0); play(a, 'm1a', 1); } a.rig.root.position.copy(a.from).lerp(P0, sm(u)); a.rig.root.position.y = gy + Math.sin(u * Math.PI) * 0.5; a.rig.root.scale.setScalar(Math.max(0.01, a.sc * (1 - u * u))); } if (u >= 1 && once('merged')) { vfxStuffing(P0.clone().add(new THREE.Vector3(0, 1.2, 0)), 24, 8); owner.ultHide = false; ring(P0.clone(), PYARN, 3, true); } }
     // pose the three of them
     for (const a of actors) { let Pz = Object.assign({}, GUARD); if (a.run) Pz = a.run; else if (a.anim) { a.anim.t += dt * a.anim.sp; Pz = sampleClip(CLIPS[a.anim.name] || CLIPS.pose, Math.min(a.anim.t, clipLen(CLIPS[a.anim.name] ? a.anim.name : 'pose'))); } applyRig(a.rig, Pz, dt, true); }
     if (k >= 1) {
       for (const a of actors) scene.remove(a.rig.root);
       if (ball) scene.remove(ball); if (impaled) scene.remove(impaled); for (const r of ropes) dropRope(r); if (hand) scene.remove(hand);
-      owner.ultHideT = 0; if (showCut) ultSlashSet(''); if (cam) letterbox(false); if (cb.onEnd) cb.onEnd();
+      owner.ultHide = false; if (showCut) ultSlashSet(''); if (cam) letterbox(false); if (cb.onEnd) cb.onEnd();
     }
   });
 }
