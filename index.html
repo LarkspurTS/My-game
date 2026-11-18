@@ -364,7 +364,7 @@ body.curtains #curL, body.curtains #curR { transform: translateX(0); }
 <div id="overlay">
   <div class="card scrap">
     <h1>Windstep Village</h1>
-    <div class="build">Build 47 · Heavier wrecking ball swing · Pick your fighter</div>
+    <div class="build">Build 48 · All of Me: full cinematic · Pick your fighter</div>
     <div class="roster" id="roster">
       <button class="fcard sel" data-id="juno" type="button"><span class="sw juno"></span><span class="fn">Juno Marrow</span><span class="fs">Ink · Hard</span></button>
       <button class="fcard" data-id="pip" type="button"><span class="sw pip"></span><span class="fn">Pip Hollow</span><span class="fs">Thread · Medium</span></button>
@@ -8238,86 +8238,149 @@ function vfxAllOfMe(owner, tg, base, fa, cb) {
   cb = cb || {};
   const P0 = owner.pos.clone(), B = base.clone(), F = new THREE.Vector3(B.x - P0.x, 0, B.z - P0.z);
   if (F.lengthSq() < 0.01) F.set(Math.sin(fa), 0, Math.cos(fa)); F.normalize();
-  const Rt = new THREE.Vector3(-F.z, 0, F.x), face = Math.atan2(F.x, F.z), gy = P0.y;
-  owner.ultHideT = clock + 4.55;
-  const showCut = owner === player || tg === player || camera.position.distanceTo(B) < 32;
-  // the three Patches: Patchwork, Bulk and Threadbare split out of him
-  const mk = (id, sc, to) => { const r = buildPatch(id); r.root.scale.setScalar(0.01); r.root.position.copy(P0); r.root.rotation.y = face; scene.add(r.root); return { rig: r, sc, to, anim: null }; };
-  const pw = mk('patch', 1, P0.clone()), tb = mk('patch-thread', 1, P0.clone().addScaledVector(Rt, -2.3).addScaledVector(F, 0.6)), bk = mk('patch-big', 1.32, P0.clone().addScaledVector(Rt, 2.7).addScaledVector(F, -0.4));
-  const actors = [pw, tb, bk];
+  const Rt = new THREE.Vector3(-F.z, 0, F.x), face = Math.atan2(F.x, F.z), gy = P0.y, UP = new THREE.Vector3(0, 1, 0), END = 10.3;
+  owner.ultHideT = clock + 9.9;
+  const cam = owner === player || tg === player;                       // the attacker and the victim get the full cinematic
+  const showCut = cam || camera.position.distanceTo(B) < 32;
+  const drive = tg === player || (!tg.remote && tg.ai && tg.home);      // whose game moves the victim: the victim's own, or the dummy's owner
+  const shot = (o) => { if (cam) startCine(o); };
+  if (cam) letterbox(true);
+  // ---- the three of him ----
+  const mk = (id, sc, home) => { const r = buildPatch(id); r.root.scale.setScalar(0.01); r.root.position.copy(P0); r.root.rotation.y = face; scene.add(r.root); return { rig: r, sc, home, anim: null, at: P0.clone() }; };
+  const tb = mk('patch-thread', 1, P0.clone().addScaledVector(Rt, -2.4).addScaledVector(F, 0.6));
+  const bk = mk('patch-big', 1.32, P0.clone().addScaledVector(Rt, 2.8).addScaledVector(F, -0.5));
+  const pw = mk('patch', 1, P0.clone());
+  const actors = [tb, bk, pw];
   const play = (a, name, sp) => { a.anim = { name, t: 0, sp: sp || 1 }; };
   const handW = (a) => a.rig.handR.getWorldPosition(new THREE.Vector3());
-  for (const a of actors) vfxStuffing(P0.clone().add(new THREE.Vector3(0, 1.2, 0)), 10, 6);
-  // Patchwork's giant needle
+  const lookAt = (a, p) => { a.rig.root.rotation.y = Math.atan2(p.x - a.rig.root.position.x, p.z - a.rig.root.position.z); };
   const bigN = new THREE.Group(); { const nd = makeNeedle(3.4, 0.085); nd.position.y = -1.3; bigN.add(nd); } bigN.position.set(0, -0.05, 0.08); bigN.rotation.x = -1.3; bigN.visible = false; pw.rig.handR.add(bigN);
-  let trap = null, hand = null, sq = 0, impaled = null, ropeA = null, ropeB = null, ball = null;
-  const F1 = { split: 0, throwT: 0, wrap: 0, arm: 0, sq1: 0, sq2: 0, crouch: 0, leap: 0, black: 0, stab: 0, yank: 0, rip: 0, merge: 0 };
-  const eyeP = () => B.clone().add(new THREE.Vector3(0, 1.25, 0)).addScaledVector(F, -2.0), tipP = () => B.clone().add(new THREE.Vector3(0, 1.25, 0)).addScaledVector(F, 2.0);
-  tempMesh(new THREE.Object3D(), 4.6, (o, k, dt) => {
-    const t = k * 4.6; dt = dt || 1 / 60; vfxAllOfMe.t = t;
-    // spread out from where he stood, then stand and fight
-    if (t < 0.35) { const u = easeOut(t / 0.35); for (const a of actors) { a.rig.root.position.copy(P0).lerp(a.to, u); a.rig.root.scale.setScalar(Math.max(0.01, a.sc * u)); } }
-    else if (!F1.split) { F1.split = 1; for (const a of actors) { a.rig.root.position.copy(a.to); a.rig.root.scale.setScalar(a.sc); } bigN.visible = true; sparks(handW(pw), 10, 0xdfe6ee, 1.2); }
-    for (const a of [tb, bk]) a.rig.root.rotation.y = Math.atan2(B.x - a.rig.root.position.x, B.z - a.rig.root.position.z);
-    // Threadbare whips the yarn spider at them: it wraps them up
-    if (t >= 0.5 && !F1.throwT) { F1.throwT = 1; play(tb, 'throw', 1.4); const from = handW(tb); ball = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 10), toon(0xffffff, { map: SPIDER_TEX })); ball.position.copy(from); scene.add(ball); ball.userData.from = from; }
-    if (ball && t < 0.85) { const u = Math.min(1, (t - 0.5) / 0.35); ball.position.copy(ball.userData.from).lerp(B.clone().add(new THREE.Vector3(0, 1.2, 0)), u); ball.position.y += Math.sin(u * Math.PI) * 1.5; ball.rotation.x += 0.4; }
-    if (t >= 0.85 && !F1.wrap) { F1.wrap = 1; if (ball) { scene.remove(ball); ball = null; } trap = makeYarnTrap(tg, 3.4); vfxStuffing(B.clone().add(new THREE.Vector3(0, 1.2, 0)), 8, 4); if (cb.onWrap) cb.onWrap(); }
-    // Bulk's arm stretches out and the bear hand grabs them
-    if (t >= 1.15 && !F1.arm) { F1.arm = 1; play(bk, 'point', 1); hand = makeBigHand(); hand.scale.setScalar(0.01); scene.add(hand); attachStretchArm(hand, bk.rig); }
+  // ---- where the victim is, moment by moment ----
+  const sm = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
+  const APEX = 8;
+  const tgY = (t) => {
+    if (t < 4.2) return 0;
+    if (t < 4.85) return 3.2 * sm((t - 4.2) / 0.65);
+    if (t < 5.85) return 3.2 + Math.sin(t * 40) * 0.04;
+    if (t < 6.0) return 3.2 - 0.8 * sm((t - 5.85) / 0.15);
+    if (t < 6.55) { const u = (t - 6.0) / 0.55; return 2.4 + (APEX - 2.4) * (1 - (1 - u) * (1 - u)); }
+    if (t < 7.7) return APEX + Math.sin(t * 3) * 0.06;
+    if (t < 7.95) { const u = (t - 7.7) / 0.25; return APEX * (1 - u * u); }
+    return 0;
+  };
+  const tgPos = (t) => B.clone().add(new THREE.Vector3(0, tgY(t), 0));
+  const focusTg = () => tgPos(vfxAllOfMe.t || 0);
+  const F1 = {};
+  const once = (k) => (F1[k] ? false : (F1[k] = true));
+  let trap = null, hand = null, sq = 0, impaled = null, ball = null, ropes = [];
+  const stabs = [2.15, 2.47, 2.79, 3.11, 3.5], th0 = Math.atan2(Rt.x, Rt.z) + Math.PI;
+  shot({ focus: () => P0.clone(), dur: 1.5, dist: 4.6, height: 1.5, yaw: face + 0.45, spin: 0.18 });
+  if (cam) callout('ALL OF ME', 'Every one of me');
+  tempMesh(new THREE.Object3D(), END, (o, k, dt) => {
+    const t = k * END; dt = dt || 1 / 60; vfxAllOfMe.t = t;
+    // keep the victim where the sequence puts them
+    if (drive && !F1.rip && !tg.dead) { tg.pos.copy(tgPos(t)); if (tg.vel) tg.vel.set(0, 0, 0); }
+    // ===== 0. THE SPLIT: he tears apart and the three of him pop out one by one =====
+    if (t >= 0.05 && once('burst')) { vfxStuffing(P0.clone().add(new THREE.Vector3(0, 1.2, 0)), 30, 8); addShake(0.4); }
+    const popAt = [0.35, 0.7, 1.05];
+    actors.forEach((a, i) => {
+      const t0 = popAt[i];
+      if (t >= t0 && t < t0 + 0.3) { const u = sm((t - t0) / 0.3); a.rig.root.position.copy(P0).lerp(a.home, u); a.rig.root.position.y = gy + Math.sin(u * Math.PI) * 1.2; a.rig.root.scale.setScalar(Math.max(0.01, a.sc * u)); }
+      else if (t >= t0 + 0.3 && once('landed' + i)) { a.rig.root.position.copy(a.home); a.rig.root.scale.setScalar(a.sc); vfxStuffing(a.home.clone().add(new THREE.Vector3(0, 0.6, 0)), 8, 4);
+        if (i === 1) { vfxDustSlam(a.home.clone(), 0.8, 0); addShake(0.6); play(bk, 'slam', 1.4); }
+        if (i === 2) { bigN.visible = true; sparks(handW(pw), 14, 0xffffff, 1.6); flash(handW(pw), 0xffffff, 1.5); play(pw, 'raise', 1); }
+        if (cam) floatText(['THREADBARE', 'BULK', 'PATCHWORK'][i], a.home.clone().add(new THREE.Vector3(0, 3.4 * a.sc, 0)), 'big'); }
+    });
+    // ===== 1. THREADBARE: the spider wraps them, then he circles them stabbing =====
+    if (t >= 1.4 && once('s1')) { shot({ focus: () => B.clone(), dur: 2.45, dist: 6.2, height: 1.6, yaw: face + 1.7, spin: 0.75 }); if (cam) callout('THREADBARE', 'Hold still.'); play(tb, 'throw', 1.4); const from = handW(tb); ball = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 10), toon(0xffffff, { map: SPIDER_TEX })); ball.position.copy(from); ball.userData.from = from; scene.add(ball); }
+    if (ball && t < 1.85) { const u = Math.min(1, (t - 1.4) / 0.45); ball.position.copy(ball.userData.from).lerp(B.clone().add(new THREE.Vector3(0, 1.2, 0)), u); ball.position.y += Math.sin(u * Math.PI) * 1.8; ball.rotation.x += 0.4; }
+    if (t >= 1.85 && once('wrap')) { if (ball) { scene.remove(ball); ball = null; } trap = makeYarnTrap(tg, 7.2); vfxStuffing(B.clone().add(new THREE.Vector3(0, 1.2, 0)), 10, 5); if (cb.onWrap) cb.onWrap(); }
+    if (t >= 1.85 && t < 3.85) {
+      // dash between angles around them, lunging in for each stab
+      let i = 0; while (i < stabs.length - 1 && t > stabs[i + 1] - 0.12) i++;
+      const thA = th0 + i * 1.35, thB = th0 + (i + 1) * 1.35, seg = Math.max(0, Math.min(1, (t - (stabs[i] + 0.1)) / 0.18));
+      const th = t < stabs[0] - 0.12 ? th0 : thA + (thB - thA) * sm(seg), near = Math.abs(t - stabs[Math.min(i, stabs.length - 1)]);
+      const rr = t >= 3.55 ? 2.2 + (t - 3.55) * 4 : 2.1 - Math.max(0, 0.9 - near * 6) * (i === 4 ? 1.1 : 0.9);
+      const p = B.clone().add(new THREE.Vector3(Math.sin(th) * rr, 0, Math.cos(th) * rr));
+      if (t >= 3.55) { const u = sm((t - 3.55) / 0.3); p.lerp(tb.home, u); p.y = gy + Math.sin(u * Math.PI) * 1.6; tb.rig.root.rotation.x = -u * PI2; } else { p.y = gy; tb.rig.root.rotation.x = 0; }
+      tb.rig.root.position.copy(p); if (t < 3.55) lookAt(tb, B);
+      if (seg > 0 && seg < 1) P({ tex: 'streak', color: PYARN, pos: p.clone().add(new THREE.Vector3(0, 1, 0)), vel: new THREE.Vector3(rv(2), 0, rv(2)), life: 0.25, s0: 0.7, s1: 0.1, stretch: 1.4 });
+      stabs.forEach((st, j) => { if (t >= st && once('stab' + j)) {
+        play(tb, 'stab', 1.8); const c = B.clone().add(new THREE.Vector3(0, 1.3, 0)), dir = c.clone().sub(p.clone().add(new THREE.Vector3(0, 1.3, 0))).normalize(), big = j === 4;
+        for (let q = 0; q < (big ? 8 : 4); q++) P({ tex: 'streak', color: q % 2 ? 0xdfe6ee : PYARN, pos: c.clone().addScaledVector(dir, -1), vel: dir.clone().multiplyScalar(26), life: 0.14, s0: big ? 1 : 0.6, s1: 0.1, stretch: 1.6 });
+        sparks(c, big ? 18 : 8, 0xffffff, big ? 1.8 : 1); vfxStuffing(c.clone().addScaledVector(dir, 0.4), big ? 18 : 7, big ? 7 : 4); addShake(big ? 0.7 : 0.25); hitStop = Math.max(hitStop, big ? 0.12 : 0.05);
+        if (big) { flash(c, 0xffffff, 4); ring(c, PYARN, 4); if (trap) trap.a0 = (trap.a0 || 0) + 2; }
+        if (cam) floatText(big ? 'PIERCE' : 'STAB ×' + (j + 1), c.clone().add(new THREE.Vector3(rv(0.6), 1.8, 0)), big ? 'big' : 'ink');
+      } });
+    }
+    if (t >= 3.85 && once('tbHome')) { tb.rig.root.position.copy(tb.home); tb.rig.root.rotation.x = 0; }
+    // ===== 2. BULK: the arm stretches out, the hand lifts them up, squeezes three times, and hurls them into the sky =====
+    if (t >= 3.85 && once('s2')) { shot({ focus: () => focusTg().lerp(bk.home, 0.35), dur: 1.1, dist: 9.5, height: 2.6, yaw: face + 2.7, spin: 0.12 }); if (cam) callout('BULK', 'Big hug.'); play(bk, 'point', 1); hand = makeBigHand(); hand.scale.setScalar(0.01); scene.add(hand); attachStretchArm(hand, bk.rig); }
     if (hand && hand.parent) {
-      const bf = Math.atan2(B.x - bk.rig.root.position.x, B.z - bk.rig.root.position.z), grip = B.clone().add(new THREE.Vector3(0, PAW.GY, 0)), u = Math.min(1, Math.max(0, (t - 1.15) / 0.3));
-      const sh = bk.rig.j.shR.getWorldPosition(new THREE.Vector3());
-      hand.position.copy(sh).lerp(grip, easeOut(u)); hand.scale.setScalar(Math.max(0.01, 1.8 * u)); orientGrab(hand, bf);
-      if (u < 1) handPose(hand); else { sq = Math.max(0, sq - dt * 3); handGrip(hand, sq, tg.rig ? tg : null, bf); }
-      if (t >= 1.75 && !F1.sq1) { F1.sq1 = 1; sq = 1; vfxStuffing(grip.clone(), 12, 6); addShake(0.4); if (cb.onSqueeze) cb.onSqueeze(); }
-      if (t >= 2.05 && !F1.sq2) { F1.sq2 = 1; sq = 1; vfxStuffing(grip.clone(), 14, 7); addShake(0.5); if (cb.onSqueeze) cb.onSqueeze(); }
+      const bf = Math.atan2(B.x - bk.rig.root.position.x, B.z - bk.rig.root.position.z), sh = bk.rig.j.shR.getWorldPosition(new THREE.Vector3());
+      const grip = tgPos(t).add(new THREE.Vector3(0, PAW.GY, 0));
+      if (t < 4.2) { const u = sm((t - 3.85) / 0.35); hand.position.copy(sh).lerp(grip, u); hand.scale.setScalar(Math.max(0.01, 1.8 * u)); orientGrab(hand, bf); handPose(hand); }
+      else if (t < 6.0) { hand.position.copy(grip); hand.scale.setScalar(1.8); orientGrab(hand, bf); sq = Math.max(0, sq - dt * 3); handGrip(hand, sq, tg.rig ? tg : null, bf); lookAt(bk, grip); }
+      else { const u = sm((t - 6.0) / 0.45); hand.position.copy(grip.clone().setY(B.y + 5)).lerp(sh, u); hand.scale.setScalar(Math.max(0.01, 1.8 * (1 - u))); handPose(hand); if (u >= 1) { scene.remove(hand); hand = null; } }
+      if (t >= 4.2 && once('grab')) { vfxStuffing(grip.clone(), 10, 5); addShake(0.4); play(bk, 'grab', 1); }
+      [4.95, 5.3, 5.65].forEach((st, j) => { if (t >= st && once('sq' + j)) {
+        sq = 1; vfxStuffing(grip.clone(), 16 + j * 6, 6 + j); addShake(0.4 + j * 0.15); hitStop = Math.max(hitStop, 0.06); play(bk, 'slam', 1.6);
+        if (cam) floatText('SQUEEZE', grip.clone().add(new THREE.Vector3(rv(0.8), 1.6, 0)), j === 2 ? 'big' : 'ink');
+        shot({ focus: () => focusTg(), dur: 0.36, dist: 4.4 - j * 0.4, height: 1.2, yaw: face + 2.2 + j * 0.5, spin: 0.4 });
+        if (cb.onSqueeze) cb.onSqueeze();
+      } });
+      if (t >= 5.85 && once('windup')) { play(bk, 'upper', 1.2); }
     }
-    // Patchwork crouches and leaps at them with the needle...
-    if (t >= 2.2 && !F1.crouch) { F1.crouch = 1; play(pw, 'crouch', 1.2); }
-    if (t >= 2.4 && !F1.leap) { F1.leap = 1; play(pw, 'stab', 1.3); }
-    if (F1.leap && !F1.black) { const u = Math.min(1, (t - 2.4) / 0.25); pw.rig.root.position.copy(P0).lerp(B.clone().addScaledVector(F, -1.4), u); pw.rig.root.position.y = gy + Math.sin(u * Math.PI * 0.8) * 2.2; }
-    // ...the screen cuts to black, a white slash, and when it flashes back the needle is through them
-    // (the cut runs on this sequence's own clock, so it always lines up with the needle appearing)
+    if (t >= 6.0 && once('hurl')) { vfxDustSlam(B.clone(), 1, 0); addShake(0.6); ring(B.clone().add(new THREE.Vector3(0, 3, 0)), 0xffffff, 4); }
+    // ===== 3. PATCHWORK: crouch, leap after them... black, a white slash, and the needle is through them =====
+    if (t >= 6.0 && once('s3')) { shot({ focus: () => focusTg(), dur: 0.6, dist: 11, height: -2.5, yaw: face + 1.25, spin: 0.15 }); if (cam) callout('PATCHWORK', 'Last stitch.'); play(pw, 'crouch', 1.1); lookAt(pw, B); }
+    if (t >= 6.25 && once('leap')) { play(pw, 'stab', 1.2); vfxDustSlam(pw.home.clone(), 0.5, 0); }
+    if (F1.leap && !F1.stabbed) { const u = Math.min(1, (t - 6.25) / 0.3); pw.rig.root.position.copy(pw.home).lerp(B, u * 0.75); pw.rig.root.position.y = gy + (APEX - 1.2) * (1 - (1 - u) * (1 - u)); }
     if (showCut) {
-      if (t >= 2.65 && !F1.black) { F1.black = 1; ultSlashSet('on'); }
-      if (t >= 2.72 && !F1.cut) { F1.cut = 1; ultSlashSet('on cut'); ultShing(); }
-      if (t >= 3.0 && !F1.wf) { F1.wf = 1; ultSlashSet('on cut flash'); }
-      if (t >= 3.06 && !F1.fd) { F1.fd = 1; ultSlashSet('fade'); }
-      if (t >= 3.45 && !F1.clr) { F1.clr = 1; ultSlashSet(''); }
-    } else if (t >= 2.65) F1.black = 1;
-    if (t >= 2.82 && !F1.stab) {
-      F1.stab = 1; bigN.visible = false;
-      pw.rig.root.position.copy(B).addScaledVector(F, 2.6); pw.rig.root.position.y = gy; pw.rig.root.rotation.y = face; play(pw, 'slash', 1.6);
-      impaled = makeNeedle(4.4, 0.1); impaled.position.copy(B).add(new THREE.Vector3(0, 1.25, 0)); impaled.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), F.clone().add(new THREE.Vector3(0, -0.08, 0)).normalize()); scene.add(impaled);
-      ropeA = makeRope(14, PYARN, 0.035); ropeB = makeRope(14, PYARN, 0.035);
-      vfxStuffing(tipP(), 16, 8); hitStop = Math.max(hitStop, 0.1); if (cb.onStab) cb.onStab();
+      if (t >= 6.55 && once('blk')) ultSlashSet('on');
+      if (t >= 6.62 && once('cut')) { ultSlashSet('on cut'); ultShing(); }
+      if (t >= 6.92 && once('wf')) ultSlashSet('on cut flash');
+      if (t >= 6.98 && once('fd')) ultSlashSet('fade');
+      if (t >= 7.4 && once('clr')) ultSlashSet('');
     }
-    if (ropeA) { ropeA.len = Math.max(1, handW(pw).distanceTo(tipP()) * (F1.yank ? 0.92 : 1.15)); ropeStep(ropeA, dt, handW(pw), tipP(), gy); }
-    if (ropeB) { ropeB.len = Math.max(1, handW(tb).distanceTo(eyeP()) * (F1.yank ? 0.92 : 1.15)); ropeStep(ropeB, dt, handW(tb), eyeP(), gy); }
-    // all three of him yank the thread...
-    if (t >= 3.3 && !F1.yank) { F1.yank = 1; play(pw, 'throw', 1.6); play(tb, 'throw', 1.6); sq = 1; addShake(0.3); }
-    // ...and the stitches rip open
-    if (t >= 3.55 && !F1.rip) {
-      F1.rip = 1; const c = B.clone().add(new THREE.Vector3(0, 1.3, 0));
-      vfxStuffing(c, 70, 15); flash(c, 0xfff6e8, 7); ring(B.clone(), PYARN, 8, true); ring(c, 0xffffff, 5); lightFlash(c, 0xffe8c8, 16); addShake(1.4); impactFrame(0.18);
-      if (impaled) { const n = impaled, v = F.clone().multiplyScalar(-14).setY(8); tempMesh(n, 0.9, (m, kk, d2) => { const d = d2 || 1 / 60; v.y -= 20 * d; m.position.addScaledVector(v, d); m.rotateZ(0.3); if (kk > 0.7) m.scale.setScalar((1 - kk) / 0.3); }); impaled = null; }
-      if (ropeA) { dropRope(ropeA); ropeA = null; } if (ropeB) { dropRope(ropeB); ropeB = null; }
-      if (hand) { scene.remove(hand); hand = null; } if (trap) { trap.t = 0.01; trap = null; }
+    if (t >= 6.7 && once('stabbed')) {
+      bigN.visible = false;
+      const land = B.clone().addScaledVector(F, 3.4); land.y = gy; pw.rig.root.position.copy(land); pw.rig.root.rotation.y = face; play(pw, 'slash', 1.4);
+      impaled = makeNeedle(4.6, 0.1); impaled.position.copy(tgPos(6.7)).add(new THREE.Vector3(0, 1.25, 0));
+      impaled.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), F.clone().add(new THREE.Vector3(0, -0.55, 0)).normalize()); scene.add(impaled);
+      for (const a of [pw, tb, bk]) { const r = makeRope(16, PYARN, 0.035); r.owner = a; ropes.push(r); }
+      vfxStuffing(tgPos(6.7).add(new THREE.Vector3(0, 1.3, 0)).addScaledVector(F, 1.2), 22, 9);
+    }
+    if (t >= 6.98 && once('s4')) { shot({ focus: () => focusTg().lerp(pw.rig.root.position, 0.3), dur: 0.72, dist: 7.5, height: -1.5, yaw: face + Math.PI + 0.5, spin: 0.05 }); if (cam) floatText('STITCHED', tgPos(t).add(new THREE.Vector3(0, 3.2, 0)), 'big'); if (cb.onStab) cb.onStab(); }
+    if (t >= 6.98 && t < 7.65 && Math.random() < 0.9) { const c = tgPos(t).add(new THREE.Vector3(0, 1.2, 0)), d = new THREE.Vector3(rv(1), rv(1), rv(1)).normalize(); P({ tex: 'streak', color: 0xffffff, pos: c.clone().addScaledVector(d, 3 + Math.random() * 2), vel: d.multiplyScalar(-14), life: 0.18, s0: 0.9, s1: 0.2, stretch: 1.8, a: 0.6 }); }
+    // the needle stays with them while they hang and fall
+    if (impaled) { const ends = tgPos(t).add(new THREE.Vector3(0, 1.25, 0)); impaled.position.copy(ends); }
+    const nEye = () => impaled ? impaled.localToWorld(new THREE.Vector3(0, 2.2, 0)) : tgPos(t), nTip = () => impaled ? impaled.localToWorld(new THREE.Vector3(0, -2.2, 0)) : tgPos(t);
+    for (const r of ropes) { const a = handW(r.owner), b = r.owner === pw ? nTip() : nEye(); r.len = Math.max(1, a.distanceTo(b) * (F1.yank ? 0.94 : 1.2)); ropeStep(r, dt, a, b, gy); }
+    // ===== 4. FINALE: all three yank them down into the ground... =====
+    if (t >= 7.65 && once('s5')) { shot({ focus: () => B.clone().add(new THREE.Vector3(0, 1.5, 0)), dur: 2.6, dist: 13.5, height: 5, yaw: face + 2.0, spin: 0.22 }); for (const a of [pw, tb, bk]) { play(a, 'throw', 1.5); lookAt(a, B); } F1.yank = true; }
+    if (t >= 7.95 && once('slam')) { vfxDustSlam(B.clone(), 2.2, 0); crack(B.clone(), 3.5); addShake(1.1); impactFrame(0.12); try { echoBass(true); } catch (err) { /* ok */ } if (cam) floatText('SLAM', B.clone().add(new THREE.Vector3(0, 3, 0)), 'big'); }
+    // ...and pull one last time: the stitches rip open
+    if (t >= 8.3 && once('lean')) { for (const a of [pw, tb, bk]) play(a, 'haymaker', 1.3); }
+    if (t >= 8.5 && once('rip')) {
+      F1.rip = true; const c = B.clone().add(new THREE.Vector3(0, 1.3, 0));
+      vfxStuffing(c, 90, 17); flash(c, 0xfff6e8, 8); ring(B.clone(), PYARN, 10, true); ring(c, 0xffffff, 6); ring(c, PYARN, 4); lightFlash(c, 0xffe8c8, 18); addShake(1.6); impactFrame(0.2);
+      try { echoBass(true); } catch (err) { /* ok */ }
+      if (impaled) { const n = impaled, v = F.clone().multiplyScalar(-12).setY(14); tempMesh(n, 1.1, (m, kk, d2) => { const d = d2 || 1 / 60; v.y -= 20 * d; m.position.addScaledVector(v, d); m.rotateZ(0.35); if (kk > 0.75) m.scale.setScalar((1 - kk) / 0.25); }); impaled = null; }
+      for (const r of ropes) dropRope(r); ropes = [];
+      if (trap) { trap.t = 0.01; trap = null; }
+      if (cam) callout('ALL OF ME', 'Every one of me');
       if (cb.onRip) cb.onRip();
     }
-    // the three run back together into one Patch
-    if (t >= 3.9) { const u = Math.min(1, (t - 3.9) / 0.45); if (!F1.merge) { F1.merge = 1; } for (const a of actors) { if (!a.from) a.from = a.rig.root.position.clone(); a.rig.root.position.copy(a.from).lerp(P0, easeOut(u)); a.rig.root.scale.setScalar(Math.max(0.01, a.sc * (1 - u))); } if (u >= 1 && !F1.gone) { F1.gone = 1; vfxStuffing(P0.clone().add(new THREE.Vector3(0, 1.2, 0)), 18, 7); owner.ultHideT = 0; } }
-    // pose them
-    for (const a of actors) {
-      let Pz = Object.assign({}, GUARD);
-      if (a.anim) { a.anim.t += dt * a.anim.sp; Pz = sampleClip(CLIPS[a.anim.name], Math.min(a.anim.t, clipLen(a.anim.name))); }
-      applyRig(a.rig, Pz, dt, true);
-    }
+    // ===== 5. the three run back together into one Patch =====
+    if (t >= 9.2 && once('s6')) shot({ focus: () => P0.clone(), dur: 1.0, dist: 5, height: 1.4, yaw: face + 0.35, spin: 0.3 });
+    if (t >= 9.2) { const u = Math.min(1, (t - 9.2) / 0.55); for (const a of actors) { if (!a.from) { a.from = a.rig.root.position.clone(); lookAt(a, P0); play(a, 'm1a', 1); } a.rig.root.position.copy(a.from).lerp(P0, sm(u)); a.rig.root.position.y = gy + Math.sin(u * Math.PI) * 0.5; a.rig.root.scale.setScalar(Math.max(0.01, a.sc * (1 - u * u))); } if (u >= 1 && once('merged')) { vfxStuffing(P0.clone().add(new THREE.Vector3(0, 1.2, 0)), 24, 8); owner.ultHideT = 0; ring(P0.clone(), PYARN, 3, true); } }
+    // pose the three of them
+    for (const a of actors) { let Pz = Object.assign({}, GUARD); if (a.anim) { a.anim.t += dt * a.anim.sp; Pz = sampleClip(CLIPS[a.anim.name] || CLIPS.pose, Math.min(a.anim.t, clipLen(CLIPS[a.anim.name] ? a.anim.name : 'pose'))); } applyRig(a.rig, Pz, dt, true); }
     if (k >= 1) {
       for (const a of actors) scene.remove(a.rig.root);
-      if (ball) scene.remove(ball); if (impaled) scene.remove(impaled); if (ropeA) dropRope(ropeA); if (ropeB) dropRope(ropeB); if (hand) scene.remove(hand);
-      owner.ultHideT = 0; if (showCut) ultSlashSet(''); if (cb.onEnd) cb.onEnd();
+      if (ball) scene.remove(ball); if (impaled) scene.remove(impaled); for (const r of ropes) dropRope(r); if (hand) scene.remove(hand);
+      owner.ultHideT = 0; if (showCut) ultSlashSet(''); if (cam) letterbox(false); if (cb.onEnd) cb.onEnd();
     }
   });
 }
@@ -8769,9 +8832,9 @@ function makePatchKit() {
     startMove('ulasso', 0.9, 'throw', { a: true, fired: false, caught: false, missed: false });
   }
   function startAllOfMe(d) {
-    const base = groundAt(d.pos.clone()), mv = startMove('allofme', 4.75, null, { a: true, lockPos: true, d, base, ripped: false });
-    faceToward(d.pos); player.iframes = 5.2; d.grabbed = 4.6; d.stun = 4.9; if (d.ai) d.ai.wind = 0;
-    if (d.remote) netSend({ t: 'seize', to: d.id, dur: 4.5, title: 'ALL OF ME', sub: 'Every one of me' });
+    const base = groundAt(d.pos.clone()), mv = startMove('allofme', 10.5, null, { a: true, lockPos: true, d, base, ripped: false });
+    faceToward(d.pos); player.iframes = 11; d.grabbed = 10.4; d.stun = 10.7; if (d.ai) d.ai.wind = 0;
+    if (d.remote) netSend({ t: 'seize', to: d.id, dur: 8.6, title: 'ALL OF ME', sub: 'Every one of me', quiet: true });
     vfxAllOfMe(player, d, base, player.facing, {
       onWrap: () => floatText('WRAPPED', d.pos.clone().add(new THREE.Vector3(0, 3, 0)), 'ink'),
       onSqueeze: () => floatText('SQUEEZE', d.pos.clone().add(new THREE.Vector3(rv(0.6), 3, 0)), 'ink'),
@@ -8780,8 +8843,6 @@ function makePatchKit() {
       onEnd: () => { if (!mv.ended) { mv.ended = true; letterbox(false); later(0.1, endAwaken); } },
     });
     netOnly('pallme', [player, d, base, player.facing]);
-    startCine({ focus: () => base.clone().add(new THREE.Vector3(0, 1.3, 0)), dur: 4.6, dist: 12.5, height: 3.4, yaw: player.facing + 2.15, spin: 0.2 });
-    letterbox(true); callout('ALL OF ME', 'Every one of me');
   }
   function needleJab(f) {
     const tipP = player.pos.clone().add(new THREE.Vector3(0, 1.25 + rv(0.2), 0)).addScaledVector(f, 1.7);
@@ -8871,7 +8932,7 @@ function makePatchKit() {
       }
     } else if (mv.name === 'allofme') {
       const d = mv.d;
-      if (!mv.ripped && !d.dead) { d.pos.copy(mv.base); d.vel.set(0, 0, 0); d.grabbed = Math.max(d.grabbed || 0, 0.3); if (d.ai) { d.struggleT = clock; d.holdFace = Math.atan2(player.pos.x - d.pos.x, player.pos.z - d.pos.z); } }
+      if (!mv.ripped && !d.dead) { d.grabbed = Math.max(d.grabbed || 0, 0.3); if (d.ai) { d.struggleT = clock; d.holdFace = Math.atan2(player.pos.x - d.pos.x, player.pos.z - d.pos.z); } }
     } else if (mv.name === 'final') {
       const d = mv.d;
       if (!mv.hit && !d.dead) { d.pos.copy(mv.base); d.vel.set(0, 0, 0); }
