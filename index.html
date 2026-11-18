@@ -8238,8 +8238,8 @@ function vfxAllOfMe(owner, tg, base, fa, cb) {
   cb = cb || {};
   const P0 = owner.pos.clone(), B = base.clone(), F = new THREE.Vector3(B.x - P0.x, 0, B.z - P0.z);
   if (F.lengthSq() < 0.01) F.set(Math.sin(fa), 0, Math.cos(fa)); F.normalize();
-  const Rt = new THREE.Vector3(-F.z, 0, F.x), face = Math.atan2(F.x, F.z), gy = P0.y, UP = new THREE.Vector3(0, 1, 0), END = 10.3;
-  owner.ultHideT = clock + 9.9;
+  const Rt = new THREE.Vector3(-F.z, 0, F.x), face = Math.atan2(F.x, F.z), gy = P0.y, UP = new THREE.Vector3(0, 1, 0), END = 10.7;
+  owner.ultHideT = clock + 10.3;
   const cam = owner === player || tg === player;                       // the attacker and the victim get the full cinematic
   const showCut = cam || camera.position.distanceTo(B) < 32;
   const drive = tg === player || (!tg.remote && tg.ai && tg.home);      // whose game moves the victim: the victim's own, or the dummy's owner
@@ -8261,11 +8261,11 @@ function vfxAllOfMe(owner, tg, base, fa, cb) {
   const tgY = (t) => {
     if (t < 4.2) return 0;
     if (t < 4.85) return 3.2 * sm((t - 4.2) / 0.65);
-    if (t < 5.85) return 3.2 + Math.sin(t * 40) * 0.04;
-    if (t < 6.0) return 3.2 - 0.8 * sm((t - 5.85) / 0.15);
-    if (t < 6.55) { const u = (t - 6.0) / 0.55; return 2.4 + (APEX - 2.4) * (1 - (1 - u) * (1 - u)); }
-    if (t < 7.7) return APEX + Math.sin(t * 3) * 0.06;
-    if (t < 7.95) { const u = (t - 7.7) / 0.25; return APEX * (1 - u * u); }
+    if (t < 6.25) return 3.2 + Math.sin(t * 40) * 0.04;
+    if (t < 6.4) return 3.2 - 0.8 * sm((t - 6.25) / 0.15);
+    if (t < 6.95) { const u = (t - 6.4) / 0.55; return 2.4 + (APEX - 2.4) * (1 - (1 - u) * (1 - u)); }
+    if (t < 8.1) return APEX + Math.sin(t * 3) * 0.06;
+    if (t < 8.35) { const u = (t - 8.1) / 0.25; return APEX * (1 - u * u); }
     return 0;
   };
   const tgPos = (t) => B.clone().add(new THREE.Vector3(0, tgY(t), 0));
@@ -8320,8 +8320,8 @@ function vfxAllOfMe(owner, tg, base, fa, cb) {
       const bf = Math.atan2(B.x - bk.rig.root.position.x, B.z - bk.rig.root.position.z), sh = bk.rig.j.shR.getWorldPosition(new THREE.Vector3());
       const grip = tgPos(t).add(new THREE.Vector3(0, PAW.GY, 0));
       if (t < 4.2) { const u = sm((t - 3.85) / 0.35); hand.position.copy(sh).lerp(grip, u); hand.scale.setScalar(Math.max(0.01, 1.8 * u)); orientGrab(hand, bf); handPose(hand); }
-      else if (t < 6.0) { hand.position.copy(grip); hand.scale.setScalar(1.8); orientGrab(hand, bf); sq = Math.max(0, sq - dt * 3); handGrip(hand, sq, tg.rig ? tg : null, bf); lookAt(bk, grip); }
-      else { const u = sm((t - 6.0) / 0.45); hand.position.copy(grip.clone().setY(B.y + 5)).lerp(sh, u); hand.scale.setScalar(Math.max(0.01, 1.8 * (1 - u))); handPose(hand); if (u >= 1) { scene.remove(hand); hand = null; } }
+      else if (t < 6.4) { hand.position.copy(grip); hand.scale.setScalar(1.8); orientGrab(hand, bf); sq = Math.max(0, sq - dt * 3); handGrip(hand, sq, tg.rig ? tg : null, bf); lookAt(bk, grip); }
+      else { const u = sm((t - 6.4) / 0.45); hand.position.copy(grip.clone().setY(B.y + 5)).lerp(sh, u); hand.scale.setScalar(Math.max(0.01, 1.8 * (1 - u))); handPose(hand); if (u >= 1) { scene.remove(hand); hand = null; } }
       if (t >= 4.2 && once('grab')) { vfxStuffing(grip.clone(), 10, 5); addShake(0.4); play(bk, 'grab', 1); }
       [4.95, 5.3, 5.65].forEach((st, j) => { if (t >= st && once('sq' + j)) {
         sq = 1; vfxStuffing(grip.clone(), 16 + j * 6, 6 + j); addShake(0.4 + j * 0.15); hitStop = Math.max(hitStop, 0.06); play(bk, 'slam', 1.6);
@@ -8329,40 +8329,58 @@ function vfxAllOfMe(owner, tg, base, fa, cb) {
         shot({ focus: () => focusTg(), dur: 0.36, dist: 4.4 - j * 0.4, height: 1.2, yaw: face + 2.2 + j * 0.5, spin: 0.4 });
         if (cb.onSqueeze) cb.onSqueeze();
       } });
-      if (t >= 5.85 && once('windup')) { play(bk, 'upper', 1.2); }
+      if (t >= 6.25 && once('windup')) { play(bk, 'upper', 1.2); }
+      bk.armHand = hand;
     }
-    if (t >= 6.0 && once('hurl')) { vfxDustSlam(B.clone(), 1, 0); addShake(0.6); ring(B.clone().add(new THREE.Vector3(0, 3, 0)), 0xffffff, 4); }
-    // ===== 3. PATCHWORK: crouch, leap after them... black, a white slash, and the needle is through them =====
-    if (t >= 6.0 && once('s3')) { shot({ focus: () => focusTg(), dur: 0.6, dist: 11, height: -2.5, yaw: face + 1.25, spin: 0.15 }); if (cam) callout('PATCHWORK', 'Last stitch.'); play(pw, 'crouch', 1.1); lookAt(pw, B); }
-    if (t >= 6.25 && once('leap')) { play(pw, 'stab', 1.2); vfxDustSlam(pw.home.clone(), 0.5, 0); }
-    if (F1.leap && !F1.stabbed) { const u = Math.min(1, (t - 6.25) / 0.3); pw.rig.root.position.copy(pw.home).lerp(B, u * 0.75); pw.rig.root.position.y = gy + (APEX - 1.2) * (1 - (1 - u) * (1 - u)); }
+    if (t >= 6.4 && once('hurl')) { vfxDustSlam(B.clone(), 1, 0); addShake(0.6); ring(B.clone().add(new THREE.Vector3(0, 3, 0)), 0xffffff, 4); }
+    // ===== 3. PATCHWORK: hops onto Bulk's stretched arm, sprints up it, and springs off the hand after them =====
+    // a point on top of the arm (same curve the stretched arm is drawn along, lifted by its thickness)
+    const armTop = (u) => {
+      const sh = bk.rig.j.shR.getWorldPosition(new THREE.Vector3()), hp = (bk.armHand && bk.armHand.parent) ? bk.armHand.position.clone() : tgPos(t).add(new THREE.Vector3(0, PAW.GY, 0));
+      const ctrl = sh.clone().lerp(hp, 0.5).add(new THREE.Vector3(0, 0.12 + sh.distanceTo(hp) * 0.04, 0)), a = sh.clone().lerp(ctrl, u), b = ctrl.clone().lerp(hp, u);
+      return a.lerp(b, u).add(new THREE.Vector3(0, 0.16 + 0.36 * Math.pow(u, 1.6) + 0.05, 0));
+    };
+    if (t >= 5.75 && once('s3')) { shot({ focus: () => pw.rig.root.position.clone().add(new THREE.Vector3(0, 0.6, 0)), dur: 0.68, dist: 7, height: 1.2, yaw: face + 1.55, spin: 0.25 }); if (cam) callout('PATCHWORK', 'Last stitch.'); play(pw, 'crouch', 1.6); }
+    if (t >= 5.75 && t < 6.4) {
+      if (t < 5.95) {   // a hop up onto the arm near Bulk's shoulder
+        const u = sm((t - 5.75) / 0.2), to = armTop(0.08);
+        pw.rig.root.position.copy(pw.home).lerp(to, u); pw.rig.root.position.y += Math.sin(u * Math.PI) * 1.2; lookAt(pw, to);
+      } else {          // sprinting up the arm, faster and faster
+        const u = 0.08 + 0.87 * Math.pow((t - 5.95) / 0.45, 1.3), p = armTop(u), ahead = armTop(Math.min(1, u + 0.05));
+        pw.rig.root.position.copy(p); pw.rig.root.rotation.y = Math.atan2(ahead.x - p.x, ahead.z - p.z);
+        const w = t * 26; pw.anim = null; pw.run = { hipL: [Math.sin(w) * 1.0, 0, -0.04], hipR: [-Math.sin(w) * 1.0, 0, 0.04], knL: [0.5 + Math.max(0, -Math.sin(w)) * 1.1, 0, 0], knR: [0.5 + Math.max(0, Math.sin(w)) * 1.1, 0, 0], shL: [-Math.sin(w) * 0.9, 0, -0.15], shR: [-1.0, 0, 0.2], elL: [-0.9, 0, 0], elR: [-0.6, 0, 0], chest: [0.35, 0, 0], neck: [-0.25, 0, 0], lift: Math.abs(Math.sin(w)) * 0.06 };
+        if (Math.random() < 0.5) vfxStuffing(p.clone(), 1, 2);
+      }
+    }
+    if (t >= 6.4 && once('leap')) { pw.run = null; play(pw, 'stab', 1.2); pw.leapFrom = pw.rig.root.position.clone(); vfxStuffing(pw.leapFrom.clone(), 14, 6); addShake(0.4); shot({ focus: () => focusTg(), dur: 0.55, dist: 11, height: -2.5, yaw: face + 1.25, spin: 0.15 }); }
+    if (F1.leap && !F1.stabbed) { const u = Math.min(1, (t - 6.4) / 0.55), to = tgPos(Math.min(t, 6.95)).add(new THREE.Vector3(0, -0.6, 0)).addScaledVector(F, -0.9); pw.rig.root.position.copy(pw.leapFrom).lerp(to, 1 - (1 - u) * (1 - u)); pw.rig.root.position.y += Math.sin(u * Math.PI) * 1.2; lookAt(pw, tgPos(t)); }
     if (showCut) {
-      if (t >= 6.55 && once('blk')) ultSlashSet('on');
-      if (t >= 6.62 && once('cut')) { ultSlashSet('on cut'); ultShing(); }
-      if (t >= 6.92 && once('wf')) ultSlashSet('on cut flash');
-      if (t >= 6.98 && once('fd')) ultSlashSet('fade');
-      if (t >= 7.4 && once('clr')) ultSlashSet('');
+      if (t >= 6.95 && once('blk')) ultSlashSet('on');
+      if (t >= 7.02 && once('cut')) { ultSlashSet('on cut'); ultShing(); }
+      if (t >= 7.32 && once('wf')) ultSlashSet('on cut flash');
+      if (t >= 7.38 && once('fd')) ultSlashSet('fade');
+      if (t >= 7.8 && once('clr')) ultSlashSet('');
     }
-    if (t >= 6.7 && once('stabbed')) {
+    if (t >= 7.1 && once('stabbed')) {
       bigN.visible = false;
       const land = B.clone().addScaledVector(F, 3.4); land.y = gy; pw.rig.root.position.copy(land); pw.rig.root.rotation.y = face; play(pw, 'slash', 1.4);
-      impaled = makeNeedle(4.6, 0.1); impaled.position.copy(tgPos(6.7)).add(new THREE.Vector3(0, 1.25, 0));
+      impaled = makeNeedle(4.6, 0.1); impaled.position.copy(tgPos(7.1)).add(new THREE.Vector3(0, 1.25, 0));
       impaled.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), F.clone().add(new THREE.Vector3(0, -0.55, 0)).normalize()); scene.add(impaled);
       for (const a of [pw, tb, bk]) { const r = makeRope(16, PYARN, 0.035); r.owner = a; ropes.push(r); }
-      vfxStuffing(tgPos(6.7).add(new THREE.Vector3(0, 1.3, 0)).addScaledVector(F, 1.2), 22, 9);
+      vfxStuffing(tgPos(7.1).add(new THREE.Vector3(0, 1.3, 0)).addScaledVector(F, 1.2), 22, 9);
     }
-    if (t >= 6.98 && once('s4')) { shot({ focus: () => focusTg().lerp(pw.rig.root.position, 0.3), dur: 0.72, dist: 7.5, height: -1.5, yaw: face + Math.PI + 0.5, spin: 0.05 }); if (cam) floatText('STITCHED', tgPos(t).add(new THREE.Vector3(0, 3.2, 0)), 'big'); if (cb.onStab) cb.onStab(); }
-    if (t >= 6.98 && t < 7.65 && Math.random() < 0.9) { const c = tgPos(t).add(new THREE.Vector3(0, 1.2, 0)), d = new THREE.Vector3(rv(1), rv(1), rv(1)).normalize(); P({ tex: 'streak', color: 0xffffff, pos: c.clone().addScaledVector(d, 3 + Math.random() * 2), vel: d.multiplyScalar(-14), life: 0.18, s0: 0.9, s1: 0.2, stretch: 1.8, a: 0.6 }); }
+    if (t >= 7.38 && once('s4')) { shot({ focus: () => focusTg().lerp(pw.rig.root.position, 0.3), dur: 0.72, dist: 7.5, height: -1.5, yaw: face + Math.PI + 0.5, spin: 0.05 }); if (cam) floatText('STITCHED', tgPos(t).add(new THREE.Vector3(0, 3.2, 0)), 'big'); if (cb.onStab) cb.onStab(); }
+    if (t >= 7.38 && t < 8.05 && Math.random() < 0.9) { const c = tgPos(t).add(new THREE.Vector3(0, 1.2, 0)), d = new THREE.Vector3(rv(1), rv(1), rv(1)).normalize(); P({ tex: 'streak', color: 0xffffff, pos: c.clone().addScaledVector(d, 3 + Math.random() * 2), vel: d.multiplyScalar(-14), life: 0.18, s0: 0.9, s1: 0.2, stretch: 1.8, a: 0.6 }); }
     // the needle stays with them while they hang and fall
     if (impaled) { const ends = tgPos(t).add(new THREE.Vector3(0, 1.25, 0)); impaled.position.copy(ends); }
     const nEye = () => impaled ? impaled.localToWorld(new THREE.Vector3(0, 2.2, 0)) : tgPos(t), nTip = () => impaled ? impaled.localToWorld(new THREE.Vector3(0, -2.2, 0)) : tgPos(t);
     for (const r of ropes) { const a = handW(r.owner), b = r.owner === pw ? nTip() : nEye(); r.len = Math.max(1, a.distanceTo(b) * (F1.yank ? 0.94 : 1.2)); ropeStep(r, dt, a, b, gy); }
     // ===== 4. FINALE: all three yank them down into the ground... =====
-    if (t >= 7.65 && once('s5')) { shot({ focus: () => B.clone().add(new THREE.Vector3(0, 1.5, 0)), dur: 2.6, dist: 13.5, height: 5, yaw: face + 2.0, spin: 0.22 }); for (const a of [pw, tb, bk]) { play(a, 'throw', 1.5); lookAt(a, B); } F1.yank = true; }
-    if (t >= 7.95 && once('slam')) { vfxDustSlam(B.clone(), 2.2, 0); crack(B.clone(), 3.5); addShake(1.1); impactFrame(0.12); try { echoBass(true); } catch (err) { /* ok */ } if (cam) floatText('SLAM', B.clone().add(new THREE.Vector3(0, 3, 0)), 'big'); }
+    if (t >= 8.05 && once('s5')) { shot({ focus: () => B.clone().add(new THREE.Vector3(0, 1.5, 0)), dur: 2.6, dist: 13.5, height: 5, yaw: face + 2.0, spin: 0.22 }); for (const a of [pw, tb, bk]) { play(a, 'throw', 1.5); lookAt(a, B); } F1.yank = true; }
+    if (t >= 8.35 && once('slam')) { vfxDustSlam(B.clone(), 2.2, 0); crack(B.clone(), 3.5); addShake(1.1); impactFrame(0.12); try { echoBass(true); } catch (err) { /* ok */ } if (cam) floatText('SLAM', B.clone().add(new THREE.Vector3(0, 3, 0)), 'big'); }
     // ...and pull one last time: the stitches rip open
-    if (t >= 8.3 && once('lean')) { for (const a of [pw, tb, bk]) play(a, 'haymaker', 1.3); }
-    if (t >= 8.5 && once('rip')) {
+    if (t >= 8.7 && once('lean')) { for (const a of [pw, tb, bk]) play(a, 'haymaker', 1.3); }
+    if (t >= 8.9 && once('rip')) {
       F1.rip = true; const c = B.clone().add(new THREE.Vector3(0, 1.3, 0));
       vfxStuffing(c, 90, 17); flash(c, 0xfff6e8, 8); ring(B.clone(), PYARN, 10, true); ring(c, 0xffffff, 6); ring(c, PYARN, 4); lightFlash(c, 0xffe8c8, 18); addShake(1.6); impactFrame(0.2);
       try { echoBass(true); } catch (err) { /* ok */ }
@@ -8373,10 +8391,10 @@ function vfxAllOfMe(owner, tg, base, fa, cb) {
       if (cb.onRip) cb.onRip();
     }
     // ===== 5. the three run back together into one Patch =====
-    if (t >= 9.2 && once('s6')) shot({ focus: () => P0.clone(), dur: 1.0, dist: 5, height: 1.4, yaw: face + 0.35, spin: 0.3 });
-    if (t >= 9.2) { const u = Math.min(1, (t - 9.2) / 0.55); for (const a of actors) { if (!a.from) { a.from = a.rig.root.position.clone(); lookAt(a, P0); play(a, 'm1a', 1); } a.rig.root.position.copy(a.from).lerp(P0, sm(u)); a.rig.root.position.y = gy + Math.sin(u * Math.PI) * 0.5; a.rig.root.scale.setScalar(Math.max(0.01, a.sc * (1 - u * u))); } if (u >= 1 && once('merged')) { vfxStuffing(P0.clone().add(new THREE.Vector3(0, 1.2, 0)), 24, 8); owner.ultHideT = 0; ring(P0.clone(), PYARN, 3, true); } }
+    if (t >= 9.6 && once('s6')) shot({ focus: () => P0.clone(), dur: 1.0, dist: 5, height: 1.4, yaw: face + 0.35, spin: 0.3 });
+    if (t >= 9.6) { const u = Math.min(1, (t - 9.6) / 0.55); for (const a of actors) { if (!a.from) { a.from = a.rig.root.position.clone(); lookAt(a, P0); play(a, 'm1a', 1); } a.rig.root.position.copy(a.from).lerp(P0, sm(u)); a.rig.root.position.y = gy + Math.sin(u * Math.PI) * 0.5; a.rig.root.scale.setScalar(Math.max(0.01, a.sc * (1 - u * u))); } if (u >= 1 && once('merged')) { vfxStuffing(P0.clone().add(new THREE.Vector3(0, 1.2, 0)), 24, 8); owner.ultHideT = 0; ring(P0.clone(), PYARN, 3, true); } }
     // pose the three of them
-    for (const a of actors) { let Pz = Object.assign({}, GUARD); if (a.anim) { a.anim.t += dt * a.anim.sp; Pz = sampleClip(CLIPS[a.anim.name] || CLIPS.pose, Math.min(a.anim.t, clipLen(CLIPS[a.anim.name] ? a.anim.name : 'pose'))); } applyRig(a.rig, Pz, dt, true); }
+    for (const a of actors) { let Pz = Object.assign({}, GUARD); if (a.run) Pz = a.run; else if (a.anim) { a.anim.t += dt * a.anim.sp; Pz = sampleClip(CLIPS[a.anim.name] || CLIPS.pose, Math.min(a.anim.t, clipLen(CLIPS[a.anim.name] ? a.anim.name : 'pose'))); } applyRig(a.rig, Pz, dt, true); }
     if (k >= 1) {
       for (const a of actors) scene.remove(a.rig.root);
       if (ball) scene.remove(ball); if (impaled) scene.remove(impaled); for (const r of ropes) dropRope(r); if (hand) scene.remove(hand);
@@ -8832,9 +8850,9 @@ function makePatchKit() {
     startMove('ulasso', 0.9, 'throw', { a: true, fired: false, caught: false, missed: false });
   }
   function startAllOfMe(d) {
-    const base = groundAt(d.pos.clone()), mv = startMove('allofme', 10.5, null, { a: true, lockPos: true, d, base, ripped: false });
-    faceToward(d.pos); player.iframes = 11; d.grabbed = 10.4; d.stun = 10.7; if (d.ai) d.ai.wind = 0;
-    if (d.remote) netSend({ t: 'seize', to: d.id, dur: 8.6, title: 'ALL OF ME', sub: 'Every one of me', quiet: true });
+    const base = groundAt(d.pos.clone()), mv = startMove('allofme', 10.9, null, { a: true, lockPos: true, d, base, ripped: false });
+    faceToward(d.pos); player.iframes = 11.4; d.grabbed = 10.8; d.stun = 11.1; if (d.ai) d.ai.wind = 0;
+    if (d.remote) netSend({ t: 'seize', to: d.id, dur: 9.0, title: 'ALL OF ME', sub: 'Every one of me', quiet: true });
     vfxAllOfMe(player, d, base, player.facing, {
       onWrap: () => floatText('WRAPPED', d.pos.clone().add(new THREE.Vector3(0, 3, 0)), 'ink'),
       onSqueeze: () => floatText('SQUEEZE', d.pos.clone().add(new THREE.Vector3(rv(0.6), 3, 0)), 'ink'),
