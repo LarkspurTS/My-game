@@ -8353,27 +8353,26 @@ function vfxAllOfMe(owner, tg, base, fa, cb) {
       }
     }
     // the leap and the cut play in slow motion for whoever is watching the cinematic (camera shots are timed in real seconds, so they run longer)
-    if (t >= 6.36 && cam && once('slow1')) slowMo(1.95, 0.4);
-    if (t >= 6.4 && once('leap')) { pw.run = null; play(pw, 'stab', 1.2); pw.leapFrom = pw.rig.root.position.clone(); vfxStuffing(pw.leapFrom.clone(), 14, 6); addShake(0.4); shot({ focus: () => focusTg(), dur: 1.45, dist: 11, height: -2.5, yaw: face + 1.25, spin: 0.08 }); }
-    if (F1.leap && !F1.stabbed) { const u = Math.min(1, (t - 6.4) / 0.55), to = tgPos(Math.min(t, 6.95)).add(new THREE.Vector3(0, -0.6, 0)).addScaledVector(F, -0.9); pw.rig.root.position.copy(pw.leapFrom).lerp(to, 1 - (1 - u) * (1 - u)); pw.rig.root.position.y += Math.sin(u * Math.PI) * 1.2; lookAt(pw, tgPos(t)); }
+    if (t >= 6.36 && cam && once('slow1')) slowMo(0.95, 0.4);
+    if (t >= 6.4 && once('leap')) { pw.run = null; play(pw, 'stab', 1.2); pw.leapFrom = pw.rig.root.position.clone(); vfxStuffing(pw.leapFrom.clone(), 14, 6); addShake(0.4); shot({ focus: () => focusTg(), dur: 1.1, dist: 11, height: -2.5, yaw: face + 1.25, spin: 0.08 }); }
+    if (F1.leap && !F1.stabbed) { const u = Math.min(1, (t - 6.4) / 0.32), aim = tgPos(t), to = aim.clone().add(new THREE.Vector3(0, -0.4, 0)).addScaledVector(F, -1.5); pw.rig.root.position.copy(pw.leapFrom).lerp(to, Math.pow(u, 1.5)); pw.rig.root.position.y += Math.sin(u * Math.PI) * 0.5; lookAt(pw, aim); if (Math.random() < 0.8) P({ tex: 'streak', color: 0xffffff, pos: pw.rig.root.position.clone().add(new THREE.Vector3(0, 1, 0)), vel: aim.clone().sub(pw.rig.root.position).normalize().multiplyScalar(-10), life: 0.2, s0: 0.8, s1: 0.1, stretch: 1.6, a: 0.7 }); }
     if (showCut) {
-      if (t >= 6.95 && once('blk')) ultSlashSet('on');
-      if (t >= 7.02 && once('cut')) { ultSlashSet('on cut'); ultShing(); }
-      if (t >= 7.32 && once('wf')) ultSlashSet('on cut flash');
-      if (t >= 7.38 && once('fd')) ultSlashSet('fade');
-      if (t >= 7.8 && once('clr')) ultSlashSet('');
+      if (t >= 6.72 && once('blk')) { ultSlashSet('on cut'); ultShing(); if (cam) slowT = 0; }
+      if (t >= 6.9 && once('wf')) ultSlashSet('on cut flash');
+      if (t >= 6.96 && once('fd')) ultSlashSet('fade');
+      if (t >= 7.4 && once('clr')) ultSlashSet('');
     }
-    if (t >= 7.1 && once('stabbed')) {
+    if (t >= 6.78 && once('stabbed')) {
       bigN.visible = false;
       const land = B.clone().addScaledVector(F, 3.4); land.y = gy; pw.rig.root.position.copy(land); pw.rig.root.rotation.y = face; play(pw, 'slash', 1.4);
-      impaled = makeNeedle(4.6, 0.1); impaled.position.copy(tgPos(7.1)).add(new THREE.Vector3(0, 1.25, 0));
+      impaled = makeNeedle(4.6, 0.1); impaled.position.copy(tgPos(6.78)).add(new THREE.Vector3(0, 1.25, 0));
       impaled.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), F.clone().add(new THREE.Vector3(0, -0.55, 0)).normalize()); scene.add(impaled);
       for (const a of [pw, tb, bk]) { const r = makeRope(16, PYARN, 0.035); r.owner = a; ropes.push(r); }
-      vfxStuffing(tgPos(7.1).add(new THREE.Vector3(0, 1.3, 0)).addScaledVector(F, 1.2), 22, 9);
+      vfxStuffing(tgPos(6.78).add(new THREE.Vector3(0, 1.3, 0)).addScaledVector(F, 1.2), 22, 9);
     }
-    if (t >= 7.38 && cam && once('slow2')) slowMo(1.25, 0.55);
-    if (t >= 7.38 && once('s4')) { shot({ focus: () => focusTg().lerp(pw.rig.root.position, 0.3), dur: 1.3, dist: 7.5, height: -1.5, yaw: face + Math.PI + 0.5, spin: 0.05 }); if (cam) floatText('STITCHED', tgPos(t).add(new THREE.Vector3(0, 3.2, 0)), 'big'); if (cb.onStab) cb.onStab(); }
-    if (t >= 7.38 && t < 8.05 && Math.random() < 0.9) { const c = tgPos(t).add(new THREE.Vector3(0, 1.2, 0)), d = new THREE.Vector3(rv(1), rv(1), rv(1)).normalize(); P({ tex: 'streak', color: 0xffffff, pos: c.clone().addScaledVector(d, 3 + Math.random() * 2), vel: d.multiplyScalar(-14), life: 0.18, s0: 0.9, s1: 0.2, stretch: 1.8, a: 0.6 }); }
+    if (t >= 6.96 && cam && once('slow2')) slowMo(1.3, 0.55);
+    if (t >= 6.96 && once('s4')) { shot({ focus: () => focusTg().lerp(pw.rig.root.position, 0.3), dur: 1.3, dist: 7.5, height: -1.5, yaw: face + Math.PI + 0.5, spin: 0.05 }); if (cam) floatText('STITCHED', tgPos(t).add(new THREE.Vector3(0, 3.2, 0)), 'big'); if (cb.onStab) cb.onStab(); }
+    if (t >= 6.96 && t < 8.05 && Math.random() < 0.9) { const c = tgPos(t).add(new THREE.Vector3(0, 1.2, 0)), d = new THREE.Vector3(rv(1), rv(1), rv(1)).normalize(); P({ tex: 'streak', color: 0xffffff, pos: c.clone().addScaledVector(d, 3 + Math.random() * 2), vel: d.multiplyScalar(-14), life: 0.18, s0: 0.9, s1: 0.2, stretch: 1.8, a: 0.6 }); }
     // the needle stays with them while they hang and fall
     if (impaled) { const ends = tgPos(t).add(new THREE.Vector3(0, 1.25, 0)); impaled.position.copy(ends); }
     const nEye = () => impaled ? impaled.localToWorld(new THREE.Vector3(0, 2.2, 0)) : tgPos(t), nTip = () => impaled ? impaled.localToWorld(new THREE.Vector3(0, -2.2, 0)) : tgPos(t);
