@@ -364,7 +364,7 @@ body.curtains #curL, body.curtains #curR { transform: translateX(0); }
 <div id="overlay">
   <div class="card scrap">
     <h1>Windstep Village</h1>
-    <div class="build">Build 52 · Rocks as before (no overlaps), fewer bushes · Pick your fighter</div>
+    <div class="build">Build 53 · Duck Dojo Island remade · Pick your fighter</div>
     <div class="roster" id="roster">
       <button class="fcard sel" data-id="juno" type="button"><span class="sw juno"></span><span class="fn">Juno Marrow</span><span class="fs">Ink · Hard</span></button>
       <button class="fcard" data-id="pip" type="button"><span class="sw pip"></span><span class="fn">Pip Hollow</span><span class="fs">Thread · Medium</span></button>
@@ -704,7 +704,7 @@ function rockAt(x, y, z, r, sx, sy, sz, shade) { ROCKS.list.push([x, y, z, r, sx
 // nothing on the bridge or its stone ends
 const NO_ROCK = [[11.4, 38.6, -23.5, -19.5]];
 function flushRocks() {
-  const structs = colliders.filter((b) => b.y1 > -30 && !b.wall && !b.rock && (b.x2 - b.x1) * (b.z2 - b.z1) < 400 && (b.y2 - b.y1) < 25 && !((b.x2 - b.x1) > 2.5 && (b.z2 - b.z1) < 1) && !((b.z2 - b.z1) > 2.5 && (b.x2 - b.x1) < 1));
+  const structs = colliders.filter((b) => b.y1 > -30 && !b.wall && !b.rock && !b.ground && (b.x2 - b.x1) * (b.z2 - b.z1) < 400 && (b.y2 - b.y1) < 25 && !((b.x2 - b.x1) > 2.5 && (b.z2 - b.z1) < 1) && !((b.z2 - b.z1) > 2.5 && (b.x2 - b.x1) < 1));
   ROCKS.list = ROCKS.list.filter(([x, y, z, r, sx, sy, sz]) => { const R = r * Math.max(sx, sz) * 0.8, top = y + r * sy * 0.8;
     if (NO_ROCK.some(([x1, x2, z1, z2]) => x + R > x1 && x - R < x2 && z + R > z1 && z - R < z2 && y - r * sy < T2 + 3)) return false;
     if (r > 0.95) return true;
@@ -719,7 +719,7 @@ function flushRocks() {
 // ---- bushes, moss, flowers: instanced too ----
 const FOL = { bush: [], moss: [], flower: [] };
 function flushFoliage() {
-  const structs = colliders.filter((b) => b.y1 > -30 && !b.wall && !b.rock && (b.x2 - b.x1) * (b.z2 - b.z1) < 400 && (b.y2 - b.y1) < 25 && !((b.x2 - b.x1) > 2.5 && (b.z2 - b.z1) < 1) && !((b.z2 - b.z1) > 2.5 && (b.x2 - b.x1) < 1));
+  const structs = colliders.filter((b) => b.y1 > -30 && !b.wall && !b.rock && !b.ground && (b.x2 - b.x1) * (b.z2 - b.z1) < 400 && (b.y2 - b.y1) < 25 && !((b.x2 - b.x1) > 2.5 && (b.z2 - b.z1) < 1) && !((b.z2 - b.z1) > 2.5 && (b.x2 - b.x1) < 1));
   const wet = (x, z, y) => (Math.abs(y - T2) < 1.5 && (((x - 25) / 8.9) ** 2 + ((z + 22.2) / 7.6) ** 2 < 1 || ((x - 9.5) / 3.9) ** 2 + ((z + 7) / 4.1) ** 2 < 1)) || (Math.abs(y - T3) < 1.5 && z > -49 && z < -29.4 && Math.abs(x - (25 + Math.sin(z * 0.32) * 1.1 - Math.max(0, (-38 - z) / 8.2) * 0.9)) < 3.4);
   const clear = ([x, y, z, r]) => { const R = r * 0.9; if (y < 30 && NO_ROCK.some(([x1, x2, z1, z2]) => x + R > x1 && x - R < x2 && z + R > z1 && z - R < z2)) return false; if (wet(x, z, y)) return false;
     return !structs.some((b) => x + R > b.x1 && x - R < b.x2 && z + R > b.z1 && z - R < b.z2 && y + r * 0.5 > b.y1 + 0.05 && y - r < b.y2); };
@@ -774,7 +774,8 @@ function curvedRoof(w, d, h, opts) {
     const x = P.getX(i), z = P.getZ(i), u = Math.abs(x) / (w / 2), v = Math.abs(z) / (d / 2), m = Math.max(u, v);
     // a ridge along the long side for a hip roof: flatten the middle
     const ridge = opts.ridge || 0, mm = w > d ? Math.max(Math.max(0, (Math.abs(x) - ridge / 2) / (w / 2 - ridge / 2)), v) : m;
-    let y = h * Math.pow(1 - mm, 1.45) + flare * Math.pow(u * v, 3) * 1.6 + flare * 0.25 * Math.pow(mm, 6);
+    const mc = Math.min(1, mm); // rounding can push the edge a hair past 1, and pow() of a negative is NaN
+    let y = h * Math.pow(1 - mc, 1.45) + flare * Math.pow(Math.min(1, u * v), 3) * 1.6 + flare * 0.25 * Math.pow(mc, 6);
     P.setY(i, y);
   }
   g.computeVertexNormals();
@@ -787,7 +788,7 @@ function addRoof(cx, y, cz, w, d, h, opts) {
   const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ map: tex, color: opts.color || 0xffffff, side: THREE.DoubleSide }));
   m.position.set(cx, y, cz); m.castShadow = true; m.receiveShadow = true; scene.add(m); camBlockers.push(m);
   // the edge of the roof: a thin dark fascia so it doesn't look paper-thin
-  const edge = new THREE.Mesh(new THREE.BoxGeometry(w + 0.1, 0.22, d + 0.1), M(0x2b2f38)); edge.position.set(cx, y + (opts.flare == null ? 0.5 : opts.flare) * 0.18, cz); edge.scale.set(1, 1, 1); scene.add(edge);
+  const edge = new THREE.Mesh(new THREE.BoxGeometry(w + 0.1, 0.22, d + 0.1), M(0x2b2f38)); edge.position.set(cx, y + (opts.edgeY != null ? opts.edgeY : (opts.flare == null ? 0.5 : opts.flare) * 0.18), cz); edge.scale.set(1, 1, 1); scene.add(edge);
   return m;
 }
 
@@ -807,9 +808,10 @@ tier(-45, -58, 45, -30, T3, C.grass);
 // Boundaries: rocky cliffs on three sides (rock chunks in front of a dark core); invisible walls keep everyone in
 {
   const rk = TM('rock', 14, 8, 0x6a655e), gr = TM('grass', 8, 16, 0xc8d8b4), coreM = [rk, rk, gr, rk, rk, rk];
-  addBox(-70, -40, -78, -48.4, 34, 50, coreM, { collide: false });
-  addBox(48.4, -40, -78, 70, 34, 50, coreM, { collide: false });
-  addBox(-70, -40, -86, 70, 44, -60.6, coreM, { collide: false });
+  const rkB = new THREE.MeshLambertMaterial({ map: rk.map, color: new THREE.Color(0x8a857c).convertSRGBToLinear(), emissive: new THREE.Color(0x3a3630).convertSRGBToLinear() }); rkB.userData.lin = true; const coreB = [rk, rk, gr, rk, rk, rkB];
+  addBox(-70, -40, -78, -48.4, 34, 50, coreB, { collide: false });
+  addBox(48.4, -40, -78, 70, 34, 50, coreB, { collide: false });
+  addBox(-70, -40, -86, 70, 44, -60.6, coreB, { collide: false });
   for (const [x1, y1, z1, x2, y2, z2] of [[-62, -40, -75, -45, 34, 50], [45, -40, -75, 62, 34, 50], [-62, -40, -78, 62, 44, -58]]) {
     colliders.push({ x1, y1, z1, x2, y2, z2 });
     const b = new THREE.Mesh(new THREE.BoxGeometry(x2 - x1, y2 - y1, z2 - z1)); b.position.set((x1 + x2) / 2, (y1 + y2) / 2, (z1 + z2) / 2); b.visible = false; scene.add(b); camBlockers.push(b);
@@ -10518,19 +10520,47 @@ function makeToyDuck(sc, kind) {
 const ISLAND = { ducks: [], dojoDummies: [], steamT: 0 };
 {
   const A = ISL, Y = A.y;
-  // the floating ground, rocky underside and little satellite rocks
-  const top = new THREE.Mesh(new THREE.CylinderGeometry(ISL_R, ISL_R * 0.97, 2, 64), TM('grass', 14, 14, 0x9ab86a)); top.position.set(A.x, Y - 1, A.z); top.receiveShadow = true; scene.add(top); camBlockers.push(top);
-  const rim = new THREE.Mesh(new THREE.CylinderGeometry(ISL_R * 0.97, ISL_R * 0.9, 3, 48), TM('rock', 10, 1, 0x9a8f80)); rim.position.set(A.x, Y - 3.5, A.z); scene.add(rim);
-  const under = new THREE.Mesh(new THREE.ConeGeometry(ISL_R * 0.9, 34, 14), TM('rock', 8, 4, 0x8a8278)); under.rotation.x = Math.PI; under.position.set(A.x, Y - 22, A.z); scene.add(under);
-  for (let i = 0; i < 9; i++) { const a = i / 9 * PI2, r = 10 + (i % 3) * 8; const m = new THREE.Mesh(new THREE.ConeGeometry(2 + (i % 3), 9 + (i % 4) * 3, 6), TM('rock', 2, 2, 0x8a8278)); m.rotation.x = Math.PI; m.position.set(A.x + Math.cos(a) * r, Y - 12 - (i % 3) * 4, A.z + Math.sin(a) * r); scene.add(m); }
+  // the floating ground: a grassy top with a ragged edge, a lip of earth and dangling roots, then a craggy rock underside
+  const IR = (a) => ISL_R + 1.25 + Math.sin(a * 5 + 1.3) * 0.65 + Math.sin(a * 11 + 0.4) * 0.4 + Math.sin(a * 23 + 2) * 0.18;
+  const topGeo = (rf, segs) => { const sh = new THREE.Shape(); for (let i = 0; i <= segs; i++) { const a = i / segs * TAU, r = rf(a); if (i) sh.lineTo(Math.cos(a) * r, -Math.sin(a) * r); else sh.moveTo(Math.cos(a) * r, -Math.sin(a) * r); }
+    const g = new THREE.ShapeGeometry(sh, 2); g.rotateX(-Math.PI / 2); const P = g.attributes.position, U = g.attributes.uv, rm = rf(0) * 2; for (let i = 0; i < P.count; i++) U.setXY(i, P.getX(i) / rm + 0.5, P.getZ(i) / rm + 0.5); return g; };
+  // rings that narrow as they go down, each pushed in and out, so it reads as rock and never as a perfect cone
+  const cragGeo = (rf, H, sd, segs, lip) => {
+    const prof = [0, 0, 0, 0.16, 0.29, 0.44, 0.6, 0.77, 0.91, 1], wid = [1, 0.99, 0.95, 0.88, 0.77, 0.62, 0.45, 0.27, 0.12, 0.02];
+    const pos = [], uv = [], col = [], idx = [], W = segs + 1, cG = _lc(0x86a456), cE = _lc(0x7a5a3c), cR = _lc(0xc2b6a2), c = new THREE.Color(), circ = Math.max(1, Math.round(rf(0) * TAU / 7));
+    for (let j = 0; j < prof.length; j++) for (let i = 0; i <= segs; i++) {
+      const a = (i % segs) / segs * TAU, n = j < 2 ? 0 : Math.sin(a * 7 + sd + j * 1.7) * 0.07 + Math.sin(a * 13 + sd * 2.3 + j) * 0.045 + Math.sin(a * 3 + sd * 0.7 + j * 0.5) * 0.08;
+      const r = rf(a) * wid[j] * (1 + n), y = j === 1 ? -0.55 * lip : j === 2 ? -2 * lip : -H * prof[j] * (1 + Math.sin(a * 4 + sd) * 0.07);
+      pos.push(Math.cos(a) * r, y, Math.sin(a) * r); uv.push(i / segs * circ, y / 7);
+      const sh = 0.82 + Math.sin(a * 9 + j * 2.1 + sd) * 0.1 + Math.sin(a * 23 + j * 5.3) * 0.06;
+      if (j < 2) c.copy(cG); else if (j === 2) c.copy(cE); else c.copy(cR).multiplyScalar(sh);
+      col.push(c.r, c.g, c.b);
+    }
+    for (let j = 0; j < prof.length - 1; j++) for (let i = 0; i < segs; i++) { const a = j * W + i, b = a + 1, cc = a + W, d = cc + 1; idx.push(a, b, cc, b, d, cc); }
+    let g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setIndex(idx);
+    g = g.toNonIndexed(); g.computeVertexNormals(); return g;
+  };
+  const cragM = new THREE.MeshLambertMaterial({ map: TM('rock', 1, 1).map, vertexColors: true, emissive: new THREE.Color(0x4a4238).convertSRGBToLinear() }); cragM.userData.lin = true;
+  const top = new THREE.Mesh(topGeo(IR, 160), TM('grass', 14, 14, 0x9ab86a)); top.position.set(A.x, Y, A.z); top.receiveShadow = true; scene.add(top); camBlockers.push(top);
+  const under = new THREE.Mesh(cragGeo(IR, 34, 1.7, 96, 1), cragM); under.position.set(A.x, Y, A.z); under.receiveShadow = true; scene.add(under);
+  // smaller crags hanging off the underside
+  for (let i = 0; i < 7; i++) { const a = i / 7 * TAU + 0.5, r = 14 + (i % 3) * 4.5, s = 3.2 + (i % 3) * 1.1, sd = i * 1.9 + 0.3;
+    const g = new THREE.Mesh(cragGeo((q) => s * (1 + Math.sin(q * 3 + sd) * 0.15), 9 + (i % 3) * 4, sd, 20, 0.2), cragM); g.position.set(A.x + Math.cos(a) * r, Y - 9 - (i % 3) * 2.5, A.z + Math.sin(a) * r); scene.add(g); }
+  // roots and vines dangling over the edge
+  { const parts = [], cs = [_lc(0x5a4130), _lc(0x4a3626), _lc(0x6f8f45), _lc(0x5d7d3a)];
+    for (let i = 0; i < 110; i++) { const a = (i + mrand() * 0.8) / 110 * TAU, r = IR(a) * 0.985 - 0.05, len = 0.7 + mrand() * 2.6, th = 0.05 + mrand() * 0.06;
+      parts.push({ geo: new THREE.CylinderGeometry(th * 0.35, th, len, 4), m: _mx4(A.x + Math.cos(a) * r, Y - 0.45 - len / 2, A.z + Math.sin(a) * r, (mrand() - 0.5) * 0.18, 0, (mrand() - 0.5) * 0.18), c: cs[i % 4] }); }
+    const roots = new THREE.Mesh(mergeParts(parts), new THREE.MeshLambertMaterial({ vertexColors: true })); roots.material.userData.lin = true; scene.add(roots); }
+  // little satellite islets drifting around it
   for (let i = 0; i < 5; i++) {
-    const a = i / 5 * PI2 + 0.4, r = ISL_R + 14 + (i % 2) * 8, x = A.x + Math.cos(a) * r, z = A.z + Math.sin(a) * r, y = Y - 6 + (i % 3) * 5, s = 3 + (i % 3) * 1.5;
-    const t2 = new THREE.Mesh(new THREE.CylinderGeometry(s, s * 0.9, 1, 16), TM('grass', 2, 2, 0x9ab86a)); t2.position.set(x, y, z); scene.add(t2);
-    const u = new THREE.Mesh(new THREE.ConeGeometry(s * 0.9, s * 2.5, 8), TM('rock', 2, 2, 0x8a8278)); u.rotation.x = Math.PI; u.position.set(x, y - s * 1.25 - 0.5, z); scene.add(u);
-    if (i % 2 === 0) { const tr = makeTree(0.8); tr.position.set(x, y + 0.5, z); scene.add(tr); }
+    const a = i / 5 * TAU + 0.4, r = ISL_R + 14 + (i % 2) * 8, x = A.x + Math.cos(a) * r, z = A.z + Math.sin(a) * r, y = Y - 6 + (i % 3) * 5, s = 3 + (i % 3) * 1.5, sd = i * 2.7 + 1;
+    const rf = (q) => s * (1.05 + Math.sin(q * 3 + sd) * 0.1 + Math.sin(q * 7 + sd * 2) * 0.05);
+    const t2 = new THREE.Mesh(topGeo(rf, 40), TM('grass', 2, 2, 0x9ab86a)); t2.position.set(x, y, z); t2.receiveShadow = true; scene.add(t2);
+    const u = new THREE.Mesh(cragGeo(rf, s * 2.6, sd, 28, 0.3), cragM); u.position.set(x, y, z); scene.add(u);
+    if (i % 2 === 0) pine(x, y, z, 0.75); else { bush(x + 0.4, y, z - 0.3, 1.1); rockAt(x - 0.8, y + 0.1, z + 0.6, 0.45, 1.2, 0.6, 1.1); }
   }
   // walkable ground (strips that follow the circle) and an invisible fence at the edge
-  for (let z = -ISL_R; z < ISL_R; z += 2) { const zm = Math.min(Math.abs(z), Math.abs(z + 2)), hw = Math.sqrt(Math.max(0, ISL_R * ISL_R - zm * zm)); colliders.push({ x1: A.x - hw, y1: Y - 3, z1: A.z + z, x2: A.x + hw, y2: Y, z2: A.z + z + 2 }); }
+  for (let z = -ISL_R; z < ISL_R; z += 2) { const zm = Math.min(Math.abs(z), Math.abs(z + 2)), hw = Math.sqrt(Math.max(0, ISL_R * ISL_R - zm * zm)); colliders.push({ x1: A.x - hw, y1: Y - 3, z1: A.z + z, x2: A.x + hw, y2: Y, z2: A.z + z + 2, ground: true }); }
   for (let i = 0; i < 96; i++) { const a = i / 96 * PI2, x = A.x + Math.cos(a) * (ISL_R + 1.2), z = A.z + Math.sin(a) * (ISL_R + 1.2); colliders.push({ x1: x - 1.6, y1: Y - 3, z1: z - 1.6, x2: x + 1.6, y2: Y + 14, z2: z + 1.6 }); }
   for (let i = 0; i < 40; i++) { const a = i / 40 * PI2, x = A.x + Math.cos(a) * (ISL_R - 0.6), z = A.z + Math.sin(a) * (ISL_R - 0.6); deco(new THREE.CylinderGeometry(0.12, 0.14, 1.1, 6), M(C.wood), x, Y + 0.55, z); }
   for (let i = 0; i < 40; i++) { const a0 = i / 40 * PI2, a1 = (i + 1) / 40 * PI2, r = ISL_R - 0.6; const x0 = A.x + Math.cos(a0) * r, z0 = A.z + Math.sin(a0) * r, x1 = A.x + Math.cos(a1) * r, z1 = A.z + Math.sin(a1) * r; const rail = deco(new THREE.BoxGeometry(0.1, 0.1, Math.hypot(x1 - x0, z1 - z0)), M(C.wood), (x0 + x1) / 2, Y + 0.95, (z0 + z1) / 2); rail.lookAt(x1, Y + 0.95, z1); }
@@ -10538,27 +10568,53 @@ const ISLAND = { ducks: [], dojoDummies: [], steamT: 0 };
   plane(A.x - 2, DOJO.z2, A.x + 2, A.z + 30, Y + 0.03, TM('tiles', 2, 18, 0xcfc6b6));
   plane(A.x - 2, A.z - 2, A.x + 2, A.z + 2, Y + 0.035, TM('tiles', 2, 2, 0xcfc6b6));
   plane(A.x + 2, A.z + 4, SPRING.x - 3, A.z + 8, Y + 0.03, TM('tiles', 8, 2, 0xcfc6b6));
-  plane(POND.x + 6, A.z + 5, A.x - 2, A.z + 9, Y + 0.03, TM('tiles', 6, 2, 0xcfc6b6));
+  plane(POND.x + POND_R + 0.6, A.z + 5, A.x - 2, A.z + 9, Y + 0.03, TM('tiles', 6, 2, 0xcfc6b6));
   [[-3, 20], [3, 20], [-3, 12], [3, 12], [-3, 4], [3, 4]].forEach(([dx, dz]) => stoneLantern(A.x + dx, Y, A.z + dz));
 
   // ---- the Duck Dojo ----
-  const D = DOJO, H = 5.2, wall = TM('shoji', 6, 2, 0xf3ead6), wood = M(C.woodDark);
+  const D = DOJO, H = 5.2, wall = TM('shoji', 6, 2, 0xf3ead6), wood = M(C.woodDark), plaster = new THREE.MeshLambertMaterial({ map: artTex('plaster') }), cz = (D.z1 + D.z2) / 2;
   plane(D.x1, D.z1, D.x2, D.z2, Y + 0.04, TM('planks', 6, 5, 0xc9a86a));
   const TATAMI = canvasTex(256, (g, S) => { g.fillStyle = '#c9c48a'; g.fillRect(0, 0, S, S); g.strokeStyle = 'rgba(90,80,40,.25)'; for (let i = 0; i < S; i += 4) { g.beginPath(); g.moveTo(0, i); g.lineTo(S, i); g.stroke(); } g.fillStyle = '#3a5a3a'; g.fillRect(0, 0, S, 10); g.fillRect(0, S - 10, S, 10); });
   TATAMI.wrapS = TATAMI.wrapT = THREE.RepeatWrapping; TATAMI.repeat.set(4, 3);
   plane(D.x1 + 1, D.z1 + 1, D.x2 - 1, D.z2 - 2, Y + 0.06, new THREE.MeshLambertMaterial({ map: TATAMI }));
-  addBox(D.x1, Y, D.z1, D.x2, Y + H, D.z1 + 0.5, wall);
-  addBox(D.x1, Y, D.z1, D.x1 + 0.5, Y + H, D.z2, wall);
-  addBox(D.x2 - 0.5, Y, D.z1, D.x2, Y + H, D.z2, wall);
+  addBox(D.x1, Y, D.z1, D.x2, Y + H, D.z1 + 0.5, plaster);
+  addBox(D.x1, Y, D.z1, D.x1 + 0.5, Y + H, D.z2, plaster);
+  addBox(D.x2 - 0.5, Y, D.z1, D.x2, Y + H, D.z2, plaster);
   addBox(D.x1, Y, D.z2 - 0.5, A.x - 3, Y + H, D.z2, wall);
   addBox(A.x + 3, Y, D.z2 - 0.5, D.x2, Y + H, D.z2, wall);
   addBox(A.x - 3, Y + 4, D.z2 - 0.5, A.x + 3, Y + H, D.z2, wall);
-  for (const [x, z] of [[D.x1, D.z1], [D.x2, D.z1], [D.x1, D.z2], [D.x2, D.z2], [A.x - 3, D.z2], [A.x + 3, D.z2]]) deco(new THREE.BoxGeometry(0.7, H + 0.4, 0.7), wood, x, Y + (H + 0.4) / 2, z);
-  deco(new THREE.BoxGeometry(D.x2 - D.x1 + 0.8, 0.4, 0.8), wood, A.x, Y + H, D.z2); deco(new THREE.BoxGeometry(D.x2 - D.x1 + 0.8, 0.4, 0.8), wood, A.x, Y + H, D.z1);
-  const roof = new THREE.Mesh(new THREE.ConeGeometry(1, 1, 4), TM('roof', 6, 3, 0xe0b8b0)); roof.rotation.y = Math.PI / 4; roof.scale.set((D.x2 - D.x1) * 0.82, 4.2, (D.z2 - D.z1) * 0.82); roof.position.set(A.x, Y + H + 2.1, (D.z1 + D.z2) / 2); roof.castShadow = true; scene.add(roof); camBlockers.push(roof);
-  deco(new THREE.BoxGeometry(1.2, 0.5, 1.2), M(C.gold, { emissive: 0x3a2400 }), A.x, Y + H + 4.3, (D.z1 + D.z2) / 2);
+  // stone footing all round, then the timber frame: posts, sill and head beams (the front ones stop at the door)
+  for (const [x1, z1, x2, z2] of [[D.x1 - 0.25, D.z1 - 0.25, D.x2 + 0.25, D.z1 + 0.15], [D.x1 - 0.25, D.z2 - 0.15, A.x - 3, D.z2 + 0.25], [A.x + 3, D.z2 - 0.15, D.x2 + 0.25, D.z2 + 0.25], [D.x1 - 0.25, D.z1, D.x1 + 0.15, D.z2], [D.x2 - 0.15, D.z1, D.x2 + 0.25, D.z2]])
+    deco(new THREE.BoxGeometry(x2 - x1, 0.32, z2 - z1), M(C.stoneDark), (x1 + x2) / 2, Y + 0.16, (z1 + z2) / 2);
+  const fw = D.x2 - D.x1, fd = D.z2 - D.z1;
+  for (let k = 0; k <= 6; k++) { const x = D.x1 + k * fw / 6; deco(new THREE.BoxGeometry(0.36, H, 0.36), wood, x, Y + H / 2, D.z1); if (Math.abs(x - A.x) > 2) deco(new THREE.BoxGeometry(0.36, H, 0.36), wood, x, Y + H / 2, D.z2); }
+  for (let k = 1; k < 5; k++) { const z = D.z1 + k * fd / 5; deco(new THREE.BoxGeometry(0.36, H, 0.36), wood, D.x1, Y + H / 2, z); deco(new THREE.BoxGeometry(0.36, H, 0.36), wood, D.x2, Y + H / 2, z); }
+  for (const x of [A.x - 3, A.x + 3]) deco(new THREE.BoxGeometry(0.42, H, 0.42), wood, x, Y + H / 2, D.z2);
+  for (const [y, t] of [[0.42, 0.3], [3.45, 0.24], [H - 0.15, 0.32]]) {
+    deco(new THREE.BoxGeometry(fw + 0.4, t, 0.4), wood, A.x, Y + y, D.z1 - 0.02);
+    deco(new THREE.BoxGeometry(0.4, t, fd + 0.4), wood, D.x1 - 0.02, Y + y, cz); deco(new THREE.BoxGeometry(0.4, t, fd + 0.4), wood, D.x2 + 0.02, Y + y, cz);
+    if (y > 4) deco(new THREE.BoxGeometry(fw + 0.4, t, 0.4), wood, A.x, Y + y, D.z2 + 0.02);
+    else for (const sx of [-1, 1]) { const w = (fw / 2 - 3) + 0.2; deco(new THREE.BoxGeometry(w, t, 0.4), wood, A.x + sx * (3 + w / 2 - 0.2), Y + y, D.z2 + 0.02); }
+  }
+  deco(new THREE.BoxGeometry(6.4, 0.3, 0.42), wood, A.x, Y + 4.05, D.z2 + 0.02);
+  // the roof: a wide curved hip roof, a small plaster drum, an upper tier, the ridge, and a golden duck on top
+  addRoof(A.x, Y + H + 0.2, cz, fw * 1.3, fd * 1.3, 3.0, { flare: 0.65, ridge: Math.max(0, (fw - fd) * 0.9), color: 0xf0d6cc, edgeY: -0.13 });
+  addBox(A.x - 5.5, Y + H + 2.0, cz - 4, A.x + 5.5, Y + H + 3.3, cz + 4, plaster, { collide: false });
+  addRoof(A.x, Y + H + 3.2, cz, 14, 11, 2.0, { flare: 0.55, ridge: 3, color: 0xf0d6cc, edgeY: -0.13 });
+  deco(new THREE.BoxGeometry(5, 0.35, 0.5), M(0x22252c), A.x, Y + H + 5.3, cz);
+  { const gd = makeToyDuck(1.4, 'gold'); gd.position.set(A.x, Y + H + 5.45, cz); scene.add(gd); }
+  // red paper lanterns by the door and a curtain with a duck on it
+  for (const x of [A.x - 4.2, A.x + 4.2]) { deco(new THREE.CylinderGeometry(0.05, 0.05, 0.6, 6), wood, x, Y + H - 0.2, D.z2 + 0.45);
+    const ln = deco(new THREE.SphereGeometry(0.4, 14, 10), M(0xc8322a, { emissive: 0x5a1008 }), x, Y + H - 0.85, D.z2 + 0.45); ln.scale.set(1, 1.3, 1);
+    for (const dy of [-0.52, 0.52]) deco(new THREE.CylinderGeometry(0.22, 0.22, 0.1, 10), M(0x1a1a1a), x, Y + H - 0.85 + dy, D.z2 + 0.45); }
+  { const cv = document.createElement('canvas'); cv.width = 128; cv.height = 64; const g = cv.getContext('2d'); g.fillStyle = '#2a3a66'; g.fillRect(0, 0, 128, 64);
+    g.fillStyle = '#f2ead6'; g.beginPath(); g.arc(64, 30, 17, 0, TAU); g.fill(); g.fillStyle = '#f2c230'; g.beginPath(); g.ellipse(62, 35, 10, 6.5, 0, 0, TAU); g.fill(); g.beginPath(); g.arc(70, 26, 5, 0, TAU); g.fill();
+    g.fillStyle = '#e8762a'; g.beginPath(); g.moveTo(74, 25); g.lineTo(80, 27); g.lineTo(74, 29); g.fill(); g.fillStyle = '#1a1a1a'; g.fillRect(70, 24, 2, 2);
+    g.fillStyle = 'rgba(0,0,0,.35)'; for (const x of [42, 85]) g.fillRect(x, 0, 2, 64);
+    const nm = new THREE.MeshLambertMaterial({ map: new THREE.CanvasTexture(cv), side: THREE.DoubleSide }); patchSway(nm, 'flag');
+    const noren = new THREE.Mesh(new THREE.PlaneGeometry(5.6, 1.3, 12, 4), nm); noren.position.set(A.x, Y + 3.3, D.z2 - 0.25); scene.add(noren); }
   const sign = canvasTex(256, (g, S) => { g.fillStyle = '#2a1c14'; g.fillRect(0, 0, S, S); g.strokeStyle = '#d9a23a'; g.lineWidth = 10; g.strokeRect(8, 8, S - 16, S - 16); g.fillStyle = '#f4e2b0'; g.font = 'bold 54px Georgia, serif'; g.textAlign = 'center'; g.fillText('DUCK', S / 2, 104); g.fillText('DOJO', S / 2, 168); });
-  const sg = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 1.7), new THREE.MeshBasicMaterial({ map: sign })); sg.position.set(A.x, Y + 4.6, D.z2 + 0.05); sg.scale.y = 0.5; scene.add(sg);
+  const sg = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 1.7), new THREE.MeshBasicMaterial({ map: sign })); sg.position.set(A.x, Y + 4.55, D.z2 + 0.27); sg.scale.y = 0.5; scene.add(sg);
   const banner = new THREE.Mesh(new THREE.PlaneGeometry(3, 4.2), M(0xb8352b)); banner.position.set(A.x, Y + 2.8, D.z1 + 0.55); scene.add(banner);
   const duckArt = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 2.6), new THREE.MeshBasicMaterial({ map: DUCKTEX, transparent: true })); duckArt.position.set(A.x, Y + 3, D.z1 + 0.57); scene.add(duckArt);
   stoneLantern(A.x - 4.5, Y, D.z2 + 1.5); stoneLantern(A.x + 4.5, Y, D.z2 + 1.5);
@@ -10580,18 +10636,30 @@ const ISLAND = { ducks: [], dojoDummies: [], steamT: 0 };
   }
 
   // ---- the duck pond ----
-  const water = new THREE.Mesh(new THREE.CircleGeometry(POND_R, 48), new THREE.MeshStandardMaterial({ color: 0x5bb0d4, roughness: 0.15, metalness: 0.1, transparent: true, opacity: 0.85 }));
-  water.rotation.x = -Math.PI / 2; water.position.copy(POND).add(new THREE.Vector3(0, 0.05, 0)); scene.add(water); ISLAND.pond = water;
-  for (let i = 0; i < 26; i++) { const a = i / 26 * PI2, r = POND_R + 0.3; deco(new THREE.DodecahedronGeometry(0.35 + (i % 3) * 0.15, 0), M(i % 2 ? C.rock : C.rockDark), POND.x + Math.cos(a) * r, Y + 0.15, POND.z + Math.sin(a) * r); }
+  // a rounded pond with a sandy edge and a deeper middle; stones lie along the shore in uneven runs, with gaps
+  { const sg = new THREE.ShapeGeometry(blobShape(POND.x, POND.z, POND_R + 0.85, POND_R * 0.9 + 0.85, 2.4, 0.07), 24); sg.rotateX(-Math.PI / 2);
+    const shore = new THREE.Mesh(sg, TM('dirt', 0.3, 0.3, 0xe2d2a8)); shore.position.y = Y + 0.015; shore.receiveShadow = true; scene.add(shore); }
+  ISLAND.pond = waterSurface(blobShape(POND.x, POND.z, POND_R, POND_R * 0.9, 2.4, 0.07), Y + 0.06, 0x4f9cc4, { bed: 0x1f4a5e });
+  waterSurface(blobShape(POND.x - 0.6, POND.z + 0.3, POND_R * 0.55, POND_R * 0.45, 3.3, 0.12), Y + 0.045, 0x3a80aa, { bed: 0x163a4c });
+  for (let i = 0; i < 40; i++) { const a = i / 40 * TAU, k = 1 + (Math.sin(a * 3 + 2.4) * 0.5 + Math.sin(a * 5 + 2.4 * 2.1) * 0.3) * 0.07, x = POND.x + Math.cos(a) * POND_R * k * 1.03, z = POND.z + Math.sin(a) * POND_R * 0.9 * k * 1.03;
+    if (Math.cos(a) > 0.86) continue; if (Math.sin(a * 2.3 + 1.1) > 0.55) continue; rockAt(x, Y + 0.1, z, 0.3 + mrand() * 0.4, 1.2, 0.55, 1.2); }
+  [[2.6, 1.0], [3.9, 0.85], [5.3, 0.75]].forEach(([a, r]) => { const x = POND.x + Math.cos(a) * (POND_R + 0.6), z = POND.z + Math.sin(a) * (POND_R * 0.9 + 0.6); rockAt(x, Y + r * 0.4, z, r, 1.15, 0.7, 1.05, 0.95); });
   for (let i = 0; i < 7; i++) { const a = i * 1.7, r = 2 + (i % 3) * 1.6; const lp = new THREE.Mesh(new THREE.CircleGeometry(0.55, 14, 0.3, PI2 - 0.6), M(0x4f9a3a, { side: THREE.DoubleSide })); lp.rotation.x = -Math.PI / 2; lp.position.set(POND.x + Math.cos(a) * r, Y + 0.08, POND.z + Math.sin(a) * r); scene.add(lp); if (i % 2 === 0) deco(new THREE.SphereGeometry(0.14, 8, 6), M(0xf2b8c6), lp.position.x, Y + 0.16, lp.position.z); }
-  for (let i = 0; i < 14; i++) { const a = i * 0.45 + 2.2, r = POND_R - 0.4; const x = POND.x + Math.cos(a) * r, z = POND.z + Math.sin(a) * r; deco(new THREE.CylinderGeometry(0.03, 0.03, 1.6, 4), M(0x5f7f34), x, Y + 0.8, z); deco(new THREE.CylinderGeometry(0.07, 0.07, 0.35, 6), M(0x6b4424), x, Y + 1.5, z); }
+  // cattails in three clumps on the far side
+  for (const [ca, n] of [[2.2, 6], [3.3, 5], [4.5, 4]]) for (let i = 0; i < n; i++) { const a = ca + (mrand() - 0.5) * 0.32, rr2 = 0.84 + (mrand() - 0.5) * 0.1, h = 1.1 + mrand() * 0.8, x = POND.x + Math.cos(a) * POND_R * rr2, z = POND.z + Math.sin(a) * POND_R * 0.9 * rr2;
+    deco(new THREE.CylinderGeometry(0.025, 0.035, h, 4), M(0x5f7f34), x, Y + h / 2, z, { cast: false }); deco(new THREE.CylinderGeometry(0.07, 0.07, 0.35, 6), M(0x6b4424), x, Y + h - 0.1, z, { cast: false }); }
   const kinds = ['mallard', 'mallard', 'white', 'mallard', 'baby', 'baby', 'baby'];
   kinds.forEach((k, i) => { const dk = makeToyDuck(k === 'baby' ? 0.55 : 0.95, k); scene.add(dk); ISLAND.ducks.push({ g: dk, a: i * 0.9, r: 2 + (i % 4) * 1.1, sp: (0.25 + (i % 3) * 0.08) * (i % 2 ? 1 : -1), baby: k === 'baby', ph: i }); });
 
   // ---- the hot spring ----
-  const hw = new THREE.Mesh(new THREE.CircleGeometry(SPRING_R, 40), new THREE.MeshStandardMaterial({ color: 0x7fd6cf, roughness: 0.2, emissive: 0x1a5a56, emissiveIntensity: 0.4, transparent: true, opacity: 0.8 }));
-  hw.rotation.x = -Math.PI / 2; hw.position.copy(SPRING).add(new THREE.Vector3(0, 0.35, 0)); scene.add(hw); ISLAND.spring = hw;
-  for (let i = 0; i < 18; i++) { const a = i / 18 * PI2, r = SPRING_R + 0.35; deco(new THREE.DodecahedronGeometry(0.5 + (i % 3) * 0.15, 0), M(i % 2 ? 0x8a8278 : 0x6f6a64), SPRING.x + Math.cos(a) * r, Y + 0.35, SPRING.z + Math.sin(a) * r); }
+  // a rounded, steaming pool; a rim of stones of every size, bigger boulders at the back, a wooden bucket by the path
+  ISLAND.spring = waterSurface(blobShape(SPRING.x, SPRING.z, SPRING_R, SPRING_R * 0.92, 4.1, 0.08), Y + 0.35, 0x5fc4b6, { bed: 0x2a6e6a });
+  for (let i = 0; i < 24; i++) { const a = (i + (mrand() - 0.5) * 0.5) / 24 * TAU, k = 1 + (Math.sin(a * 3 + 4.1) * 0.5 + Math.sin(a * 5 + 4.1 * 2.1) * 0.3) * 0.08, rr2 = 1.04 + mrand() * 0.08;
+    const r = 0.42 + mrand() * 0.32 + (Math.sin(a) < -0.3 ? 0.12 : 0); rockAt(SPRING.x + Math.cos(a) * SPRING_R * k * rr2, Y + 0.28, SPRING.z + Math.sin(a) * SPRING_R * 0.92 * k * rr2, r, 1.15, 0.75, 1.15, 0.65 + mrand() * 0.2); }
+  [[-0.45, 1.35], [-1.05, 1.1], [-1.75, 0.95]].forEach(([a, r]) => rockAt(SPRING.x + Math.cos(a) * (SPRING_R + 1.0), Y + r * 0.45, SPRING.z + Math.sin(a) * (SPRING_R + 1.0), r, 1.1, 0.85, 1.05, 0.75));
+  { const bk = new THREE.Group(); bk.position.set(SPRING.x + 2.4, Y, SPRING.z + 4.4); scene.add(bk);
+    const tub = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.27, 0.42, 12, 1, true), M(0x9a6b3e, { side: THREE.DoubleSide })); tub.position.y = 0.21; bk.add(tub);
+    [0.08, 0.34].forEach((y) => { const b = new THREE.Mesh(new THREE.TorusGeometry(0.31, 0.025, 4, 14), M(0x3a3a3a)); b.rotation.x = Math.PI / 2; b.position.y = y; bk.add(b); }); }
   for (let i = 0; i < 9; i++) { const a = i / 9 * Math.PI + 0.3; const x = SPRING.x + Math.cos(a) * (SPRING_R + 2.4), z = SPRING.z - Math.sin(a) * (SPRING_R + 2.4); deco(new THREE.CylinderGeometry(0.08, 0.1, 3.4 + (i % 3) * 0.6, 6), M(i % 2 ? C.bamboo : C.bambooDark), x, Y + 1.8, z); }
   stoneLantern(SPRING.x + 4.6, Y, SPRING.z + 2.5);
   const sp = canvasTex(256, (g, S) => { g.fillStyle = '#2a1c14'; g.fillRect(0, 0, S, S); g.fillStyle = '#f4e2b0'; g.font = 'bold 40px Georgia, serif'; g.textAlign = 'center'; g.fillText('HOT', S / 2, 110); g.fillText('SPRING', S / 2, 160); });
@@ -10605,17 +10673,22 @@ const ISLAND = { ducks: [], dojoDummies: [], steamT: 0 };
   portal.position.set(GATE.x, Y + 2.3, GATE.z); scene.add(portal); ISLAND.portal = portal;
 
   // ---- trees, grass, flowers, rocks ----
-  const free = (x, z) => { const p = new THREE.Vector3(x, Y, z); if (Math.hypot(x - A.x, z - A.z) > ISL_R - 2.5) return false; if (x > DOJO.x1 - 1.5 && x < DOJO.x2 + 1.5 && z > DOJO.z1 - 1.5 && z < DOJO.z2 + 2.5) return false; if (p.distanceTo(POND) < POND_R + 1.2 || p.distanceTo(SPRING) < SPRING_R + 3) return false; if (Math.abs(x - A.x) < 3 && z > DOJO.z2) return false; if (p.distanceTo(GATE) < 5) return false; return true; };
+  const free = (x, z) => { const p = new THREE.Vector3(x, Y, z); if (Math.hypot(x - A.x, z - A.z) > ISL_R - 2.5) return false; if (x > DOJO.x1 - 1.5 && x < DOJO.x2 + 1.5 && z > DOJO.z1 - 1.5 && z < DOJO.z2 + 2.5) return false; if (p.distanceTo(POND) < POND_R + 1.4 || p.distanceTo(SPRING) < SPRING_R + 3) return false; if (Math.abs(x - A.x) < 3 && z > DOJO.z2) return false; if (p.distanceTo(GATE) < 5) return false; if (z > A.z + 3.4 && z < A.z + 9.6 && x > POND.x + POND_R && x < SPRING.x - 2.5) return false; return true; };
   let sd = 3; const rr = () => { sd = (sd * 16807) % 2147483647; return (sd - 1) / 2147483646; };
   const treeSpots = [[-26, -12], [-24, 18], [24, -14], [27, 17], [-14, 24], [13, 25], [-30, 2], [30, -2], [-18, -24], [18, -24], [8, 14], [-8, 16]];
-  treeSpots.forEach(([dx, dz], i) => { if (i % 2) tree(A.x + dx, Y, A.z + dz, 1.1); else { const t = makeTree(1.1 + (i % 3) * 0.2); t.position.set(A.x + dx, Y, A.z + dz); scene.add(t); colliders.push({ x1: A.x + dx - 0.4, y1: Y, z1: A.z + dz - 0.4, x2: A.x + dx + 0.4, y2: Y + 3, z2: A.z + dz + 0.4 }); } });
+  treeSpots.forEach(([dx, dz], i) => { if (i % 2) tree(A.x + dx, Y, A.z + dz, 1.1); else pine(A.x + dx, Y, A.z + dz, 1.05 + (i % 3) * 0.15); });
   const GN = 900, grass = new THREE.InstancedMesh(new THREE.ConeGeometry(0.07, 0.45, 3), M(0x6f9a4a), GN), mtx = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), ps = new THREE.Vector3();
   let gi = 0; for (let n = 0; n < 4000 && gi < GN; n++) { const a = rr() * PI2, r = Math.sqrt(rr()) * (ISL_R - 2), x = A.x + Math.cos(a) * r, z = A.z + Math.sin(a) * r; if (!free(x, z)) continue; q.setFromEuler(new THREE.Euler(rv(0.3), rr() * 6, rv(0.3))); const s2 = 0.7 + rr() * 0.8; sc.set(s2, s2, s2); ps.set(x, Y + 0.2 * s2, z); mtx.compose(ps, q, sc); grass.setMatrixAt(gi++, mtx); }
   grass.count = gi; scene.add(grass);
   const FN = 160, flowers = new THREE.InstancedMesh(new THREE.SphereGeometry(0.11, 6, 5), new THREE.MeshLambertMaterial({ color: 0xffffff }), FN), fc = [0xf2b8c6, 0xffe066, 0xffffff, 0xb48cff, 0xff8a5a], col = new THREE.Color();
   let fi = 0; for (let n = 0; n < 2000 && fi < FN; n++) { const a = rr() * PI2, r = Math.sqrt(rr()) * (ISL_R - 3), x = A.x + Math.cos(a) * r, z = A.z + Math.sin(a) * r; if (!free(x, z)) continue; mtx.makeTranslation(x, Y + 0.25, z); flowers.setMatrixAt(fi, mtx); flowers.setColorAt(fi, col.setHex(fc[fi % fc.length])); fi++; }
   flowers.count = fi; scene.add(flowers);
-  for (let n = 0, k = 0; n < 200 && k < 22; n++) { const a = rr() * PI2, r = 8 + rr() * (ISL_R - 11), x = A.x + Math.cos(a) * r, z = A.z + Math.sin(a) * r; if (!free(x, z)) continue; deco(new THREE.DodecahedronGeometry(0.4 + rr() * 0.6, 0), M(k % 2 ? C.rock : C.rockDark, { flatShading: true }), x, Y + 0.2, z); k++; }
+  // stones here and there (some in pairs), bushes in loose groups along the fence and at the dojo's corners
+  for (let n = 0, k = 0; n < 300 && k < 18; n++) { const a = rr() * TAU, r = 8 + rr() * (ISL_R - 11), x = A.x + Math.cos(a) * r, z = A.z + Math.sin(a) * r; if (!free(x, z)) continue;
+    rockAt(x, Y + 0.1, z, 0.25 + rr() * 0.4, 1.2, 0.6, 1.1, 0.85 + rr() * 0.3); if (rr() < 0.4) rockAt(x + 0.7 + rr() * 0.4, Y + 0.06, z + (rr() - 0.5) * 0.8, 0.18 + rr() * 0.15, 1.2, 0.6, 1.1); k++; }
+  for (let n = 0, k = 0; n < 400 && k < 16; n++) { const a = rr() * TAU, r = ISL_R - 3.2 - rr() * 2.5, x = A.x + Math.cos(a) * r, z = A.z + Math.sin(a) * r; if (!free(x, z)) continue;
+    bush(x, Y, z, 0.8 + rr() * 0.5); if (rr() < 0.5) bush(x + (rr() - 0.5) * 2.2, Y, z + (rr() - 0.5) * 2.2, 0.6 + rr() * 0.4); k++; }
+  [[D.x1 - 1.9, D.z2 + 1.4], [D.x2 + 1.9, D.z2 + 1.4], [D.x1 - 2, D.z1 + 2.5], [D.x2 + 2, D.z1 + 2.5]].forEach(([x, z]) => bush(x, Y, z, 1.0));
 }
 
 // ---------- [E] interactions ----------
