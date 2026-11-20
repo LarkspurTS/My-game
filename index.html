@@ -175,6 +175,7 @@ body.shiftlock #cross { display: block; }
 .sw.tempest { background: linear-gradient(135deg, #ffd23a 0 33%, #6fb3ff 33% 55%, #bff5e6 55% 75%, #5a4a8e 75%); } .sw.tempest::after { content: ""; position: absolute; left: 50%; top: 18%; width: 34px; height: 18px; margin-left: -17px; background: #fff; border-radius: 12px; box-shadow: -8px 6px 0 -2px #fff, 9px 6px 0 -3px #fff; }
 .sw.patch { background: repeating-linear-gradient(45deg, #d8b48a 0 10px, #c9a47a 10px 20px); } .sw.patch::after { content: ""; position: absolute; left: 50%; top: 14%; width: 30px; height: 30px; margin-left: -15px; border-radius: 50%; background: #e85a5a; box-shadow: inset 0 0 0 4px #b8443a, 26px 4px 0 -6px #5a8ae8; border: 2px dashed #2a1c14; }
 .sw.brick { background: repeating-linear-gradient(0deg, #d8d0c4 0 2px, transparent 2px 12px), repeating-linear-gradient(90deg, #c8553d 0 22px, #d8d0c4 22px 24px); } .sw.brick::after { content: ""; position: absolute; left: 50%; top: 8%; width: 34px; height: 18px; margin-left: -17px; background: #ffc61a; border-radius: 17px 17px 3px 3px; box-shadow: 0 3px 0 #e0a010; }
+.sw.latch { background: linear-gradient(90deg, #2f4a52 0 50%, #24393f 50%); } .sw.latch::after { content: ""; position: absolute; left: 50%; top: 16%; width: 24px; height: 34px; margin-left: -12px; border-radius: 12px 12px 0 0; background: radial-gradient(circle at 50% 42%, #2a1c14 0 4px, transparent 5px), linear-gradient(#2a1c14, #2a1c14) 50% 62% / 4px 9px no-repeat, #f2c14e; box-shadow: 0 0 0 3px #4a3020; }
 .sw.chef { background: repeating-linear-gradient(90deg, #f4f2ec 0 12px, #d8d4ca 12px 14px); } .sw.chef::after { content: ""; position: absolute; left: 50%; top: 8%; width: 30px; height: 30px; margin-left: -15px; border-radius: 50% 50% 10% 10%; background: #fff; box-shadow: 0 2px 0 #c0392b; }
 #vig { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, rgba(0,0,0,0) 58%, rgba(12,8,24,.32) 100%); }
 .sw.mask { background: #6b1420; } .sw.mask::after { content: ""; position: absolute; left: 50%; top: 10%; width: 34px; height: 38px; margin-left: -17px; background: #f2eee6; border-radius: 50% 50% 46% 46% / 40% 40% 60% 60%; }
@@ -364,7 +365,7 @@ body.curtains #curL, body.curtains #curR { transform: translateX(0); }
 <div id="overlay">
   <div class="card scrap">
     <h1>Windstep Village</h1>
-    <div class="build">Build 53 · Duck Dojo Island remade · Pick your fighter</div>
+    <div class="build">Build 54 · New fighter: Latch, the Locksmith · Pick your fighter</div>
     <div class="roster" id="roster">
       <button class="fcard sel" data-id="juno" type="button"><span class="sw juno"></span><span class="fn">Juno Marrow</span><span class="fs">Ink · Hard</span></button>
       <button class="fcard" data-id="pip" type="button"><span class="sw pip"></span><span class="fn">Pip Hollow</span><span class="fs">Thread · Medium</span></button>
@@ -381,6 +382,7 @@ body.curtains #curL, body.curtains #curR { transform: translateX(0); }
       <button class="fcard" data-id="tempest" type="button"><span class="sw tempest"></span><span class="fn">Tempest</span><span class="fs">Weather · Hard</span></button>
       <button class="fcard" data-id="patch" type="button"><span class="sw patch"></span><span class="fn">Patch</span><span class="fs">Ragdoll · Medium</span></button>
       <button class="fcard" data-id="brick" type="button"><span class="sw brick"></span><span class="fn">Brick</span><span class="fs">Builder · Hard</span></button>
+      <button class="fcard" data-id="latch" type="button"><span class="sw latch"></span><span class="fn">Latch</span><span class="fs">Doors · Hard</span></button>
     </div>
     <label class="namefield" for="nameIn"><span>Your name</span><input id="nameIn" maxlength="14" autocomplete="off" spellcheck="false"></label>
     <div class="srv" id="srvStart">
@@ -1428,7 +1430,7 @@ function faceTexture(kind) {
   const cv = document.createElement('canvas'); cv.width = cv.height = 256;
   const g = cv.getContext('2d'); g.scale(2, 2); g.lineCap = 'round'; g.lineJoin = 'round';
   const ell = (x, y, rx, ry, c) => { g.fillStyle = c; g.beginPath(); g.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); g.fill(); };
-  if (patchFace(kind, g, ell) || brickFace(kind, g, ell) || tempestFace(kind, g, ell) || echoFace(kind, g, ell) || drawFace14(kind, g, ell)) {
+  if (patchFace(kind, g, ell) || brickFace(kind, g, ell) || latchFace(kind, g, ell) || tempestFace(kind, g, ell) || echoFace(kind, g, ell) || drawFace14(kind, g, ell)) {
     /* new fighters */
   } else if (kind === 'juno') {
     ell(44, 62, 8, 12, '#15131c'); ell(84, 62, 8, 12, '#15131c');
@@ -1649,6 +1651,8 @@ function buildFighter(id) {
     rig = buildPatch(id);
   } else if (id === 'brick') {
     rig = buildBrick();
+  } else if (id === 'latch') {
+    rig = buildLatch();
   } else if (id === 'tempest') {
     rig = buildTempest();
   } else if (id === 'echo') {
@@ -2989,6 +2993,7 @@ function spotFree(x, y, z) { for (const b of colliders) if (overlaps(b, x, y + 0
 function meleeTargets(range, cone) {
   const f = facingVec(), out = [];
   if (BK_WALLS.length) bkMeleeWalls(range, cone);
+  if (LT_DOORS.length) ltMeleeDoors(range, cone);
   for (const d of aliveDummies()) {
     const dx = d.pos.x - player.pos.x, dz = d.pos.z - player.pos.z, dist = Math.hypot(dx, dz);
     if (dist > range || d.pos.y - player.pos.y > 2.4 || d.pos.y - player.pos.y < -2.6) continue;
@@ -4976,7 +4981,7 @@ function hashStr(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h
 // the host spot for a room. If whoever holds it stops answering (a frozen tab, a sleeping phone, a bad network),
 // everyone moves to the room's next spot together instead of knocking on a dead door forever
 const hostId = (slot) => 'wsv-' + hashStr(roomKey()) + '-host' + (slot ? slot : '');
-const NETV = 39;   // bump when messages change, so mismatched versions can tell people to refresh
+const NETV = 40;   // bump when messages change, so mismatched versions can tell people to refresh
 // extra STUN servers find a direct route more often; the TURN relay carries the game when no direct route exists
 const ICE = { iceServers: [
   { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] },
@@ -6633,7 +6638,7 @@ function grabAssist(range, cone) {
 function aimFace14(range) { const t = aim14(range); if (t) faceToward(t.pos); else if (shiftLock) player.facing = yaw + Math.PI; return t; }
 function aimDir14(t) { return t ? t.pos.clone().sub(player.pos).setY(0).normalize() : (shiftLock ? camForward() : facingVec()); }
 function groundAt(v) { const p = v.clone(); p.y = groundY(p.x, p.z, p.y + 2); return p; }
-function bigHitAll(at, r, o, filter) { const out = []; if (BK_WALLS.length && o) bkAreaWalls(at, r, o.dmg); for (const d of aliveDummies()) { if (filter && !filter(d)) continue; if (Math.hypot(d.pos.x - at.x, d.pos.z - at.z) < r && Math.abs(d.pos.y - at.y) < 3) { const dir = d.pos.clone().sub(at).setY(0); if (dir.lengthSq() < 0.01) dir.set(0, 0, 1); dir.normalize(); const kb = o.kbOut ? new THREE.Vector3(dir.x * o.kbOut, o.kbUp || 4, dir.z * o.kbOut) : o.kb; hitDummy(d, Object.assign({}, o, { kb, set: true })); out.push(d); } } return out; }
+function bigHitAll(at, r, o, filter) { const out = []; if (BK_WALLS.length && o) bkAreaWalls(at, r, o.dmg); if (LT_DOORS.length) ltAreaDoors(at, r); for (const d of aliveDummies()) { if (filter && !filter(d)) continue; if (Math.hypot(d.pos.x - at.x, d.pos.z - at.z) < r && Math.abs(d.pos.y - at.y) < 3) { const dir = d.pos.clone().sub(at).setY(0); if (dir.lengthSq() < 0.01) dir.set(0, 0, 1); dir.normalize(); const kb = o.kbOut ? new THREE.Vector3(dir.x * o.kbOut, o.kbUp || 4, dir.z * o.kbOut) : o.kb; hitDummy(d, Object.assign({}, o, { kb, set: true })); out.push(d); } } return out; }
 function lineHits(from, dir, len, width, o, hitSet) {
   for (const d of aliveDummies()) {
     if (hitSet && hitSet.has(d)) continue;
@@ -10156,6 +10161,492 @@ Object.assign(FXF, {
 KITS.brick = makeBrickKit;
 
 
+// =====================================================================
+// LATCH — the locksmith: two linked doors. In one, out the other.
+// =====================================================================
+const LT_GOLD = 0xf2c14e, LT_SILVER = 0xcfd8e6, LT_BRASS = 0xd4a84a;
+function latchFace(kind, g, ell) {
+  if (!/^latch/.test(kind)) return false;
+  const awk = kind === 'latch-awk';
+  // confident, slightly narrowed eyes; one brow up; a lopsided grin; a little stubble
+  ell(44, 61, 8.5, 6, '#f4efe8'); ell(84, 61, 8.5, 6, '#f4efe8');
+  ell(45, 62, 4.6, 5, awk ? '#e0a020' : '#3a2a1a'); ell(85, 62, 4.6, 5, awk ? '#e0a020' : '#3a2a1a');
+  ell(45, 62, 2.3, 2.7, '#0c0806'); ell(85, 62, 2.3, 2.7, '#0c0806'); ell(46.6, 60, 1.5, 1.5, '#fff'); ell(86.6, 60, 1.5, 1.5, '#fff');
+  if (awk) { ell(45, 62, 7, 7, 'rgba(255,200,60,.25)'); ell(85, 62, 7, 7, 'rgba(255,200,60,.25)'); }
+  g.strokeStyle = '#2a1a10'; g.lineWidth = 3; g.beginPath(); g.moveTo(35, 57); g.quadraticCurveTo(44, 55, 54, 57.5); g.moveTo(74, 57.5); g.quadraticCurveTo(84, 55, 93, 57); g.stroke();
+  g.lineWidth = 5; g.beginPath(); g.moveTo(34, 47); g.lineTo(55, 47); g.moveTo(73, 44); g.quadraticCurveTo(84, 38, 95, 43); g.stroke();
+  g.lineWidth = 3.5; g.beginPath(); g.moveTo(52, 91); g.quadraticCurveTo(66, 96, 80, 86); g.stroke();
+  g.lineWidth = 2; g.beginPath(); g.moveTo(80, 86); g.lineTo(83, 84); g.stroke();
+  g.fillStyle = 'rgba(60,40,28,.28)'; for (let i = 0; i < 60; i++) { const a = Math.PI * (0.1 + Math.random() * 0.8), r = 30 + Math.random() * 8; g.fillRect(64 + Math.cos(a) * r * 1.05, 76 + Math.sin(a) * r * 0.75, 1.4, 1.4); }
+  return true;
+}
+// the big brass key: a ring-shaped bow, a long shank, and chunky teeth
+function makeBigKey(s) {
+  const k = new THREE.Group(), brass = SM(LT_BRASS, { emissive: 0x2a1a00 }), dark = SM(0x8a6a2a);
+  const bow = new THREE.Mesh(new THREE.TorusGeometry(0.12 * s, 0.04 * s, 8, 18), brass); bow.position.y = 0.17 * s; k.add(bow);
+  const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.045 * s, 0), SM(0xd84a3a, { emissive: 0x5a1008 })); gem.position.y = 0.17 * s; k.add(gem);
+  const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.06 * s, 0.06 * s, 0.08 * s, 10), dark); collar.position.y = -0.0; k.add(collar);
+  const shank = new THREE.Mesh(new THREE.CylinderGeometry(0.04 * s, 0.04 * s, 0.95 * s, 10), brass); shank.position.y = -0.5 * s; k.add(shank);
+  [[-0.78, 0.13], [-0.9, 0.2], [-0.99, 0.1]].forEach(([y, w]) => { const t = part(w * s, 0.07 * s, 0.05 * s, brass, w * s / 2, y * s, 0); k.add(t); });
+  k.traverse((o) => { if (o.isMesh) o.castShadow = true; });
+  return k;
+}
+function buildLatch() {
+  const rig = makeRig({ skin: 0xd9a77e, upper: 0xd8c38a, armU: 0xd8c38a, armL: 0xd9a77e, lower: 0x2f4a52, hand: 0xd9a77e, leg: 0x2f4a52, foot: 0x4a2e1c, face: 'latch' });
+  const cap = SM(0x3a3f4a), leather = SM(0x7a4a2a), brass = SM(LT_BRASS, { emissive: 0x2a1a00 }), hair = SM(0x2a1c14);
+  // flat newsboy cap with a short brim, hair poking out at the back and sides
+  { const top = new THREE.Mesh(new THREE.SphereGeometry(0.32, 18, 10, 0, PI2, 0, Math.PI / 2), cap); top.position.set(0, 0.47, -0.01); top.scale.set(1.0, 0.32, 1.06); top.castShadow = true; rig.neck.add(top); }
+  rig.neck.add(part(0.58, 0.05, 0.58, cap, 0, 0.47, 0)); rig.neck.add(part(0.36, 0.035, 0.14, cap, 0, 0.465, 0.33));
+  rig.neck.add(part(0.05, 0.04, 0.05, brass, 0, 0.58, 0));
+  rig.neck.add(part(0.52, 0.16, 0.12, hair, 0, 0.36, -0.23)); for (const sd of [-1, 1]) rig.neck.add(part(0.06, 0.16, 0.2, hair, sd * 0.27, 0.34, 0.02));
+  // jeweller's loupe over his left eye
+  { const lp = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.06, 0.08, 14), brass); lp.rotation.x = Math.PI / 2; lp.position.set(-0.085, 0.27, 0.29); rig.neck.add(lp);
+    const lens = new THREE.Mesh(new THREE.CircleGeometry(0.058, 14), new THREE.MeshBasicMaterial({ color: 0xbfe6ff, transparent: true, opacity: 0.55 })); lens.position.set(-0.085, 0.27, 0.335); lens.userData.noOutline = true; lens.material.userData.lin = true; rig.neck.add(lens);
+    rig.neck.add(part(0.2, 0.02, 0.02, SM(0x222222), -0.2, 0.3, 0.25)); }
+  // leather work apron over the shirt, with a pocket of picks; rolled sleeves
+  rig.chest.add(part(0.56, 0.5, 0.06, leather, 0, 0.2, 0.2));
+  for (const sd of [-1, 1]) rig.chest.add(part(0.05, 0.3, 0.05, leather, sd * 0.2, 0.55, 0.12));
+  rig.chest.add(part(0.2, 0.12, 0.03, SM(0x5a3418), 0.1, 0.12, 0.235));
+  for (let i = 0; i < 3; i++) rig.chest.add(part(0.02, 0.1, 0.02, SM(0xcfd8e6), 0.04 + i * 0.05, 0.2, 0.24));
+  rig.waist.add(part(0.54, 0.34, 0.05, leather, 0, -0.15, 0.2));
+  for (const el of [rig.j.elL, rig.j.elR]) el.add(part(0.22, 0.07, 0.24, SM(0xd8c38a), 0, -0.02, 0));
+  // belt with a big ring of keys on the hip
+  rig.waist.add(part(0.7, 0.08, 0.4, SM(0x3a2416), 0, 0.02, 0));
+  { const ringG = new THREE.Group(); ringG.position.set(0.36, -0.08, 0.05); rig.waist.add(ringG);
+    const rg = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.015, 6, 16), brass); rg.rotation.y = Math.PI / 2; ringG.add(rg);
+    [[0.2, 0x9aa3ad], [-0.3, LT_BRASS], [0.6, 0x7a7f86], [-0.7, LT_BRASS]].forEach(([a, c]) => { const kk = part(0.02, 0.16, 0.05, SM(c), 0, -0.1, 0); const p2 = new THREE.Group(); p2.rotation.x = a; p2.position.y = -0.04; p2.add(kk); ringG.add(p2); }); }
+  for (const kn of [rig.j.knL, rig.j.knR]) kn.add(part(0.3, 0.1, 0.18, SM(0x4a2e1c), 0, -0.45, 0.2));
+  // the giant key, held in the right hand like a club
+  const grip = new THREE.Group(); grip.position.set(0, -0.08, 0.05); grip.rotation.x = -1.35; rig.handR.add(grip);
+  const key = makeBigKey(1.25); key.position.y = 0.16; key.rotation.y = Math.PI / 2; grip.add(key); rig.lKey = key;
+  return rig;
+}
+
+// ---------------- doors ----------------
+const LT_DOORS = [];
+let LT_SEQ = 0;
+const ltNewId = () => (NET.myId || 'me') + ':d' + (++LT_SEQ);
+const ltMine = (D) => D.owner === player;
+function ltSwirlTex(col) {
+  const S = 128, cv = document.createElement('canvas'); cv.width = cv.height = S; const g = cv.getContext('2d');
+  const c = new THREE.Color(col), rgb = (a) => 'rgba(' + Math.round(c.r * 255) + ',' + Math.round(c.g * 255) + ',' + Math.round(c.b * 255) + ',' + a + ')';
+  const gr = g.createRadialGradient(S / 2, S / 2, 4, S / 2, S / 2, S / 2); gr.addColorStop(0, 'rgba(255,255,255,.95)'); gr.addColorStop(0.35, rgb(0.8)); gr.addColorStop(1, rgb(0.15)); g.fillStyle = gr; g.fillRect(0, 0, S, S);
+  g.strokeStyle = 'rgba(255,255,255,.55)'; g.lineWidth = 3;
+  for (let k = 0; k < 4; k++) { g.beginPath(); for (let i = 0; i < 60; i++) { const a = i / 60 * 5 + k * Math.PI / 2, r = 4 + i * 0.95; const x = S / 2 + Math.cos(a) * r, y = S / 2 + Math.sin(a) * r; if (i) g.lineTo(x, y); else g.moveTo(x, y); } g.stroke(); }
+  const t = new THREE.CanvasTexture(cv); t.center.set(0.5, 0.5); return t;
+}
+const LT_TEX = {};
+function ltDoorMesh(col) {
+  const g = new THREE.Group(), gold = col === 0, frameM = SM(0x4a3020), trim = SM(gold ? LT_GOLD : LT_SILVER, { emissive: gold ? 0x3a2600 : 0x1a2230 });
+  for (const sd of [-1, 1]) { const p2 = part(0.2, 2.75, 0.24, frameM, sd * 0.97, 1.375, 0); g.add(p2); g.add(part(0.24, 0.12, 0.28, trim, sd * 0.97, 0.06, 0)); }
+  g.add(part(2.18, 0.24, 0.28, frameM, 0, 2.82, 0)); g.add(part(2.2, 0.06, 0.3, trim, 0, 2.97, 0));
+  { const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.13, 0), trim); gem.position.set(0, 2.82, 0.16); g.add(gem); }
+  g.add(part(2.1, 0.06, 0.4, SM(0x6a5a4a), 0, 0.03, 0));
+  // the glowing way through
+  const tex = LT_TEX[col] || (LT_TEX[col] = ltSwirlTex(gold ? 0xffc23a : 0x9ad0ff));
+  const glow = new THREE.Mesh(new THREE.PlaneGeometry(1.74, 2.6), new THREE.MeshBasicMaterial({ map: tex.clone(), transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }));
+  glow.material.map.needsUpdate = true; glow.material.map.center.set(0.5, 0.5); glow.material.userData.lin = true; glow.userData.noOutline = true; glow.position.y = 1.32; g.add(glow);
+  // the door itself, hinged on the left post; it swings open toward the front
+  const leaf = new THREE.Group(); leaf.position.set(-0.86, 0, 0); g.add(leaf);
+  const panelM = SM(gold ? 0xb5793a : 0x7d8fa6), inset = SM(gold ? 0x8f5a28 : 0x5f7088);
+  leaf.add(part(1.72, 2.6, 0.08, panelM, 0.86, 1.32, 0));
+  for (const [y, h] of [[0.75, 0.9], [1.95, 0.9]]) leaf.add(part(1.3, h, 0.1, inset, 0.86, y, 0));
+  { const knob = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 8), trim); knob.position.set(1.5, 1.25, 0.09); leaf.add(knob);
+    leaf.add(part(0.1, 0.22, 0.02, trim, 1.5, 1.08, 0.06)); }
+  outlineAll(g);
+  return { g, leaf, glow };
+}
+function ltDoor(id, pos, fa, col, seq, owner, life) {
+  const vis = ltDoorMesh(col);
+  const D = { id, pos: pos.clone(), fa, col, seq, owner, t: life || 12, hp: 3, age: 0, open: 0, shut: 0, draftT: 0, mesh: vis.g, leaf: vis.leaf, glow: vis.glow, hitT: 0 };
+  D.mesh.position.copy(D.pos); D.mesh.rotation.y = fa; D.mesh.scale.set(1, 0.01, 1); scene.add(D.mesh);
+  LT_DOORS.push(D);
+  dust(D.pos.clone().add(new THREE.Vector3(0, 0.2, 0)), 6, 3); sparks(D.pos.clone().add(new THREE.Vector3(0, 2.8, 0)), 8, col ? LT_SILVER : LT_GOLD, 1.2);
+  return D;
+}
+function ltFind(id) { return LT_DOORS.find((d) => d.id === id); }
+function ltRemove(D, burst) {
+  const i = LT_DOORS.indexOf(D); if (i < 0) return; LT_DOORS.splice(i, 1); scene.remove(D.mesh);
+  const at = D.pos.clone().add(new THREE.Vector3(0, 1.3, 0));
+  if (burst) { burst2(at, D.col); } else { ring(at, D.col ? LT_SILVER : LT_GOLD, 2.2); P({ tex: 'glow', color: D.col ? LT_SILVER : LT_GOLD, pos: at, life: 0.3, s0: 2.5, s1: 0.2 }); }
+}
+function burst2(at, col) { sparks(at, 14, col ? LT_SILVER : LT_GOLD, 1.8); burst(at, 10, 7, [fxPaper]); dust(at.clone().add(new THREE.Vector3(0, -1.1, 0)), 6, 4); }
+// where a door leads: the next of its owner's doors (two doors just point at each other; six make a loop)
+function ltExit(D) {
+  const list = LT_DOORS.filter((o) => o.owner === D.owner).sort((a, b) => a.seq - b.seq);
+  if (list.length < 2) return null; const i = list.indexOf(D); return list[(i + 1) % list.length];
+}
+const ltF = (fa) => new THREE.Vector3(Math.sin(fa), 0, Math.cos(fa));
+const ltX = (fa) => new THREE.Vector3(Math.cos(fa), 0, -Math.sin(fa));
+function ltLocal(D, p) { const dx = p.x - D.pos.x, dz = p.z - D.pos.z; return { x: dx * Math.cos(D.fa) - dz * Math.sin(D.fa), f: dx * Math.sin(D.fa) + dz * Math.cos(D.fa), y: p.y - D.pos.y }; }
+const ltActive = (D) => D.open > 0.6 && D.shut <= 0 && D.age > 0.3;
+// did something moving from a to b pass through the doorway? returns +1 (in the front), -1 (in the back) or 0
+function ltCrossed(D, a, b, yOff) {
+  const la = ltLocal(D, a), lb = ltLocal(D, b);
+  if ((la.f > 0) === (lb.f > 0) || la.f === lb.f) return 0;
+  const u = la.f / (la.f - lb.f), x = la.x + (lb.x - la.x) * u, y = la.y + (lb.y - la.y) * u + (yOff || 0);
+  if (Math.abs(x) > 0.86 || y < -0.6 || y > 2.7) return 0;
+  return la.f > 0 ? 1 : -1;
+}
+// where something comes out: same spot relative to the doorway, turned round, pushed clear of the exit door
+function ltMap(A, B, p, side, push) {
+  const dyaw = B.fa - A.fa + Math.PI, rel = p.clone().sub(A.pos).applyAxisAngle(UP, dyaw), out = B.pos.clone().add(rel);
+  const F = ltF(B.fa), lf = rel.x * F.x + rel.z * F.z, want = side * (push || 0.75);
+  if (side > 0 ? lf < want : lf > want) out.addScaledVector(F, want - lf);
+  return { out, dyaw };
+}
+const UP = new THREE.Vector3(0, 1, 0);
+function ltWarpRag(rd, from, to, dyaw) {
+  const q = new THREE.Quaternion().setFromAxisAngle(UP, dyaw), v = new THREE.Vector3();
+  for (const b of rd.list) {
+    v.set(b.position.x, b.position.y, b.position.z).sub(from).applyAxisAngle(UP, dyaw).add(to); b.position.set(v.x, v.y, v.z);
+    v.set(b.velocity.x, b.velocity.y, b.velocity.z).applyAxisAngle(UP, dyaw); b.velocity.set(v.x, v.y, v.z);
+    v.set(b.angularVelocity.x, b.angularVelocity.y, b.angularVelocity.z).applyAxisAngle(UP, dyaw); b.angularVelocity.set(v.x, v.y, v.z);
+    const bq = new THREE.Quaternion(b.quaternion.x, b.quaternion.y, b.quaternion.z, b.quaternion.w).premultiply(q); b.quaternion.set(bq.x, bq.y, bq.z, bq.w);
+  }
+}
+function ltWhoosh(A, B) {
+  for (const D of [A, B]) { const at = D.pos.clone().add(new THREE.Vector3(0, 1.3, 0)); ring(at, D.col ? LT_SILVER : LT_GOLD, 2.4); P({ tex: 'glow', color: D.col ? LT_SILVER : LT_GOLD, pos: at, life: 0.25, s0: 2.8, s1: 0.4, a: 0.8 }); }
+}
+// send something through A and out of B
+function ltWarp(e, kind, A, B, side) {
+  const { out, dyaw } = ltMap(A, B, e.pos, side);
+  const delta = out.clone().sub(e.pos);
+  if (e.rag) ltWarpRag(e.rag, e.pos, out, dyaw);
+  e.pos.copy(out); e._ltP = out.clone(); e._ltT = clock;
+  if (e.vel) { e.vel.applyAxisAngle(UP, dyaw); const sp = Math.hypot(e.vel.x, e.vel.z); if (sp < 5) { const F = ltF(B.fa).multiplyScalar(side * 5); e.vel.x = F.x; e.vel.z = F.z; } }
+  if (kind === 'player') {
+    player.facing += dyaw; yaw += dyaw; player.dashDir.applyAxisAngle(UP, dyaw);
+    camTarget.add(delta); camera.position.add(delta);
+    if (kit && kit.onWarp) kit.onWarp(dyaw, A, B);
+    fovKick = Math.max(fovKick, 10);
+  } else if (kind === 'dummy') {
+    if (e.facing != null) e.facing += dyaw;
+    ltSyncVis(e);
+    if (fighterId === 'latch' && kit.onDummyWarp) kit.onDummyWarp(e, A, B, side);
+  } else if (kind === 'proj') { e.mesh.position.copy(e.pos); }
+  ltWhoosh(A, B);
+}
+// move a dummy's body to where it now is right away, so a knockdown that starts this frame starts in the right place
+function ltSyncVis(d) { if (d && !d.remote && !d.rag && d.g) { d.g.position.copy(d.pos); d.g.updateMatrixWorld(true); } }
+function ltCheck(e, kind, cd, yOff) {
+  const prev = e._ltP; e._ltP = e.pos.clone();
+  if (!prev || clock - (e._ltT || -9) < cd) return;
+  for (const A of LT_DOORS) {
+    if (!ltActive(A)) continue;
+    const side = ltCrossed(A, prev, e.pos, yOff); if (!side) continue;
+    const B = ltExit(A); if (!B || !ltActive(B)) continue;
+    ltWarp(e, kind, A, B, side); return;
+  }
+}
+function ltDoorDamage(D) {
+  if (!D || ltMine(D) || clock - D.hitT < 0.3) return; D.hitT = clock;
+  ltApplyDmg(D.id); netOnly('lddmg', [D.id]);
+}
+function ltApplyDmg(id) {
+  const D = ltFind(id); if (!D) return; D.hp -= 1; D.flash = 0.15;
+  sparks(D.pos.clone().add(new THREE.Vector3(0, 1.4, 0)), 6, D.col ? LT_SILVER : LT_GOLD, 1);
+  if (D.hp <= 0) { ltRemove(D, 1); if (ltMine(D)) toast('One of your doors got broken'); }
+}
+function ltMeleeDoors(range, cone) {
+  const f = facingVec();
+  for (const D of LT_DOORS.slice()) { if (ltMine(D)) continue; const dx = D.pos.x - player.pos.x, dz = D.pos.z - player.pos.z, dist = Math.hypot(dx, dz); if (dist > range + 0.9 || Math.abs(D.pos.y - player.pos.y) > 2.5) continue; if (dist > 1 && (dx * f.x + dz * f.z) / dist < cone - 0.3) continue; ltDoorDamage(D); }
+}
+function ltAreaDoors(at, r) { for (const D of LT_DOORS.slice()) if (!ltMine(D) && Math.hypot(D.pos.x - at.x, D.pos.z - at.z) < r + 0.8 && Math.abs(D.pos.y - at.y) < 3) ltDoorDamage(D); }
+function ltSlamVis(owner) { for (const D of LT_DOORS) if (D.owner === owner) { D.shut = 0.6; D.slamKick = 0.12; } }
+// a door that only lives for a moment (Show You Out, Open House); flat = lying face down in the sky
+function ltTempDoor(pos, fa, col, life, flat) {
+  const vis = ltDoorMesh(col), g = vis.g; g.position.copy(pos); g.rotation.order = 'YXZ'; g.rotation.y = fa; if (flat) { g.rotation.x = Math.PI / 2; g.position.y += 1.32; }
+  vis.glow.material.opacity = 0.85; vis.leaf.rotation.y = -1.7; g.scale.set(1, 0.01, 1);
+  sparks(pos.clone().add(new THREE.Vector3(0, 1.3, 0)), 8, col ? LT_SILVER : LT_GOLD, 1.2);
+  tempMesh(g, life, (o, k) => { const t = k * life; o.scale.y = Math.min(1, t / 0.15) * (t > life - 0.2 ? Math.max(0.01, (life - t) / 0.2) : 1); vis.glow.material.map.rotation = t * 3; vis.glow.material.opacity = 0.75 + Math.sin(t * 9) * 0.15; });
+  return g;
+}
+function ltOpenHouseFx(base, fa) {
+  for (let i = 0; i < 6; i++) { const a = fa + i / 6 * PI2, p = base.clone().add(new THREE.Vector3(Math.sin(a) * 3.4, 0, Math.cos(a) * 3.4)); ltTempDoor(p, a + Math.PI, i % 2, 4.2, false); }
+}
+// every player's game runs this for its own body, its own dummies and every projectile it is drawing
+function latchTick(dt) {
+  if (!LT_DOORS.length) { player._ltP = null; return; }
+  for (const D of LT_DOORS.slice()) {
+    D.age += dt; D.t -= dt; D.shut = Math.max(0, D.shut - dt); D.draftT = Math.max(0, D.draftT - dt); D.flash = Math.max(0, (D.flash || 0) - dt);
+    if (D.t <= 0) { ltRemove(D, 0); continue; }
+    const linked = !!ltExit(D);
+    D.mesh.scale.y = Math.min(1, D.age / 0.22) + 0.001;
+    const wantOpen = D.age > 0.25 && D.shut <= 0 && linked ? 1 : 0;
+    D.open += (wantOpen - D.open) * (1 - Math.exp(-(D.shut > 0 ? 40 : 9) * dt));
+    D.leaf.rotation.y = -1.7 * D.open - (D.draftT > 0 ? Math.sin(clock * 30) * 0.06 : 0);
+    D.glow.material.opacity = (D.open * (0.62 + Math.sin(clock * 5 + D.seq) * 0.12)) * (D.t < 2 ? 0.5 + 0.5 * Math.sin(clock * 20) : 1) + (D.draftT > 0 ? 0.2 : 0);
+    D.glow.material.map.rotation -= dt * (D.draftT > 0 ? 9 : 1.5);
+    D.mesh.position.x = D.pos.x + (D.flash > 0 ? rv(0.06) : 0);
+    if (D.slamKick > 0) { D.slamKick -= dt; if (D.slamKick <= 0) { const at = D.pos.clone().add(new THREE.Vector3(0, 1.3, 0)); dust(D.pos.clone().add(new THREE.Vector3(0, 0.2, 0)), 6, 4); ring(at, D.col ? LT_SILVER : LT_GOLD, 3); addShake(0.12); } }
+    if (D.draftT > 0 && D.col === 0 && Math.random() < 0.8) { const F = ltF(D.fa), X = ltX(D.fa), s = 2 + Math.random() * 4, at = D.pos.clone().addScaledVector(F, s).addScaledVector(X, rv(3)).add(new THREE.Vector3(0, 0.3 + Math.random() * 2, 0)); P({ tex: 'streak', color: 0xffffff, pos: at, vel: F.clone().multiplyScalar(-10), life: 0.3, s0: 0.5, s1: 0.2, stretch: 1.6, a: 0.5 }); }
+  }
+  const p = player;
+  // (not mid-punch: the little step forward in a punch shouldn't carry you through a door you're trying to break)
+  if (p.dead <= 0 && !(p.seized > 0) && !(p.forcedT > 0) && !p.hidden && !(p.move && p.move.ltScripted) && !(p.atk.t < p.atk.dur)) ltCheck(p, 'player', ltMineDoorsCd(), 0);
+  else p._ltP = null;
+  for (const d of dummies) { if (d.dead || d.ltHold || (d.duel && !d.active)) { d._ltP = null; continue; } ltCheck(d, 'dummy', 2, d.rag ? 0 : 0); }
+  for (const pr of projectiles) ltCheck(pr, 'proj', 0.3, 0);
+}
+// Latch going through his own doors gets a short cooldown; everyone else (and their doors) waits 2 s
+function ltMineDoorsCd() { return fighterId === 'latch' ? 0.45 : 2; }
+
+function makeLatchKit() {
+  const BASE = [{ k: '1', name: 'Key Turn', tag: 'n' }, { k: '2', name: 'Breach', tag: 'b' }, { k: '3', name: 'Door Slam', tag: 'x' }, { k: '4', name: 'Draft', tag: 'x' }, { k: 'R', name: 'Show You Out', tag: 'g' }];
+  const AWK = [{ k: '1', name: 'Master Key', tag: 'n' }, { k: '2', name: 'Breach', tag: 'b' }, { k: '3', name: 'Slam Every Door', tag: 'x' }, { k: '4', name: 'Open House', tag: 'u' }, { k: 'R', name: 'Show You Out', tag: 'g' }];
+  const K = { id: 'latch', name: 'LATCH', sub: 'The Locksmith', color: LT_BRASS, accent: '#c8922a',
+    desc: 'He makes two linked doors: whatever goes into one comes out of the other. That means you, enemies you knock in, and even other fighters\' projectiles. Key Turn (1) places a door (a third one moves the oldest). Breach (2) charges through doors. Door Slam (3) slams them on anyone nearby. Draft (4) sucks enemies into the gold door and spits them out of the silver one. Show You Out (R) grabs someone and shoves them through. Hard: set up your doors first.',
+    slots: BASE, awkName: 'MASTER KEY', awkLine: 'Every door in town opens for me.', awkColor: LT_GOLD, awkSlots: [] };
+  const cd = { 1: 0, 2: 0, 3: 0, 4: 0, R: 0 }, MAX = { 1: 0.8, 2: 5, 3: 7, 4: 11, R: 9 };
+  const myDoors = () => LT_DOORS.filter(ltMine).sort((a, b) => a.seq - b.seq);
+  const cap = () => (awakened ? 6 : 2);
+  let mySeq = 0;
+  K.reset = () => { for (const k in cd) cd[k] = 0; for (const D of myDoors()) { ltRemove(D, 0); netOnly('ldgone', [D.id, 0]); } player.hidden = false; };
+  K.slotsNow = () => (awakened ? AWK : BASE);
+  K.resLabel = () => 'Doors ' + myDoors().length + '/' + cap();
+  K.resPct = () => myDoors().length / cap() * 100;
+  K.faceKind = () => (awakened ? 'latch-awk' : 'latch');
+  K.m1Dmg = (a) => (a.idx < 4 ? [3, 3, 4][a.idx - 1] : 6);
+  K.view = (k) => {
+    const S = (awakened ? AWK : BASE).find((s) => s.k === k), v = { name: S.name, tag: S.tag, remain: cd[k], max: MAX[k] };
+    const n = myDoors().length;
+    if (k === '1') v.name = (awakened ? 'Master Key ' : 'Key Turn ') + '(' + (n >= cap() ? 'move' : (nextCol() ? 'silver' : 'gold')) + ')';
+    if ((k === '3' && n < 1) || (k === '4' && n < 2)) { v.name += k === '3' ? ' (need a door)' : ' (need 2 doors)'; v.remain = Math.max(v.remain, 0.001); v.max = Math.max(v.max, 1); }
+    if (awakened && k === '4') { v.remain = 0; v.max = 1; v.glow = true; v.name = 'Open House'; }
+    return v;
+  };
+  // gold, silver, gold, silver... a replaced door keeps its colour so the pair stays gold + silver
+  function nextCol() { const m = myDoors(); if (m.length >= cap()) return m[0].col; const g = m.filter((d) => d.col === 0).length, s = m.length - g; return g > s ? 1 : 0; }
+  function placeDoor(at, fa) {
+    const m = myDoors(); let col = nextCol();
+    if (m.length >= cap()) { const old = m[0]; col = old.col; ltRemove(old, 0); netOnly('ldgone', [old.id, 0]); }
+    const id = ltNewId(), seq = ++mySeq, life = awakened ? 14 : 12;
+    const D = ltDoor(id, at, fa, col, seq, player, life); netOnly('ldoor', [id, at, fa, col, seq, player, life]);
+    return D;
+  }
+  const enemyNear = (at, r) => aliveDummies().filter((d) => Math.hypot(d.pos.x - at.x, d.pos.z - at.z) < r && Math.abs(d.pos.y - at.y) < 3);
+  // hold a target still where a scripted move wants it (works on dummies and on other players)
+  function holdAt(d, at) {
+    if (d.remote) { d.grabbed = Math.max(d.grabbed || 0, 0.12); d.grabSendT = d.grabSendT || 0; d.pos.copy(at); return; }
+    d.ltHold = true; d.pos.copy(at); d.vel.set(0, 0, 0); d.grabbed = Math.max(d.grabbed, 0.2); d.stun = Math.max(d.stun, 0.3); ltSyncVis(d);
+  }
+  function release(d) { if (!d) return; d.ltHold = false; d._ltP = null; if (!d.remote) d.grabbed = 0; }
+  function freeze(d, dur, title, sub) {
+    if (d.remote) netSend({ t: 'seize', to: d.id, dur, title, sub, quiet: !title });
+    else { if (d.rag) { endRagdoll(d.rag, () => { d.g.position.copy(d.pos); d.pivot.quaternion.identity(); d.rig.root.position.set(0, 0, 0); d.rig.root.quaternion.identity(); d.rig.body.position.set(0, 0, 0); d.rig.body.rotation.set(0, 0, 0); }); d.rag = null; d.down = 0; }
+      d.grabbed = Math.max(d.grabbed, dur); d.stun = Math.max(d.stun, dur); d.vel.set(0, 0, 0); if (d.ai) d.ai.wind = 0; }
+  }
+  // a hit that lands on a remote player a moment later, after their position has been set (a forced position wipes velocity)
+  function hitAfterMove(d, o) { if (d.remote) later(0.3, () => { if (!d.dead) hitDummy(d, o); }); else hitDummy(d, o); }
+  K.press = (k) => {
+    if (busy() || player.blocking) return;
+    if (awakened && k === '4') { openHouseLunge(); return; }
+    if (cd[k] > 0) return;
+    const f = facingVec();
+    if (k === '1') {
+      // the door goes in front of you, facing you: walk forward (or knock someone forward) and you go through it
+      grabAssist(8, 0.3); const ff = facingVec(), at = groundAt(player.pos.clone().addScaledVector(ff, 4.2));
+      placeDoor(at, player.facing + Math.PI);
+      startMove('turn', 0.28, 'point', { a: true });
+      P({ tex: 'ring', color: LT_GOLD, pos: handPos(), life: 0.3, s0: 0.3, s1: 1.4 });
+      cd[1] = awakened ? 0.35 : MAX[1];
+    }
+    if (k === '2') {
+      grabAssist(8, 0.3); player.dashDir.copy(facingVec()); player.dashT = awakened ? 0.42 : 0.3;
+      startMove('breach', awakened ? 0.5 : 0.38, 'haymaker', { a: true, hits: new Set(), warped: false });
+      cd[2] = awakened ? 3.5 : MAX[2];
+    }
+    if (k === '3') {
+      if (!myDoors().length) { toast('Place a door first (1)'); return; }
+      startMove('slam', 0.4, 'flick', { a: true, done: false }); cd[3] = awakened ? 4.5 : MAX[3];
+    }
+    if (k === '4') {
+      const m = myDoors(); if (m.length < 2) { toast('Draft needs two doors'); return; }
+      for (const D of m) D.draftT = 2.0;
+      netOnly('lddraft', [player, 2.0]);
+      startMove('draft', 0.4, 'cast', { a: true }); cd[4] = MAX[4];
+      callout('', 'Draft!');
+    }
+    if (k === 'R') {
+      grabAssist(6, 0.35); player.dashDir.copy(facingVec()); player.dashT = 0.2;
+      startMove('lunge', 0.34, 'grab', { a: true, done: false }); cd.R = MAX.R;
+    }
+  };
+  K.release = () => {};
+  K.onWarp = (dyaw, A, B) => { const mv = player.move; if (mv && mv.name === 'breach') { mv.warped = true; mv.hits.clear(); player.dashT = Math.max(player.dashT, 0.18); } };
+  // something knocked into a gold door during Draft gets spat out hard
+  K.onDummyWarp = (d, A, B, side) => {
+    if (!ltMine(A) || A.draftT <= 0 || d.ltSpit && clock - d.ltSpit < 1) return;
+    d.ltSpit = clock; const out = ltF(B.fa).multiplyScalar(side);
+    hitDummy(d, { dmg: 8, type: 'x', stun: 1, kb: out.multiplyScalar(16).setY(6), set: true, down: 1.1, big: true, mats: [fxPaper], spark: LT_GOLD, ringColor: LT_SILVER, label: 'SPAT OUT', awk: 5 });
+  };
+  function draftTick(dt) {
+    for (const D of myDoors()) {
+      if (D.draftT <= 0 || D.col !== 0 || !ltActive(D)) continue; const B = ltExit(D); if (!B) continue;
+      const F = ltF(D.fa);
+      for (const d of aliveDummies()) {
+        // aim a little past the doorway, so they get pulled right through it rather than stopping in it
+        const lf0 = ltLocal(D, d.pos).f, mouth = D.pos.clone().addScaledVector(F, lf0 >= 0 ? -1.6 : 1.6).add(new THREE.Vector3(0, 0.9, 0));
+        const v = mouth.clone().sub(d.pos), dist = Math.hypot(v.x, v.z); if (dist > 10.5 || Math.abs(v.y) > 4) continue;
+        if (d.remote) {
+          if (clock - (d.ltDraftT || -9) < 2) continue;
+          const loc = ltLocal(D, d.pos);
+          if (Math.abs(loc.f) < 0.55 && Math.abs(loc.x) < 1.1) {   // through: out of the silver door, then spat out
+            d.ltDraftT = clock; const side = loc.f >= 0 ? 1 : -1, { out } = ltMap(D, B, d.pos.clone().addScaledVector(F, -side * 0.3), side, 1.2);
+            d.pos.copy(out); d.grabbed = 0.12; ltWhoosh(D, B);
+            hitAfterMove(d, { dmg: 8, type: 'x', stun: 1, kb: ltF(B.fa).multiplyScalar(side * 16).setY(6), set: true, down: 1.1, big: true, mats: [fxPaper], spark: LT_GOLD, ringColor: LT_SILVER, label: 'SPAT OUT', awk: 5 });
+            continue;
+          }
+          const sp = (5 + 9 * Math.max(0, 1 - dist / 10.5)) * dt; v.setY(0).normalize(); d.pos.addScaledVector(v, Math.min(sp, dist)); d.grabbed = Math.max(d.grabbed || 0, 0.1);
+          continue;
+        }
+        if (d.ltHold) continue;
+        const sp = 6 + 10 * Math.max(0, 1 - dist / 10.5); v.setY(0).normalize();
+        if (d.rag) { for (const b of d.rag.list) { b.velocity.x += v.x * sp * dt * 6; b.velocity.z += v.z * sp * dt * 6; } }
+        else { d.vel.x = v.x * sp; d.vel.z = v.z * sp; d.stun = Math.max(d.stun, 0.25); if (d.ai) d.ai.wind = 0; }
+      }
+    }
+  }
+  function openHouseLunge() {
+    grabAssist(8, 0.35); player.dashDir.copy(facingVec()); player.dashT = 0.4; player.iframes = 0.5;
+    startMove('ohlunge', 0.5, 'haymaker', { a: true, done: false });
+    P({ tex: 'ring', color: LT_GOLD, pos: player.pos.clone().add(new THREE.Vector3(0, 1.2, 0)), life: 0.3, s0: 1, s1: 4 });
+  }
+  function startOpenHouse(d) {
+    player.dashT = 0; player.vel.set(0, 0, 0);
+    const base = groundAt(d.pos.clone()), fa = player.facing;
+    freeze(d, 4.6, 'OPEN HOUSE', 'Every door is open');
+    const doors = []; for (let i = 0; i < 6; i++) { const a = fa + Math.PI + i / 6 * PI2; doors.push({ p: base.clone().add(new THREE.Vector3(Math.sin(a) * 3.4, 0, Math.cos(a) * 3.4)), a }); }
+    ltOpenHouseFx(base, fa + Math.PI); netOnly('lohouse', [base, fa + Math.PI]);
+    startMove('ohouse', 4.4, 'pose', { a: true, lockPos: true, ltScripted: true, d, base, doors, step: -1, hidden: false, kicked: false, sky: null, landed: false, ended: false });
+    player.iframes = 5;
+    startCine({ focus: () => base.clone().add(new THREE.Vector3(0, 1.2, 0)), dur: 4.3, dist: 10, height: 4.5, yaw: fa + 2.4, spin: 0.35 });
+    letterbox(true); callout('OPEN HOUSE');
+  }
+  function showOut(d) {
+    player.dashT = 0; player.vel.set(0, 0, 0);
+    freeze(d, 0.9, 'SHOW YOU OUT', 'Mind the door');
+    // the nearest of his doors that leads somewhere; if there isn't one, he makes a door right here and one up in the sky
+    const pair = myDoors().filter((D) => ltExit(D) && D.pos.distanceTo(player.pos) < 30).sort((a, b) => a.pos.distanceTo(player.pos) - b.pos.distanceTo(player.pos))[0];
+    startMove('showout', 0.95, 'grab', { a: true, lockPos: true, ltScripted: true, d, A: pair || null, phase: 0, from: d.pos.clone(), sky: null, temp: null });
+  }
+  K.moveTick = (mv, dt) => {
+    const f = facingVec();
+    if (mv.name === 'breach') {
+      for (const d of aliveDummies()) {
+        if (mv.hits.has(d)) continue; const v = d.pos.clone().sub(player.pos), dist = Math.hypot(v.x, v.z);
+        if (dist > 1.9 || Math.abs(v.y) > 2.2 || (dist > 0.6 && (v.x * player.dashDir.x + v.z * player.dashDir.z) / dist < 0.1)) continue;
+        mv.hits.add(d); const big = mv.warped || awakened;
+        hitDummy(d, { dmg: mv.warped ? (awakened ? 13 : 11) : (awakened ? 9 : 7), type: 'b', heavy: true, stun: 0.9, kb: player.dashDir.clone().multiplyScalar(14).setY(4), set: true, big, mats: [fxPaper], spark: LT_GOLD, ringColor: LT_BRASS, label: mv.warped ? 'BACK DOOR' : 'BREACH', awk: 4 });
+      }
+    } else if (mv.name === 'slam' && !mv.done && mv.t >= 0.12) {
+      mv.done = true; ltSlamVis(player); netOnly('ldslam', [player]); addShake(0.35);
+      // everyone near any of his doors gets hit once; standing right in a doorway is worse
+      const best = new Map();
+      for (const D of myDoors()) for (const d of aliveDummies()) {
+        const L = ltLocal(D, d.pos); if (Math.abs(L.y) > 3) continue;
+        const inDoor = Math.abs(L.x) < 1.3 && Math.abs(L.f) < 1.1, near = Math.hypot(L.x, L.f) < 2.9;
+        if (!inDoor && !near) continue;
+        const sc = inDoor ? 2 : 1; if ((best.get(d) || {}).sc >= sc) continue; best.set(d, { sc, D, L });
+      }
+      for (const [d, b] of best) {
+        const out = b.L.f >= 0 ? ltF(b.D.fa) : ltF(b.D.fa).negate();
+        if (b.sc === 2) hitDummy(d, { dmg: awakened ? 14 : 12, type: 'b', heavy: true, stun: 1.1, kb: out.multiplyScalar(10).setY(5), set: true, down: 1, big: true, mats: [fxPaper], spark: LT_GOLD, ringColor: LT_BRASS, label: 'DOOR SLAM', awk: 5 });
+        else hitDummy(d, { dmg: awakened ? 9 : 8, type: 'b', heavy: true, stun: 0.9, kb: d.pos.clone().sub(b.D.pos).setY(0).normalize().multiplyScalar(9).setY(4), set: true, big: true, mats: [fxPaper], spark: LT_GOLD, ringColor: LT_BRASS, label: 'SLAM', awk: 4 });
+      }
+    } else if (mv.name === 'lunge') {
+      if (!mv.done) for (const d of aliveDummies()) { const v = d.pos.clone().sub(player.pos), dist = Math.hypot(v.x, v.z); if (dist < 2 && Math.abs(v.y) < 2 && (dist < 0.6 || (v.x * f.x + v.z * f.z) / dist > 0.3)) { mv.done = true; showOut(d); return; } }
+    } else if (mv.name === 'showout') {
+      const d = mv.d, t = mv.t;
+      if (d.dead) { player.move = null; release(d); return; }
+      if (t < 0.38) { holdAt(d, player.pos.clone().addScaledVector(f, 1.15)); return; }
+      if (mv.phase === 0) {
+        mv.phase = 1; playAnim('haymaker', 1.1);
+        if (!mv.A) {   // no doors: one appears in front of him, another up in the sky
+          const at = groundAt(player.pos.clone().addScaledVector(f, 2.2)); mv.temp = at;
+          ltTempDoor(at, player.facing + Math.PI, 0, 0.9, false); netOnly('ltemp', [at, player.facing + Math.PI, 0, 0.9, 0]);
+          mv.sky = d.pos.clone().add(new THREE.Vector3(0, 8.5, 0));
+          ltTempDoor(mv.sky, player.facing, 1, 1.0, true); netOnly('ltemp', [mv.sky, player.facing, 1, 1.0, 1]);
+        }
+        mv.from = d.pos.clone();
+      }
+      if (mv.phase === 1) {   // shoved into the doorway
+        const into = mv.A ? mv.A.pos.clone() : mv.temp, k = Math.min(1, (t - 0.38) / 0.14);
+        holdAt(d, mv.from.clone().lerp(into, k));
+        if (k >= 1) {
+          mv.phase = 2;
+          if (mv.A) {
+            const B = ltExit(mv.A); if (!B) { player.move = null; release(d); return; }
+            const side = ltLocal(mv.A, mv.from).f >= 0 ? 1 : -1, { out } = ltMap(mv.A, B, mv.A.pos.clone().addScaledVector(ltF(mv.A.fa), -side * 0.2).add(new THREE.Vector3(0, 0.1, 0)), side, 1.0);
+            holdAt(d, out); ltWhoosh(mv.A, B); release(d);
+            hitAfterMove(d, { dmg: awakened ? 14 : 12, type: 'x', stun: 1.1, kb: ltF(B.fa).multiplyScalar(side * 15).setY(6), set: true, down: 1.3, big: true, mats: [fxPaper], spark: LT_GOLD, ringColor: LT_SILVER, label: 'SHOW YOU OUT', awk: 6 });
+          } else {
+            holdAt(d, mv.sky.clone().add(new THREE.Vector3(0, -0.6, 0))); release(d);
+            ring(mv.sky.clone(), LT_SILVER, 3); flash(mv.sky.clone(), LT_SILVER, 3);
+            hitAfterMove(d, { dmg: awakened ? 15 : 13, type: 'x', stun: 1.2, kb: new THREE.Vector3(0, -26, 0), set: true, down: 1.5, big: true, slam: true, mats: [fxPaper], spark: LT_SILVER, ringColor: LT_GOLD, label: 'SHOWN THE DOOR', awk: 6 });
+          }
+        }
+      }
+    } else if (mv.name === 'ohlunge') {
+      if (!mv.done) for (const d of aliveDummies()) if (d.pos.distanceTo(player.pos) < 2.1 && Math.abs(d.pos.y - player.pos.y) < 2) { mv.done = true; startOpenHouse(d); return; }
+      if (!mv.done && mv.t >= 0.48) { mv.done = true; callout('MISSED', 'Nobody home'); later(0.3, endAwaken); }
+    } else if (mv.name === 'ohouse') {
+      const d = mv.d, t = mv.t;
+      if (!mv.kicked) holdAt(d, mv.base);
+      // six visits: out of a door, a hit, back in
+      const i = Math.floor((t - 0.5) / 0.4);
+      if (t >= 0.5 && i < 6 && i !== mv.step) {
+        mv.step = i; const D = mv.doors[i], into = mv.base.clone().sub(D.p).setY(0).normalize();
+        player.pos.copy(D.p).addScaledVector(into, 0.9); player.facing = Math.atan2(into.x, into.z); player.hidden = false;
+        playAnim(['m1a', 'm1b', 'm1c', 'm1a', 'm1b', 'm1c'][i], 1.3); flash(D.p.clone().add(new THREE.Vector3(0, 1.3, 0)), i % 2 ? LT_SILVER : LT_GOLD, 2);
+        mv.hitAt = t + 0.13; mv.hideAt = t + 0.32;
+      }
+      if (mv.hitAt && t >= mv.hitAt) { mv.hitAt = 0; hitDummy(d, { dmg: 3, type: 'u', otg: true, stun: 1, set: true, kb: new THREE.Vector3(0, 0, 0), mats: [fxPaper], spark: mv.step % 2 ? LT_SILVER : LT_GOLD, label: mv.step === 0 ? 'KNOCK KNOCK' : null, awk: 0 }); addShake(0.2); }
+      if (mv.hideAt && t >= mv.hideAt && mv.step < 5) { mv.hideAt = 0; player.hidden = true; }
+      // the last one: a kick into the far door, and he drops out of the sky
+      if (!mv.kicked && t >= 3.0) {
+        mv.kicked = true; player.hidden = false; playAnim('haymaker', 1.2);
+        const far = mv.doors[2].p; mv.kickFrom = d.pos.clone(); mv.kickTo = far.clone(); hitStop = 0.08; impactFrame(0.08);
+        mv.sky = mv.base.clone().add(new THREE.Vector3(0, 13, 0));
+        ltTempDoor(mv.sky, player.facing, 1, 1.4, true); netOnly('ltemp', [mv.sky, player.facing, 1, 1.4, 1]);
+      }
+      if (mv.kicked && !mv.landed) {
+        if (t < 3.18) holdAt(d, mv.kickFrom.clone().lerp(mv.kickTo, (t - 3.0) / 0.18));
+        else { const u = Math.max(0, t - 3.25), y = Math.max(0, 12.4 - u * u * 60); holdAt(d, mv.base.clone().add(new THREE.Vector3(0, y, 0)));
+          if (y <= 0) { mv.landed = true; release(d);
+            hitDummy(d, { dmg: 22, type: 'u', otg: true, kb: new THREE.Vector3(0, 5, 0), set: true, down: 2.2, big: true, slam: true, mats: [fxPaper], spark: LT_GOLD, ringColor: LT_SILVER, label: 'OPEN HOUSE', awk: 0 });
+            impactFrame(0.16); addShake(1.2); dust(mv.base.clone().add(new THREE.Vector3(0, 0.2, 0)), 14, 8); ring(mv.base.clone().add(new THREE.Vector3(0, 0.1, 0)), LT_GOLD, 7, true); crack(mv.base.clone(), 2.4); } }
+      }
+      if (t >= 4.1 && !mv.ended) { mv.ended = true; player.hidden = false; release(d); letterbox(false); later(0.1, endAwaken); }
+    }
+  };
+  K.cancel = () => {
+    const mv = player.move; if (!mv) return;
+    if (mv.name === 'showout' || mv.name === 'ohouse') { release(mv.d); player.hidden = false; if (mv.name === 'ohouse') letterbox(false); }
+  };
+  K.update = (dt) => {
+    for (const k in cd) cd[k] = Math.max(0, cd[k] - dt);
+    draftTick(dt);
+    if (awakened && Math.random() < 0.25) P({ tex: 'glow', color: LT_GOLD, pos: player.pos.clone().add(new THREE.Vector3(rv(0.7), 0.3 + Math.random() * 1.8, rv(0.7))), vel: new THREE.Vector3(0, 0.8, 0), life: 0.6, s0: 0.25, s1: 0.05 });
+  };
+  K.dbg = () => ({ doors: myDoors().map((D) => ({ col: D.col, seq: D.seq, open: +D.open.toFixed(2), pos: D.pos.toArray().map((v) => +v.toFixed(2)), fa: +D.fa.toFixed(2) })) });
+  K.awaken = () => { cd[1] = 0; };
+  K.unawaken = () => { const m = myDoors(); while (m.length > 2) { const old = m.shift(); ltRemove(old, 0); netOnly('ldgone', [old.id, 0]); } player.hidden = false; };
+  return K;
+}
+Object.assign(FXF, {
+  ldoor: (id, at, fa, col, seq, owner, life) => { if (!ltFind(id)) ltDoor(id, at, fa, col, seq, owner || 'remote', life); },
+  ldgone: (id, burst) => { const D = ltFind(id); if (D) ltRemove(D, burst); },
+  lddmg: (id) => ltApplyDmg(id),
+  ldslam: (owner) => ltSlamVis(owner || 'remote'),
+  lddraft: (owner, dur) => { for (const D of LT_DOORS) if (D.owner === (owner || 'remote')) D.draftT = dur; },
+  lohouse: (base, fa) => ltOpenHouseFx(base, fa),
+  ltemp: (at, fa, col, life, flat) => ltTempDoor(at, fa, col, life, !!flat),
+});
+KITS.latch = makeLatchKit;
+
+
 // ---------- 1v1 duel vs the Sparring Master ----------
 const duel = { on: false, d: null, state: 'off', t: 0, enraged: false };
 Object.assign(AI_CLIP, { combo: ['m1a', 0.035], spin: ['m1d', 0.08], upper: ['upper', 0.07], slam: ['slam', 0.07], dash: ['haymaker', 0.3], wave: ['cast', 0.06] });
@@ -11147,7 +11638,7 @@ function frame(now) {
   animateFighter(freezeT > 0 ? dt : (gdt || dt * 0.1));
   updateFX(freezeT > 0 ? dt : (gdt || dt * 0.15));
   auraTick(dt);
-  duelTick(dt); teamTick(); screenFxTick(); islandTick(dt); voiceTick(dt); ringTick(); spiderTick(dt); brickTick(dt);
+  duelTick(dt); teamTick(); screenFxTick(); islandTick(dt); voiceTick(dt); ringTick(); spiderTick(dt); brickTick(dt); latchTick(dt);
   updateDrops(gdt || dt * 0.1); updateBlobs();
   hitLightT -= dt; hitLight.intensity = hitLightT > 0 ? hitLight.intensity * Math.exp(-14 * dt) : 0;
   blurStr = Math.max(0, blurStr - dt * 3.5); if (blurPass) { blurPass.enabled = blurStr > 0.02; blurPass.uniforms.uStr.value = blurStr; }
