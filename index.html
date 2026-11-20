@@ -365,7 +365,7 @@ body.curtains #curL, body.curtains #curR { transform: translateX(0); }
 <div id="overlay">
   <div class="card scrap">
     <h1>Windstep Village</h1>
-    <div class="build">Build 54 · New fighter: Latch, the Locksmith · Pick your fighter</div>
+    <div class="build">Build 55 · Latch: exit arrows, better Master Key · Pick your fighter</div>
     <div class="roster" id="roster">
       <button class="fcard sel" data-id="juno" type="button"><span class="sw juno"></span><span class="fn">Juno Marrow</span><span class="fs">Ink · Hard</span></button>
       <button class="fcard" data-id="pip" type="button"><span class="sw pip"></span><span class="fn">Pip Hollow</span><span class="fs">Thread · Medium</span></button>
@@ -4981,7 +4981,7 @@ function hashStr(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h
 // the host spot for a room. If whoever holds it stops answering (a frozen tab, a sleeping phone, a bad network),
 // everyone moves to the room's next spot together instead of knocking on a dead door forever
 const hostId = (slot) => 'wsv-' + hashStr(roomKey()) + '-host' + (slot ? slot : '');
-const NETV = 40;   // bump when messages change, so mismatched versions can tell people to refresh
+const NETV = 41;   // bump when messages change, so mismatched versions can tell people to refresh
 // extra STUN servers find a direct route more often; the TURN relay carries the game when no direct route exists
 const ICE = { iceServers: [
   { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] },
@@ -10236,6 +10236,13 @@ function ltSwirlTex(col) {
   const t = new THREE.CanvasTexture(cv); t.center.set(0.5, 0.5); return t;
 }
 const LT_TEX = {};
+function ltArrowTex() {
+  if (LT_TEX.arrow) return LT_TEX.arrow;
+  const W = 64, H = 128, cv = document.createElement('canvas'); cv.width = W; cv.height = H; const g = cv.getContext('2d');
+  g.lineCap = 'round'; g.lineJoin = 'round';
+  for (const [c, w] of [['rgba(20,14,8,.6)', 17], ['#ffffff', 9]]) { g.strokeStyle = c; g.lineWidth = w; for (const y of [18, 82]) { g.beginPath(); g.moveTo(11, y); g.lineTo(32, y + 26); g.lineTo(53, y); g.stroke(); } }
+  const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; LT_TEX.arrow = t; return t;
+}
 function ltDoorMesh(col) {
   const g = new THREE.Group(), gold = col === 0, frameM = SM(0x4a3020), trim = SM(gold ? LT_GOLD : LT_SILVER, { emissive: gold ? 0x3a2600 : 0x1a2230 });
   for (const sd of [-1, 1]) { const p2 = part(0.2, 2.75, 0.24, frameM, sd * 0.97, 1.375, 0); g.add(p2); g.add(part(0.24, 0.12, 0.28, trim, sd * 0.97, 0.06, 0)); }
@@ -10254,11 +10261,15 @@ function ltDoorMesh(col) {
   { const knob = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 8), trim); knob.position.set(1.5, 1.25, 0.09); leaf.add(knob);
     leaf.add(part(0.1, 0.22, 0.02, trim, 1.5, 1.08, 0.06)); }
   outlineAll(g);
-  return { g, leaf, glow };
+  // the exit arrow: lies on the ground in front of the door and scrolls outward (that's the way things fly out)
+  const at = ltArrowTex().clone(); at.needsUpdate = true; at.repeat.set(1, 1.5);
+  const arrow = new THREE.Mesh(new THREE.PlaneGeometry(1.25, 2.6), new THREE.MeshBasicMaterial({ map: at, color: gold ? 0xffc83a : 0x8fc8ff, transparent: true, opacity: 0, depthWrite: false }));
+  arrow.material.userData.lin = true; arrow.userData.noOutline = true; arrow.rotation.x = -Math.PI / 2; arrow.position.set(0, 0.06, 1.75); arrow.renderOrder = 2; g.add(arrow);
+  return { g, leaf, glow, arrow };
 }
 function ltDoor(id, pos, fa, col, seq, owner, life) {
   const vis = ltDoorMesh(col);
-  const D = { id, pos: pos.clone(), fa, col, seq, owner, t: life || 12, hp: 3, age: 0, open: 0, shut: 0, draftT: 0, mesh: vis.g, leaf: vis.leaf, glow: vis.glow, hitT: 0 };
+  const D = { id, pos: pos.clone(), fa, col, seq, owner, t: life || 12, hp: 3, age: 0, open: 0, shut: 0, draftT: 0, mesh: vis.g, leaf: vis.leaf, glow: vis.glow, arrow: vis.arrow, hitT: 0 };
   D.mesh.position.copy(D.pos); D.mesh.rotation.y = fa; D.mesh.scale.set(1, 0.01, 1); scene.add(D.mesh);
   LT_DOORS.push(D);
   dust(D.pos.clone().add(new THREE.Vector3(0, 0.2, 0)), 6, 3); sparks(D.pos.clone().add(new THREE.Vector3(0, 2.8, 0)), 8, col ? LT_SILVER : LT_GOLD, 1.2);
@@ -10329,18 +10340,38 @@ function ltWarp(e, kind, A, B, side) {
 }
 // move a dummy's body to where it now is right away, so a knockdown that starts this frame starts in the right place
 function ltSyncVis(d) { if (d && !d.remote && !d.rag && d.g) { d.g.position.copy(d.pos); d.g.updateMatrixWorld(true); } }
+// Master Key (the owner is an awakened Latch): when he goes through one of his doors he comes out of the one nearest his target.
+// Everyone and everything else follows the normal chain.
+function ltSmart(D) { const o = D.owner; if (o === player) return fighterId === 'latch' && awakened; return !!(o && o.aw && o.fighter === 'latch'); }
+function ltRoute(A, e, kind) {
+  if (kind !== 'player' || A.owner !== player || !ltSmart(A)) return ltExit(A);
+  const list = LT_DOORS.filter((o) => o.owner === A.owner && o !== A && ltActive(o)); if (!list.length) return null;
+  const t = nearestDummy(player.pos, 60), target = t ? t.pos : null;
+  if (!target) return ltExit(A);
+  return list.sort((a, b) => a.pos.distanceToSquared(target) - b.pos.distanceToSquared(target))[0];
+}
+// enemies pay a toll going through an awakened Latch's doors
+function ltToll(e, kind, A) {
+  if (!ltSmart(A) || kind === 'proj') return;
+  if (kind === 'dummy' && A.owner === player) hitDummy(e, { dmg: 6, type: 'u', stun: 0.7, mats: [fxPaper], spark: LT_GOLD, ringColor: LT_GOLD, label: 'TOLL', awk: 0 });
+  else if (kind === 'player' && A.owner !== player && A.owner && A.owner.pos) {
+    const alive = player.dead <= 0; hitPlayer({ dmg: 6, type: 'u', stun: 0.7 }, A.owner); floatText('TOLL', player.pos.clone().add(new THREE.Vector3(0, 2.6, 0)), 'ink');
+    if (alive && player.dead > 0 && A.owner.id) netSend({ t: 'ko', by: A.owner.id });
+  }
+}
 function ltCheck(e, kind, cd, yOff) {
   const prev = e._ltP; e._ltP = e.pos.clone();
   if (!prev || clock - (e._ltT || -9) < cd) return;
   for (const A of LT_DOORS) {
     if (!ltActive(A)) continue;
     const side = ltCrossed(A, prev, e.pos, yOff); if (!side) continue;
-    const B = ltExit(A); if (!B || !ltActive(B)) continue;
-    ltWarp(e, kind, A, B, side); return;
+    const B = ltRoute(A, e, kind); if (!B || !ltActive(B)) continue;
+    ltWarp(e, kind, A, B, side); ltToll(e, kind, A); return;
   }
 }
 function ltDoorDamage(D) {
   if (!D || ltMine(D) || clock - D.hitT < 0.3) return; D.hitT = clock;
+  if (ltSmart(D)) { sparks(D.pos.clone().add(new THREE.Vector3(0, 1.4, 0)), 5, LT_GOLD, 0.8); floatText('LOCKED', D.pos.clone().add(new THREE.Vector3(0, 3.2, 0)), 'blk'); return; }
   ltApplyDmg(D.id); netOnly('lddmg', [D.id]);
 }
 function ltApplyDmg(id) {
@@ -10357,7 +10388,7 @@ function ltSlamVis(owner) { for (const D of LT_DOORS) if (D.owner === owner) { D
 // a door that only lives for a moment (Show You Out, Open House); flat = lying face down in the sky
 function ltTempDoor(pos, fa, col, life, flat) {
   const vis = ltDoorMesh(col), g = vis.g; g.position.copy(pos); g.rotation.order = 'YXZ'; g.rotation.y = fa; if (flat) { g.rotation.x = Math.PI / 2; g.position.y += 1.32; }
-  vis.glow.material.opacity = 0.85; vis.leaf.rotation.y = -1.7; g.scale.set(1, 0.01, 1);
+  vis.glow.material.opacity = 0.85; vis.leaf.rotation.y = -1.7; vis.arrow.visible = false; g.scale.set(1, 0.01, 1);
   sparks(pos.clone().add(new THREE.Vector3(0, 1.3, 0)), 8, col ? LT_SILVER : LT_GOLD, 1.2);
   tempMesh(g, life, (o, k) => { const t = k * life; o.scale.y = Math.min(1, t / 0.15) * (t > life - 0.2 ? Math.max(0.01, (life - t) / 0.2) : 1); vis.glow.material.map.rotation = t * 3; vis.glow.material.opacity = 0.75 + Math.sin(t * 9) * 0.15; });
   return g;
@@ -10378,6 +10409,8 @@ function latchTick(dt) {
     D.leaf.rotation.y = -1.7 * D.open - (D.draftT > 0 ? Math.sin(clock * 30) * 0.06 : 0);
     D.glow.material.opacity = (D.open * (0.62 + Math.sin(clock * 5 + D.seq) * 0.12)) * (D.t < 2 ? 0.5 + 0.5 * Math.sin(clock * 20) : 1) + (D.draftT > 0 ? 0.2 : 0);
     D.glow.material.map.rotation -= dt * (D.draftT > 0 ? 9 : 1.5);
+    D.arrow.material.opacity = D.open * (0.8 + Math.sin(clock * 4 + D.seq) * 0.12) * (D.t < 2 ? 0.5 : 1); D.arrow.material.map.offset.y += dt * 0.9;
+    if (ltSmart(D)) { D.t = Math.max(D.t, 2); D.hp = 3; }   // Master Key: doors don't run out or break
     D.mesh.position.x = D.pos.x + (D.flash > 0 ? rv(0.06) : 0);
     if (D.slamKick > 0) { D.slamKick -= dt; if (D.slamKick <= 0) { const at = D.pos.clone().add(new THREE.Vector3(0, 1.3, 0)); dust(D.pos.clone().add(new THREE.Vector3(0, 0.2, 0)), 6, 4); ring(at, D.col ? LT_SILVER : LT_GOLD, 3); addShake(0.12); } }
     if (D.draftT > 0 && D.col === 0 && Math.random() < 0.8) { const F = ltF(D.fa), X = ltX(D.fa), s = 2 + Math.random() * 4, at = D.pos.clone().addScaledVector(F, s).addScaledVector(X, rv(3)).add(new THREE.Vector3(0, 0.3 + Math.random() * 2, 0)); P({ tex: 'streak', color: 0xffffff, pos: at, vel: F.clone().multiplyScalar(-10), life: 0.3, s0: 0.5, s1: 0.2, stretch: 1.6, a: 0.5 }); }
@@ -10396,7 +10429,7 @@ function makeLatchKit() {
   const BASE = [{ k: '1', name: 'Key Turn', tag: 'n' }, { k: '2', name: 'Breach', tag: 'b' }, { k: '3', name: 'Door Slam', tag: 'x' }, { k: '4', name: 'Draft', tag: 'x' }, { k: 'R', name: 'Show You Out', tag: 'g' }];
   const AWK = [{ k: '1', name: 'Master Key', tag: 'n' }, { k: '2', name: 'Breach', tag: 'b' }, { k: '3', name: 'Slam Every Door', tag: 'x' }, { k: '4', name: 'Open House', tag: 'u' }, { k: 'R', name: 'Show You Out', tag: 'g' }];
   const K = { id: 'latch', name: 'LATCH', sub: 'The Locksmith', color: LT_BRASS, accent: '#c8922a',
-    desc: 'He makes two linked doors: whatever goes into one comes out of the other. That means you, enemies you knock in, and even other fighters\' projectiles. Key Turn (1) places a door (a third one moves the oldest). Breach (2) charges through doors. Door Slam (3) slams them on anyone nearby. Draft (4) sucks enemies into the gold door and spits them out of the silver one. Show You Out (R) grabs someone and shoves them through. Hard: set up your doors first.',
+    desc: 'He makes two linked doors: whatever goes into one comes out of the other. That means you, enemies you knock in, and even other fighters\' projectiles. Key Turn (1) places a door (a third one moves the oldest). Breach (2) charges through doors. Door Slam (3) slams them on anyone nearby. Draft (4) sucks enemies into the gold door and spits them out of the silver one. Show You Out (R) grabs someone and shoves them through. The glowing arrows show which way things come out. Awakened (Master Key): up to 6 doors, you always come out of the door nearest your target, enemies pay a toll going through, and your doors can\'t break. Hard: set up your doors first.',
     slots: BASE, awkName: 'MASTER KEY', awkLine: 'Every door in town opens for me.', awkColor: LT_GOLD, awkSlots: [] };
   const cd = { 1: 0, 2: 0, 3: 0, 4: 0, R: 0 }, MAX = { 1: 0.8, 2: 5, 3: 7, 4: 11, R: 9 };
   const myDoors = () => LT_DOORS.filter(ltMine).sort((a, b) => a.seq - b.seq);
@@ -10483,7 +10516,7 @@ function makeLatchKit() {
   };
   function draftTick(dt) {
     for (const D of myDoors()) {
-      if (D.draftT <= 0 || D.col !== 0 || !ltActive(D)) continue; const B = ltExit(D); if (!B) continue;
+      if (D.draftT <= 0 || D.col !== 0 || !ltActive(D)) continue; if (!ltExit(D)) continue;
       const F = ltF(D.fa);
       for (const d of aliveDummies()) {
         // aim a little past the doorway, so they get pulled right through it rather than stopping in it
@@ -10493,6 +10526,7 @@ function makeLatchKit() {
           if (clock - (d.ltDraftT || -9) < 2) continue;
           const loc = ltLocal(D, d.pos);
           if (Math.abs(loc.f) < 0.55 && Math.abs(loc.x) < 1.1) {   // through: out of the silver door, then spat out
+            const B = ltRoute(D, d, 'remote'); if (!B) continue;
             d.ltDraftT = clock; const side = loc.f >= 0 ? 1 : -1, { out } = ltMap(D, B, d.pos.clone().addScaledVector(F, -side * 0.3), side, 1.2);
             d.pos.copy(out); d.grabbed = 0.12; ltWhoosh(D, B);
             hitAfterMove(d, { dmg: 8, type: 'x', stun: 1, kb: ltF(B.fa).multiplyScalar(side * 16).setY(6), set: true, down: 1.1, big: true, mats: [fxPaper], spark: LT_GOLD, ringColor: LT_SILVER, label: 'SPAT OUT', awk: 5 });
@@ -10631,7 +10665,7 @@ function makeLatchKit() {
     if (awakened && Math.random() < 0.25) P({ tex: 'glow', color: LT_GOLD, pos: player.pos.clone().add(new THREE.Vector3(rv(0.7), 0.3 + Math.random() * 1.8, rv(0.7))), vel: new THREE.Vector3(0, 0.8, 0), life: 0.6, s0: 0.25, s1: 0.05 });
   };
   K.dbg = () => ({ doors: myDoors().map((D) => ({ col: D.col, seq: D.seq, open: +D.open.toFixed(2), pos: D.pos.toArray().map((v) => +v.toFixed(2)), fa: +D.fa.toFixed(2) })) });
-  K.awaken = () => { cd[1] = 0; };
+  K.awaken = () => { cd[1] = 0; later(1.6, () => awakened && fighterId === 'latch' && toast('Master Key: you come out of the door nearest your target, enemies pay a toll, and your doors can\'t break')); };
   K.unawaken = () => { const m = myDoors(); while (m.length > 2) { const old = m.shift(); ltRemove(old, 0); netOnly('ldgone', [old.id, 0]); } player.hidden = false; };
   return K;
 }
