@@ -319,6 +319,7 @@ body.curtains #curL, body.curtains #curR { transform: translateX(0); }
       <button class="mbtn" id="chipFighter" type="button">Change fighter</button>
       <button class="mbtn" id="chipDuel" type="button">1v1 Battle Dummy</button>
       <button class="mbtn" id="chipGfx" type="button">Graphics: High</button>
+      <button class="mbtn" id="chipSound" type="button">Sound: 80%</button>
       <button class="mbtn only-desk" id="chipHelp" type="button">Controls (H)</button>
       <div class="srv" id="srvMenu">
       <div class="srvtabs"><button type="button" class="srvtab" data-mode="public">Public server</button><button type="button" class="srvtab" data-mode="private">Private room</button></div>
@@ -365,7 +366,7 @@ body.curtains #curL, body.curtains #curR { transform: translateX(0); }
 <div id="overlay">
   <div class="card scrap">
     <h1>Windstep Village</h1>
-    <div class="build">Build 55 · Latch: exit arrows, better Master Key · Pick your fighter</div>
+    <div class="build">Build 56 · Sound effects for everything · Pick your fighter</div>
     <div class="roster" id="roster">
       <button class="fcard sel" data-id="juno" type="button"><span class="sw juno"></span><span class="fn">Juno Marrow</span><span class="fs">Ink · Hard</span></button>
       <button class="fcard" data-id="pip" type="button"><span class="sw pip"></span><span class="fn">Pip Hollow</span><span class="fs">Thread · Medium</span></button>
@@ -476,6 +477,274 @@ const C = {
   wood: 0x6b4a33, woodDark: 0x3f2c20, paperWall: 0xede3cc, roof: 0x3a3e4a, red: 0xb8352b, gold: 0xd9a63a,
   water: 0x5b9fc4, blossom: 0xf2b8c6, blossom2: 0xe89bb0, bamboo: 0x7fa04a, bambooDark: 0x5f7f34, straw: 0xc9a86a,
 };
+// =====================================================================
+// SOUND — every effect is made right here with the browser's audio engine (no sound files)
+// =====================================================================
+const SFX = { ctx: null, master: null, vol: 0.8, noise: null, last: {}, voices: 0, ready: false, amb: null };
+try { const v = localStorage.getItem('wsv-vol'); if (v != null && !isNaN(+v)) SFX.vol = +v; } catch (err) { /* ok */ }
+function sfxInit() {
+  if (SFX.ctx) { if (SFX.ctx.state === 'suspended') SFX.ctx.resume().catch(() => {}); return; }
+  const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+  try {
+    const ctx = SFX.ctx = new AC();
+    const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -16; comp.knee.value = 12; comp.ratio.value = 5; comp.attack.value = 0.002; comp.release.value = 0.18;
+    SFX.master = ctx.createGain(); SFX.master.gain.value = SFX.vol; SFX.master.connect(comp); comp.connect(ctx.destination);
+    const len = ctx.sampleRate * 2, b = ctx.createBuffer(1, len, ctx.sampleRate), d = b.getChannelData(0); for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1; SFX.noise = b;
+    SFX.ready = true; if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+    sfxAmbientStart();
+  } catch (err) { SFX.ctx = null; }
+}
+['pointerdown', 'keydown', 'touchstart'].forEach((ev) => window.addEventListener(ev, sfxInit, { passive: true }));
+function sfxCtx() { sfxInit(); return SFX.ctx; }
+function sfxDest() { return SFX.master || (SFX.ctx && SFX.ctx.destination); }
+function sfxSetVol(v) { SFX.vol = v; if (SFX.master) SFX.master.gain.setTargetAtTime(v, SFX.ctx.currentTime, 0.05); try { localStorage.setItem('wsv-vol', String(v)); } catch (err) { /* ok */ } }
+
+// ---- building blocks ----
+function sOut(vol, pan) {
+  const ctx = SFX.ctx, g = ctx.createGain(); g.gain.value = vol;
+  if (ctx.createStereoPanner && pan) { const p = ctx.createStereoPanner(); p.pan.value = pan; g.connect(p); p.connect(SFX.master); } else g.connect(SFX.master);
+  return g;
+}
+function sEnv(g, t, a, v, dur) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(0.0002, v), t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + Math.max(a + 0.01, dur)); }
+function sFilt(type, f, q) { const n = SFX.ctx.createBiquadFilter(); n.type = type; n.frequency.value = f; n.Q.value = q || 0.8; return n; }
+// tone: o = { type, f0, f1, dur, v, a, sweep, vib: [rate, depth], lp|bp|hp, q }
+function sTone(out, t, o) {
+  const ctx = SFX.ctx, osc = ctx.createOscillator(), g = ctx.createGain(), dur = o.dur || 0.2;
+  osc.type = o.type || 'sine'; osc.frequency.setValueAtTime(o.f0, t); if (o.f1) osc.frequency.exponentialRampToValueAtTime(Math.max(20, o.f1), t + (o.sweep || dur));
+  if (o.vib) { const l = ctx.createOscillator(), lg = ctx.createGain(); l.frequency.value = o.vib[0]; lg.gain.value = o.vib[1]; l.connect(lg); lg.connect(osc.frequency); l.start(t); l.stop(t + dur + 0.05); }
+  sEnv(g, t, o.a || 0.004, o.v == null ? 0.4 : o.v, dur);
+  let node = osc; if (o.lp || o.bp || o.hp) { const f = sFilt(o.lp ? 'lowpass' : o.bp ? 'bandpass' : 'highpass', o.lp || o.bp || o.hp, o.q); osc.connect(f); node = f; }
+  node.connect(g); g.connect(out); osc.start(t); osc.stop(t + dur + 0.05);
+}
+// noise: o = { type, f0, f1, dur, v, a, sweep, q, trem: [rate, depth] }
+function sNoise(out, t, o) {
+  const ctx = SFX.ctx, src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain(), dur = o.dur || 0.2;
+  src.buffer = SFX.noise; src.loop = true;
+  f.type = o.type || 'bandpass'; f.Q.value = o.q || 0.9; f.frequency.setValueAtTime(o.f0 || 1000, t); if (o.f1) f.frequency.exponentialRampToValueAtTime(o.f1, t + (o.sweep || dur));
+  sEnv(g, t, o.a || 0.003, o.v == null ? 0.35 : o.v, dur);
+  src.connect(f); f.connect(g);
+  if (o.trem) { const tg = ctx.createGain(), l = ctx.createOscillator(), lg = ctx.createGain(); tg.gain.value = 1 - o.trem[1]; l.frequency.value = o.trem[0]; lg.gain.value = o.trem[1]; l.connect(lg); lg.connect(tg.gain); g.connect(tg); tg.connect(out); l.start(t); l.stop(t + dur + 0.05); }
+  else g.connect(out);
+  src.start(t, Math.random() * 1.5); src.stop(t + dur + 0.05);
+}
+// bell: a few inharmonic partials, the high ones dying first
+function sBell(out, t, f, dur, v, parts) { (parts || [1, 2.76, 5.4, 8.9]).forEach((p, i) => sTone(out, t, { f0: f * p, dur: dur / (1 + i * 0.8), v: v / (1 + i * 1.3), a: 0.002 })); }
+const SK = (k, f) => f * k;
+
+// ---- the sound library: (out, t, k) where k is a small random pitch wobble ----
+const SFX_LIB = {
+  // movement + general combat
+  swing: (o, t, k) => { sNoise(o, t, { f0: SK(k, 700), f1: SK(k, 2600), sweep: 0.08, dur: 0.16, v: 0.55, q: 1.4 }); },
+  swingHeavy: (o, t, k) => { sNoise(o, t, { f0: SK(k, 260), f1: SK(k, 1300), sweep: 0.16, dur: 0.3, v: 0.42, q: 1.1 }); sTone(o, t, { f0: SK(k, 120), f1: 70, dur: 0.25, v: 0.12 }); },
+  whoosh: (o, t, k) => { sNoise(o, t, { f0: SK(k, 500), f1: SK(k, 1800), sweep: 0.12, dur: 0.24, v: 0.55, q: 1 }); },
+  whooshBig: (o, t, k) => { sNoise(o, t, { f0: SK(k, 200), f1: SK(k, 1400), sweep: 0.3, dur: 0.5, v: 0.45, q: 0.9, a: 0.05 }); sTone(o, t, { f0: SK(k, 90), f1: 160, dur: 0.45, v: 0.15, a: 0.08 }); },
+  dash: (o, t, k) => { sNoise(o, t, { f0: SK(k, 2200), f1: SK(k, 400), dur: 0.26, v: 0.32, q: 1.2 }); },
+  jump: (o, t, k) => { sTone(o, t, { f0: SK(k, 200), f1: 380, dur: 0.09, v: 0.08 }); sNoise(o, t, { type: 'highpass', f0: 2500, dur: 0.06, v: 0.06 }); },
+  land: (o, t, k) => { sTone(o, t, { f0: SK(k, 110), f1: 55, dur: 0.12, v: 0.22 }); sNoise(o, t, { type: 'lowpass', f0: 700, dur: 0.1, v: 0.18 }); },
+  hit: (o, t, k) => { sTone(o, t, { f0: SK(k, 190), f1: 70, dur: 0.1, v: 0.55 }); sNoise(o, t, { type: 'lowpass', f0: 3200, f1: 800, dur: 0.06, v: 0.32 }); },
+  hitHeavy: (o, t, k) => { sTone(o, t, { f0: SK(k, 140), f1: 45, dur: 0.2, v: 0.75 }); sNoise(o, t, { f0: SK(k, 1100), f1: 300, dur: 0.14, v: 0.45, q: 0.7 }); sNoise(o, t, { type: 'highpass', f0: 3500, dur: 0.035, v: 0.25 }); },
+  hitBig: (o, t, k) => { sTone(o, t, { f0: SK(k, 110), f1: 32, dur: 0.5, v: 0.95 }); sNoise(o, t, { type: 'lowpass', f0: 1400, f1: 120, dur: 0.45, v: 0.6 }); sNoise(o, t, { type: 'highpass', f0: 3000, dur: 0.05, v: 0.35 }); },
+  block: (o, t, k) => { sTone(o, t, { type: 'square', f0: SK(k, 820), dur: 0.05, v: 0.08, lp: 2500 }); sBell(o, t, SK(k, 1250), 0.18, 0.1); sNoise(o, t, { type: 'highpass', f0: 4000, dur: 0.03, v: 0.12 }); },
+  parry: (o, t, k) => { sBell(o, t, SK(k, 1560), 0.9, 0.3); sNoise(o, t, { type: 'highpass', f0: 5000, dur: 0.06, v: 0.2 }); },
+  guardBreak: (o, t, k) => { for (let i = 0; i < 6; i++) sNoise(o, t + i * 0.025, { type: 'highpass', f0: 2500 + Math.random() * 3000, dur: 0.06, v: 0.22 }); sTone(o, t, { f0: 130, f1: 40, dur: 0.35, v: 0.6 }); sBell(o, t, 900, 0.4, 0.12); },
+  hurt: (o, t, k) => { sTone(o, t, { type: 'square', f0: SK(k, 330), f1: 170, dur: 0.12, v: 0.06, lp: 1600 }); SFX_LIB.hit(o, t, k); },
+  ko: (o, t, k) => { SFX_LIB.hitBig(o, t, k); sTone(o, t + 0.05, { type: 'sawtooth', f0: 420, f1: 60, dur: 0.9, v: 0.12, lp: 1200 }); sBell(o, t + 0.1, 220, 1.4, 0.18); },
+  respawn: (o, t, k) => { [523, 659, 784, 1047].forEach((f, i) => sTone(o, t + i * 0.07, { type: 'triangle', f0: f, dur: 0.3, v: 0.1 })); },
+  slamGround: (o, t, k) => { sTone(o, t, { f0: 70, f1: 30, dur: 0.6, v: 0.8 }); sNoise(o, t, { type: 'lowpass', f0: 600, f1: 90, dur: 0.7, v: 0.55 }); },
+  rumble: (o, t, k) => { sNoise(o, t, { type: 'lowpass', f0: 260, f1: 70, dur: 1.1, v: 0.5, a: 0.05 }); sTone(o, t, { f0: 50, f1: 32, dur: 1, v: 0.35, a: 0.05 }); },
+  grab: (o, t, k) => { sTone(o, t, { f0: SK(k, 240), f1: 140, dur: 0.1, v: 0.3 }); sNoise(o, t, { f0: 900, dur: 0.12, v: 0.2, q: 0.6 }); },
+  throwIt: (o, t, k) => { sNoise(o, t, { f0: SK(k, 900), f1: SK(k, 3000), sweep: 0.1, dur: 0.18, v: 0.5, q: 1.6 }); },
+  // awakenings and big moments
+  awaken: (o, t, k) => {
+    sNoise(o, t, { type: 'highpass', f0: 300, f1: 6000, sweep: 0.75, dur: 0.85, v: 0.28, a: 0.6 });
+    [110, 165, 220, 330].forEach((f, i) => sTone(o, t, { type: i % 2 ? 'triangle' : 'sawtooth', f0: f, f1: f * 1.5, sweep: 0.8, dur: 0.95, v: 0.07, a: 0.7, lp: 2200 }));
+    SFX_LIB.hitBig(o, t + 0.8, 1); sBell(o, t + 0.8, 440, 2.2, 0.22, [1, 1.5, 2, 3]);
+  },
+  awakenEnd: (o, t, k) => { [330, 247, 196].forEach((f, i) => sTone(o, t + i * 0.09, { type: 'triangle', f0: f, f1: f * 0.9, dur: 0.4, v: 0.08 })); },
+  stinger: (o, t, k) => { sNoise(o, t, { type: 'lowpass', f0: 2000, f1: 200, dur: 0.5, v: 0.3 }); [220, 277, 330].forEach((f) => sTone(o, t, { type: 'sawtooth', f0: f, dur: 0.6, v: 0.05, lp: 1800 })); sTone(o, t, { f0: 80, f1: 40, dur: 0.5, v: 0.4 }); },
+  cine: (o, t, k) => { sNoise(o, t, { type: 'bandpass', f0: 200, f1: 1800, dur: 1.0, v: 0.22, a: 0.7, q: 2 }); sTone(o, t, { type: 'sawtooth', f0: 55, f1: 110, dur: 1.0, v: 0.12, a: 0.7, lp: 600 }); },
+  shimmer: (o, t, k) => { for (let i = 0; i < 6; i++) sTone(o, t + i * 0.05, { f0: SK(k, 1800 + i * 260), dur: 0.35, v: 0.05 }); },
+  magic: (o, t, k) => { [784, 988, 1175, 1568].forEach((f, i) => sTone(o, t + i * 0.045, { type: 'triangle', f0: SK(k, f), dur: 0.3, v: 0.08 })); },
+  buff: (o, t, k) => { [392, 523, 659, 784].forEach((f, i) => sTone(o, t + i * 0.06, { type: 'triangle', f0: SK(k, f), dur: 0.35, v: 0.09 })); },
+  dark: (o, t, k) => { sTone(o, t, { type: 'sawtooth', f0: SK(k, 98), f1: 70, dur: 0.6, v: 0.1, lp: 500, a: 0.08 }); sNoise(o, t, { type: 'lowpass', f0: 400, f1: 1200, dur: 0.6, v: 0.38, a: 0.15 }); },
+  // ink, thread, stage, shadow
+  splat: (o, t, k) => { sNoise(o, t, { type: 'lowpass', f0: SK(k, 1200), f1: 250, dur: 0.22, v: 0.45 }); sTone(o, t, { f0: SK(k, 420), f1: 110, dur: 0.12, v: 0.25 }); },
+  bloop: (o, t, k) => { sTone(o, t, { f0: SK(k, 600), f1: 160, dur: 0.12, v: 0.25 }); },
+  inkWave: (o, t, k) => { sNoise(o, t, { type: 'lowpass', f0: 300, f1: 1400, dur: 0.8, v: 0.4, a: 0.2 }); for (let i = 0; i < 4; i++) SFX_LIB.bloop(o, t + 0.1 + i * 0.12, k * (1 - i * 0.08)); },
+  zip: (o, t, k) => { sNoise(o, t, { f0: SK(k, 2500), f1: SK(k, 7000), dur: 0.12, v: 0.45, q: 3 }); sTone(o, t, { type: 'sawtooth', f0: SK(k, 700), f1: 2200, dur: 0.1, v: 0.04, lp: 4000 }); },
+  needle: (o, t, k) => { sTone(o, t, { type: 'triangle', f0: SK(k, 3200), f1: 2600, dur: 0.07, v: 0.12 }); sNoise(o, t, { type: 'highpass', f0: 5000, dur: 0.03, v: 0.1 }); },
+  curtain: (o, t, k) => { sNoise(o, t, { type: 'lowpass', f0: 900, f1: 300, dur: 0.5, v: 0.85, a: 0.05, trem: [14, 0.4] }); },
+  applause: (o, t, k) => { for (let i = 0; i < 40; i++) sNoise(o, t + Math.random() * 1.2, { type: 'bandpass', f0: 1500 + Math.random() * 2500, dur: 0.03, v: 0.35, q: 2 }); },
+  caw: (o, t, k) => { [0, 0.16].forEach((d) => sTone(o, t + d, { type: 'sawtooth', f0: SK(k, 950), f1: 620, dur: 0.13, v: 0.38, bp: 1400, q: 2, vib: [40, 60] })); },
+  roar: (o, t, k) => { sTone(o, t, { type: 'sawtooth', f0: SK(k, 95), f1: 70, dur: 0.8, v: 0.18, lp: 700, a: 0.08, vib: [18, 12] }); sNoise(o, t, { f0: 350, dur: 0.8, v: 0.3, a: 0.1, q: 1.5 }); },
+  howl: (o, t, k) => { sTone(o, t, { f0: SK(k, 420), f1: 700, sweep: 0.4, dur: 0.9, v: 0.22, a: 0.1, vib: [6, 10] }); },
+  hiss: (o, t, k) => { sNoise(o, t, { type: 'highpass', f0: 5000, dur: 0.5, v: 0.2, a: 0.05 }); },
+  hoot: (o, t, k) => { [0, 0.22].forEach((d) => sTone(o, t + d, { f0: SK(k, 520), f1: 470, dur: 0.18, v: 0.12, a: 0.03 })); },
+  flap: (o, t, k) => { for (let i = 0; i < 4; i++) sNoise(o, t + i * 0.07, { type: 'lowpass', f0: 900, dur: 0.06, v: 0.5 }); },
+  // kitchen
+  clang: (o, t, k) => { sBell(o, t, SK(k, 520), 0.7, 0.3, [1, 2.4, 3.9, 6.3]); sNoise(o, t, { type: 'highpass', f0: 3000, dur: 0.04, v: 0.2 }); },
+  sizzle: (o, t, k) => { sNoise(o, t, { type: 'highpass', f0: 4200, dur: 0.7, v: 0.16, a: 0.03, trem: [22, 0.5] }); },
+  flame: (o, t, k) => { sNoise(o, t, { type: 'lowpass', f0: 400, f1: 2000, dur: 0.6, v: 0.4, a: 0.03 }); sNoise(o, t, { type: 'highpass', f0: 3000, dur: 0.5, v: 0.1, trem: [30, 0.6] }); },
+  knife: (o, t, k) => { sTone(o, t, { type: 'triangle', f0: SK(k, 4200), f1: 3200, dur: 0.12, v: 0.06 }); SFX_LIB.throwIt(o, t, k); },
+  cook: (o, t, k) => { SFX_LIB.sizzle(o, t, k); [0.2, 0.45].forEach((d) => SFX_LIB.clang(o, t + d, k * 1.3)); },
+  // water / duck
+  quack: (o, t, k) => { [0, 0.15].forEach((d, i) => sTone(o, t + d, { type: 'sawtooth', f0: SK(k, i ? 560 : 620), f1: 420, dur: 0.12, v: 0.5, bp: 1300, q: 3 })); },
+  splash: (o, t, k) => { sNoise(o, t, { type: 'lowpass', f0: 4000, f1: 500, dur: 0.45, v: 0.4 }); for (let i = 0; i < 3; i++) SFX_LIB.bloop(o, t + 0.04 + i * 0.07, k * (1.2 - i * 0.15)); },
+  feathers: (o, t, k) => { sNoise(o, t, { f0: 1200, f1: 3500, dur: 0.6, v: 0.45, a: 0.05, trem: [16, 0.5] }); },
+  // blades and ninjas
+  shing: (o, t, k) => { sTone(o, t, { type: 'triangle', f0: SK(k, 2800), f1: 4600, sweep: 0.08, dur: 0.35, v: 0.08 }); sNoise(o, t, { type: 'highpass', f0: 3500, f1: 8000, dur: 0.18, v: 0.2 }); },
+  slash: (o, t, k) => { sNoise(o, t, { f0: SK(k, 1500), f1: SK(k, 7000), sweep: 0.08, dur: 0.16, v: 0.55, q: 2 }); },
+  smoke: (o, t, k) => { sNoise(o, t, { type: 'lowpass', f0: 1600, f1: 200, dur: 0.45, v: 0.45 }); sTone(o, t, { f0: 160, f1: 60, dur: 0.15, v: 0.2 }); },
+  // glass, clocks
+  chime: (o, t, k) => { sBell(o, t, SK(k, 2100), 0.9, 0.13, [1, 1.5, 2.2]); },
+  shatter: (o, t, k) => { for (let i = 0; i < 9; i++) sNoise(o, t + Math.random() * 0.15, { type: 'highpass', f0: 3000 + Math.random() * 5000, dur: 0.05 + Math.random() * 0.08, v: 0.2 }); for (let i = 0; i < 4; i++) sBell(o, t + Math.random() * 0.2, 2000 + Math.random() * 2500, 0.5, 0.05, [1, 1.7]); },
+  tick: (o, t, k) => { sTone(o, t, { type: 'square', f0: 2200, dur: 0.018, v: 0.1, hp: 1500 }); sTone(o, t + 0.25, { type: 'square', f0: 1500, dur: 0.018, v: 0.08, hp: 1000 }); },
+  gong: (o, t, k) => { sBell(o, t, 110, 2.5, 0.4, [1, 1.47, 2.09, 2.56, 3.2]); sNoise(o, t, { type: 'lowpass', f0: 500, dur: 0.3, v: 0.2 }); },
+  rewind: (o, t, k) => { sTone(o, t, { type: 'sawtooth', f0: 1200, f1: 180, dur: 0.5, v: 0.07, lp: 2500 }); sNoise(o, t, { f0: 4000, f1: 600, dur: 0.5, v: 0.15, q: 2 }); },
+  // wood and axes
+  chop: (o, t, k) => { sNoise(o, t, { f0: SK(k, 1800), dur: 0.07, v: 0.4, q: 1.5 }); sTone(o, t, { f0: SK(k, 260), f1: 90, dur: 0.14, v: 0.45 }); },
+  creak: (o, t, k) => { sTone(o, t, { type: 'sawtooth', f0: SK(k, 170), f1: 250, dur: 0.45, v: 0.4, bp: 900, q: 4, vib: [28, 18] }); },
+  timber: (o, t, k) => { SFX_LIB.creak(o, t, k); SFX_LIB.creak(o, t + 0.3, k * 0.8); SFX_LIB.hitBig(o, t + 0.7, k); SFX_LIB.rumble(o, t + 0.7, k); },
+  logRoll: (o, t, k) => { sNoise(o, t, { type: 'lowpass', f0: 260, dur: 0.9, v: 1.3, a: 0.05, trem: [9, 0.6] }); },
+  goo: (o, t, k) => { sNoise(o, t, { type: 'lowpass', f0: 500, f1: 200, dur: 0.4, v: 0.35 }); SFX_LIB.bloop(o, t + 0.05, k * 0.7); },
+  // chess
+  clack: (o, t, k) => { sTone(o, t, { f0: SK(k, 1900), dur: 0.03, v: 0.2 }); sNoise(o, t, { f0: 2800, dur: 0.03, v: 0.22, q: 2 }); },
+  laser: (o, t, k) => { sTone(o, t, { type: 'sawtooth', f0: SK(k, 1900), f1: 240, dur: 0.3, v: 0.08, lp: 5000 }); sTone(o, t, { type: 'square', f0: SK(k, 950), f1: 120, dur: 0.3, v: 0.04, lp: 3000 }); },
+  march: (o, t, k) => { for (let i = 0; i < 4; i++) SFX_LIB.clack(o, t + i * 0.12, k * (1 - i * 0.04)); },
+  // rhythm
+  boom: (o, t, k) => { sTone(o, t, { f0: 120, f1: 38, dur: 0.5, v: 0.6 }); sNoise(o, t, { type: 'highpass', f0: 6000, dur: 0.05, v: 0.12 }); },
+  scratch: (o, t, k) => { sNoise(o, t, { f0: 800, f1: 2500, dur: 0.12, v: 0.6, q: 3 }); sNoise(o, t + 0.13, { f0: 2500, f1: 700, dur: 0.12, v: 0.6, q: 3 }); },
+  feedback: (o, t, k) => { [440, 466, 622].forEach((f) => sTone(o, t, { type: 'sawtooth', f0: f, f1: f * 1.03, dur: 0.5, v: 0.05, lp: 3000 })); sNoise(o, t, { type: 'highpass', f0: 2000, dur: 0.4, v: 0.15 }); },
+  // weather
+  thunder: (o, t, k) => { for (let i = 0; i < 5; i++) sNoise(o, t + i * 0.03, { type: 'highpass', f0: 2000, dur: 0.05, v: 0.25 }); sNoise(o, t + 0.05, { type: 'lowpass', f0: 900, f1: 80, dur: 1.4, v: 0.7 }); sTone(o, t, { f0: 70, f1: 30, dur: 1.2, v: 0.5 }); },
+  rain: (o, t, k) => { sNoise(o, t, { type: 'highpass', f0: 2500, dur: 1.2, v: 0.18, a: 0.2 }); for (let i = 0; i < 10; i++) SFX_LIB.bloop(o, t + Math.random() * 1, 1.6 + Math.random()); },
+  wind: (o, t, k) => { sNoise(o, t, { f0: 300, f1: 1100, sweep: 0.5, dur: 1.0, v: 0.6, a: 0.25, q: 1.5 }); },
+  sun: (o, t, k) => { SFX_LIB.shimmer(o, t, k); sTone(o, t, { type: 'triangle', f0: 523, f1: 1047, dur: 0.6, v: 0.08, a: 0.1 }); },
+  // ragdoll
+  plush: (o, t, k) => { sTone(o, t, { f0: SK(k, 150), f1: 80, dur: 0.12, v: 0.4 }); sNoise(o, t, { type: 'lowpass', f0: 900, dur: 0.1, v: 0.25 }); },
+  stitch: (o, t, k) => { for (let i = 0; i < 3; i++) SFX_LIB.zip(o, t + i * 0.08, k * (1 + i * 0.1)); },
+  stretch: (o, t, k) => { sTone(o, t, { type: 'sawtooth', f0: 90, f1: 220, dur: 0.6, v: 0.22, lp: 900, vib: [12, 8] }); },
+  // builder
+  stone: (o, t, k) => { sNoise(o, t, { type: 'lowpass', f0: SK(k, 900), f1: 200, dur: 0.25, v: 0.5 }); sTone(o, t, { f0: SK(k, 90), f1: 50, dur: 0.25, v: 0.5 }); sNoise(o, t, { type: 'highpass', f0: 3000, dur: 0.03, v: 0.2 }); },
+  stoneRise: (o, t, k) => { sNoise(o, t, { type: 'lowpass', f0: 200, f1: 900, dur: 0.3, v: 0.4 }); SFX_LIB.stone(o, t + 0.22, k); },
+  rubble: (o, t, k) => { for (let i = 0; i < 10; i++) sNoise(o, t + Math.random() * 0.5, { type: 'lowpass', f0: 600 + Math.random() * 1500, dur: 0.06 + Math.random() * 0.1, v: 0.25 }); },
+  grind: (o, t, k) => { sNoise(o, t, { f0: 700, dur: 0.9, v: 0.85, a: 0.03, q: 2, trem: [26, 0.5] }); sTone(o, t, { type: 'sawtooth', f0: 70, dur: 0.9, v: 0.06, lp: 400 }); },
+  chain: (o, t, k) => { for (let i = 0; i < 4; i++) sBell(o, t + i * 0.06, 900 + Math.random() * 600, 0.15, 0.16, [1, 2.3]); },
+  hammer: (o, t, k) => { SFX_LIB.hitHeavy(o, t, k); sBell(o, t, SK(k, 330), 0.35, 0.1, [1, 2.7]); },
+  crane: (o, t, k) => { sTone(o, t, { type: 'sawtooth', f0: 60, dur: 0.7, v: 0.07, lp: 300, a: 0.1 }); SFX_LIB.chain(o, t + 0.1, k); sTone(o, t + 0.5, { f0: 1500, f1: 380, dur: 0.7, v: 0.07 }); },
+  crash: (o, t, k) => { SFX_LIB.hitBig(o, t, k); SFX_LIB.rubble(o, t + 0.05, k); },
+  // locksmith
+  keyClick: (o, t, k) => { sTone(o, t, { type: 'square', f0: 2600, dur: 0.012, v: 0.12, hp: 1500 }); sTone(o, t + 0.07, { type: 'square', f0: 1900, dur: 0.015, v: 0.14, hp: 1200 }); sBell(o, t + 0.07, 2400, 0.15, 0.04); },
+  doorOpen: (o, t, k) => { SFX_LIB.keyClick(o, t, k); SFX_LIB.creak(o, t + 0.12, k); },
+  doorSlam: (o, t, k) => { sNoise(o, t, { type: 'lowpass', f0: 1800, f1: 200, dur: 0.25, v: 0.6 }); sTone(o, t, { f0: SK(k, 120), f1: 55, dur: 0.3, v: 0.7 }); sNoise(o, t, { type: 'highpass', f0: 3000, dur: 0.03, v: 0.25 }); },
+  woodBreak: (o, t, k) => { SFX_LIB.doorSlam(o, t, k); for (let i = 0; i < 6; i++) sNoise(o, t + Math.random() * 0.2, { f0: 1000 + Math.random() * 2000, dur: 0.05, v: 0.2, q: 2 }); },
+  portal: (o, t, k) => { sNoise(o, t, { f0: SK(k, 300), f1: SK(k, 2400), dur: 0.35, v: 0.5, q: 2.5 }); sTone(o, t, { f0: SK(k, 330), f1: 990, dur: 0.35, v: 0.07 }); sTone(o, t, { f0: SK(k, 495), f1: 1485, dur: 0.35, v: 0.04 }); },
+  draft: (o, t, k) => { sNoise(o, t, { f0: 200, f1: 900, sweep: 1.0, dur: 1.9, v: 0.75, a: 0.3, q: 1.2 }); },
+  // ambience bits
+  bird: (o, t, k) => { const n = 2 + Math.floor(Math.random() * 3), f = 2400 + Math.random() * 1600; for (let i = 0; i < n; i++) sTone(o, t + i * 0.11, { f0: f * (1 + (i % 2) * 0.12), f1: f * 1.3, dur: 0.08, v: 0.035 }); },
+  ui: (o, t, k) => { sTone(o, t, { f0: 900, f1: 1200, dur: 0.05, v: 0.06 }); },
+  uiPick: (o, t, k) => { sTone(o, t, { type: 'triangle', f0: 660, dur: 0.08, v: 0.08 }); sTone(o, t + 0.06, { type: 'triangle', f0: 990, dur: 0.12, v: 0.08 }); },
+};
+// the shortest gap between two plays of the same sound (so 5 kunai don't make 5 stacked hits)
+const SFX_GAP = { hit: 0.045, hitHeavy: 0.06, hitBig: 0.08, swing: 0.05, bloop: 0.03, needle: 0.04, clack: 0.04, block: 0.05, land: 0.12, jump: 0.1, portal: 0.12, ui: 0.05 };
+const _sfxV = new THREE.Vector3();
+function sfx(name, pos, vol, delay) {
+  if (!SFX.ready || SFX.vol <= 0.001) return;
+  const fn = SFX_LIB[name]; if (!fn) return;
+  const ctx = SFX.ctx, now = ctx.currentTime;
+  if (!delay) { if (now - (SFX.last[name] == null ? -9 : SFX.last[name]) < (SFX_GAP[name] || 0.035)) return; SFX.last[name] = now; }
+  let v = vol == null ? 1 : vol, pan = 0;
+  if (pos && typeof camera !== 'undefined') {
+    const ear = typeof camTarget !== 'undefined' && camTarget ? camTarget : camera.position, d = pos.distanceTo(ear);
+    v *= Math.max(0, Math.min(1, 1.12 - d / 48)); if (v < 0.02) return;
+    _sfxV.copy(pos).sub(camera.position); const L = _sfxV.length(); if (L > 0.5) { const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion); pan = Math.max(-0.7, Math.min(0.7, _sfxV.dot(right) / L)); }
+  }
+  if (SFX.voices > 34) return;
+  SFX.voices++; setTimeout(() => { SFX.voices--; }, 900);
+  try { fn(sOut(v, pan), now + (delay || 0) + 0.004, 0.94 + Math.random() * 0.12); } catch (err) { /* sound is optional */ }
+}
+
+// ---- what each move sounds like: 'fighter:move' -> a sound, or a list of [delay, sound, volume] ----
+const MOVE_SFX = {
+  // Juno
+  'juno:splatter': [[0, 'throwIt'], [0.05, 'splat', 0.7]], 'juno:tendril': [[0, 'zip'], [0.1, 'splat', 0.6]], 'juno:sink': [[0, 'splat'], [0.1, 'bloop']], 'juno:draw': [[0, 'magic'], [0.1, 'splat', 0.5]],
+  'juno:flick': [[0, 'swing'], [0.05, 'splat', 0.6]], 'juno:paper': [[0, 'slash'], [0.05, 'swing']], 'juno:brush': [[0, 'swing'], [0.08, 'splat', 0.5]], 'juno:flood': 'inkWave', 'juno:blackout': [[0, 'dark'], [0.1, 'inkWave']], 'juno:krakenCall': [[0, 'cine'], [0.3, 'inkWave'], [0.6, 'roar']],
+  // Pip
+  'pip:needles': [[0, 'needle'], [0.06, 'needle'], [0.12, 'needle']], 'pip:reel': 'zip', 'pip:hemline': [[0, 'zip'], [0.1, 'slash']], 'pip:anchorThrow': [[0, 'throwIt'], [0.05, 'needle']], 'pip:zip': [[0, 'zip'], [0.05, 'whoosh']],
+  'pip:pin': [[0, 'needle'], [0.05, 'hitHeavy', 0.5]], 'pip:seam': 'stitch', 'pip:swap': [[0, 'magic'], [0.05, 'zip']], 'pip:puppet': [[0, 'stitch'], [0.2, 'magic']], 'pip:drop': [[0, 'whoosh'], [0.15, 'plush']], 'pip:army': [[0, 'cine'], [0.2, 'stitch'], [0.5, 'magic']],
+  // Mask
+  'mask:entrance': [[0, 'curtain'], [0.2, 'stinger', 0.6]], 'mask:spot': [[0, 'magic'], [0.05, 'clack']], 'mask:swap': [[0, 'curtain'], [0.1, 'magic']], 'mask:toss': 'throwIt', 'mask:propCall': [[0, 'magic'], [0.15, 'clang', 0.6]],
+  'mask:curtainReach': [[0, 'curtain'], [0.1, 'grab']], 'mask:haymaker': 'swingHeavy', 'mask:understudy': [[0, 'magic'], [0.1, 'curtain']], 'mask:encore': [[0, 'stinger'], [0.2, 'applause', 0.6]], 'mask:ovation': [[0, 'cine'], [0.3, 'applause']],
+  // Umbra
+  'umbra:crow': [[0, 'flap'], [0.05, 'caw']], 'umbra:flock': [[0, 'flap'], [0.08, 'caw'], [0.2, 'caw'], [0.3, 'flap']], 'umbra:snake': [[0, 'dark'], [0.1, 'hiss']], 'umbra:wolves': [[0, 'dark'], [0.1, 'howl']], 'umbra:bear': [[0, 'dark'], [0.15, 'roar']],
+  'umbra:owl': [[0, 'flap'], [0.05, 'hoot']], 'umbra:shade': 'dark', 'umbra:swing': 'swing', 'umbra:dragon': [[0, 'cine'], [0.2, 'dark'], [0.5, 'roar'], [0.9, 'flame']],
+  // Chef
+  'chef:pan': [[0, 'swing'], [0.08, 'clang']], 'chef:ladle': [[0, 'swing'], [0.08, 'clang', 0.7]], 'chef:knives': [[0, 'knife'], [0.07, 'knife'], [0.14, 'knife']], 'chef:toss': [[0, 'throwIt'], [0.05, 'sizzle', 0.5]], 'chef:catch': [[0, 'grab'], [0.05, 'clang', 0.5]],
+  'chef:cook': 'cook', 'chef:flambe': 'flame', 'chef:spice': [[0, 'throwIt'], [0.05, 'sizzle']], 'chef:tender': [[0, 'hammer'], [0.12, 'hammer', 0.7]], 'chef:special': [[0, 'cine'], [0.2, 'flame'], [0.6, 'cook']],
+  // Reed
+  'reed:storm': [[0, 'wind'], [0.05, 'feathers']], 'reed:ripple': [[0, 'splash'], [0.05, 'whoosh']], 'reed:barrage': [[0, 'quack', 0.6], [0.05, 'swing'], [0.15, 'swing'], [0.25, 'swing']], 'reed:quack': 'quack', 'reed:dive': [[0, 'whoosh'], [0.25, 'splash']],
+  'reed:lily': [[0, 'splash'], [0.1, 'magic']], 'reed:splash': 'splash', 'reed:spirit': [[0, 'cine'], [0.2, 'quack'], [0.4, 'splash'], [0.6, 'feathers']],
+  // Nang
+  'nang:sslash': [[0, 'shing'], [0.08, 'slash']], 'nang:kunai': [[0, 'knife'], [0.05, 'knife'], [0.1, 'knife']], 'nang:smoke': 'smoke', 'nang:rising': [[0, 'slash'], [0.05, 'whoosh']], 'nang:counter': [[0, 'shing']],
+  'nang:cuts': [[0, 'slash'], [0.1, 'slash'], [0.2, 'slash']], 'nang:clones': [[0, 'smoke'], [0.15, 'shing']], 'nang:wave': [[0, 'slash'], [0.05, 'whooshBig']], 'nang:fdraw': [[0, 'shing']], 'nang:moon': [[0, 'cine'], [0.3, 'shing'], [0.8, 'gong']],
+  // Mira
+  'mira:mstrike': [[0, 'swing'], [0.25, 'chime']], 'mira:flip': [[0, 'chime'], [0.05, 'magic']], 'mira:glass': [[0, 'chime'], [0.1, 'throwIt']], 'mira:shref': 'chime', 'mira:reverse': [[0, 'rewind'], [0.1, 'chime']],
+  'mira:crackst': [[0, 'shatter']], 'mira:mbreak': [[0, 'cine'], [0.4, 'shatter'], [0.6, 'chime']],
+  // Tock
+  'tock:tick': [[0, 'swing'], [0.02, 'tick']], 'tock:pend': [[0, 'whooshBig'], [0.1, 'tick']], 'tock:throwA': [[0, 'throwIt'], [0.05, 'tick']], 'tock:cast2': [[0, 'magic'], [0.05, 'tick']], 'tock:storm': [[0, 'tick'], [0.25, 'tick'], [0.5, 'chime']], 'tock:midnight': [[0, 'cine'], [0.2, 'gong'], [1.2, 'gong']],
+  // Maple
+  'maple:timber': [[0, 'swingHeavy'], [0.1, 'chop']], 'maple:logs': [[0, 'logRoll']], 'maple:axes': [[0, 'throwIt'], [0.08, 'throwIt']], 'maple:sap': 'goo', 'maple:hug': [[0, 'grab'], [0.15, 'hitHeavy', 0.6]], 'maple:whiff': 'swingHeavy', 'maple:fall': [[0, 'cine'], [0.2, 'timber']],
+  // Rook
+  'rook:passant': [[0, 'clack'], [0.05, 'slash']], 'rook:hop': [[0, 'clack'], [0.1, 'whoosh']], 'rook:bishop': [[0, 'clack'], [0.05, 'laser']], 'rook:point': 'clack', 'rook:march': 'march', 'rook:queen': [[0, 'stinger'], [0.1, 'laser']], 'rook:mate': [[0, 'cine'], [0.2, 'march'], [0.8, 'gong']],
+  // Echo
+  'echo:tap': 'swing', 'echo:feedback': 'feedback', 'echo:playback': [[0, 'scratch'], [0.25, 'boom']], 'echo:drop': [[0, 'boom'], [0.05, 'whooshBig']], 'echo:encore': [[0, 'cine'], [0.2, 'scratch'], [0.5, 'boom']],
+  // Tempest
+  'tempest:palm': 'swing', 'tempest:kick': 'swing', 'tempest:combo': [[0, 'swing'], [0.12, 'swing']], 'tempest:clap': [[0, 'hitHeavy', 0.6], [0.05, 'thunder', 0.6]], 'tempest:cone': 'wind', 'tempest:flare': 'sun', 'tempest:updraft': [[0, 'wind'], [0.05, 'whooshBig']],
+  'tempest:forecast': [[0, 'magic'], [0.2, 'wind', 0.6]], 'tempest:parry': 'shing', 'tempest:point': [[0, 'magic']], 'tempest:raise2': [[0, 'rain']], 'tempest:super': [[0, 'cine'], [0.3, 'thunder'], [0.9, 'thunder']],
+  // Patch
+  'patch:punch': [[0, 'swing'], [0.05, 'plush', 0.5]], 'patch:needle': [[0, 'needle'], [0.05, 'throwIt']], 'patch:lasso': [[0, 'zip'], [0.08, 'whoosh']], 'patch:ulasso': [[0, 'zip'], [0.08, 'whooshBig']], 'patch:spin': [[0, 'whooshBig']],
+  'patch:flop': [[0, 'plush'], [0.1, 'plush', 0.6]], 'patch:burst': [[0, 'plush'], [0.05, 'feathers']], 'patch:throwsp': 'throwIt', 'patch:bighand': [[0, 'stretch'], [0.3, 'grab']], 'patch:restitch': [[0, 'stitch'], [0.3, 'stitch']], 'patch:revive': [[0, 'stitch'], [0.2, 'buff']],
+  'patch:allofme': [[0, 'cine'], [0.3, 'stitch'], [2.0, 'stinger', 0.6], [6.4, 'whooshBig']],
+  // Brick
+  'brick:build': 'stoneRise', 'brick:punt': [[0, 'swingHeavy'], [0.1, 'hammer']], 'brick:wreck': [[0, 'chain'], [0.25, 'whooshBig'], [0.55, 'whooshBig']], 'brick:point': 'crane', 'brick:brace': [[0, 'clang', 0.5]], 'brick:bash': [[0, 'swingHeavy']],
+  'brick:gslam': [[0, 'whooshBig'], [0.3, 'stretch']], 'brick:rslam': 'whooshBig', 'brick:tcharge': 'whooshBig', 'brick:topout': [[0, 'cine'], [0.3, 'rumble'], [1.85, 'whooshBig'], [2.2, 'stretch']],
+  // Latch
+  'latch:turn': 'keyClick', 'latch:breach': [[0, 'whooshBig'], [0.02, 'dash']], 'latch:slam': [[0, 'keyClick']], 'latch:draft': [[0, 'keyClick'], [0.05, 'draft']], 'latch:lunge': [[0, 'dash'], [0.05, 'grab']], 'latch:showout': [[0, 'grab'], [0.38, 'swingHeavy']],
+  'latch:ohlunge': [[0, 'whooshBig']], 'latch:ohouse': [[0, 'cine'], [0.1, 'doorOpen'], [3.0, 'swingHeavy'], [3.2, 'portal']],
+};
+function sfxMove(f, name, pos, vol) {
+  const e = MOVE_SFX[f + ':' + name]; const list = !e ? [[0, 'whoosh', 0.6]] : typeof e === 'string' ? [[0, e]] : e;
+  for (const [d, n, v] of list) sfx(n, pos, (v == null ? 1 : v) * (vol == null ? 1 : vol), d);
+}
+// what a hit sounds like for each fighter (a quiet layer on top of the thump)
+const HIT_FLAVOR = { juno: 'splat', pip: 'needle', umbra: 'dark', chef: 'clang', reed: 'bloop', nang: 'slash', mira: 'chime', tock: 'tick', maple: 'chop', rook: 'clack', tempest: 'wind', patch: 'plush', brick: 'stone', latch: 'keyClick' };
+function sfxHit(o, pos, f) {
+  if (!o || o.dot) return;
+  const big = o.big || o.type === 'u', heavy = o.heavy;
+  sfx(big ? 'hitBig' : heavy ? 'hitHeavy' : 'hit', pos, big ? 1 : heavy ? 0.9 : 0.8);
+  const fl = HIT_FLAVOR[f]; if (fl && (big || heavy || Math.random() < 0.5)) sfx(fl, pos, big ? 0.55 : 0.35);
+  if (o.slam) sfx('slamGround', pos, 0.8);
+}
+// what each fighter's awakening adds on top of the shared swell
+const AWK_SFX = { juno: 'inkWave', pip: 'stitch', mask: 'applause', umbra: 'roar', chef: 'flame', reed: 'quack', nang: 'shing', mira: 'shatter', tock: 'gong', maple: 'timber', rook: 'march', echo: 'boom', tempest: 'thunder', patch: 'stitch', brick: 'rumble', latch: 'doorSlam' };
+function sfxAwaken(f, pos) { sfx('awaken', pos); if (AWK_SFX[f]) sfx(AWK_SFX[f], pos, 0.8, 0.85); }
+
+// ---- background: soft wind everywhere, birds in the village, the waterfall, ducks on the island ----
+function sfxAmbientStart() {
+  if (SFX.amb || !SFX.ctx) return; const ctx = SFX.ctx;
+  const mk = (type, f, q) => { const src = ctx.createBufferSource(); src.buffer = SFX.noise; src.loop = true; const fl = sFilt(type, f, q), g = ctx.createGain(); g.gain.value = 0; src.connect(fl); fl.connect(g); g.connect(SFX.master); src.start(); return { g, fl }; };
+  SFX.amb = { wind: mk('lowpass', 420, 0.5), fall: mk('bandpass', 900, 0.6), birdT: 4, duckT: 6 };
+}
+function sfxAmbientTick(dt) {
+  const A = SFX.amb; if (!A || !SFX.ready || typeof player === 'undefined') return;
+  const t = SFX.ctx.currentTime, p = player.pos;
+  A.wind.g.gain.setTargetAtTime(0.03 + Math.sin(t * 0.21) * 0.012, t, 0.5); A.wind.fl.frequency.setTargetAtTime(380 + Math.sin(t * 0.13) * 140, t, 0.8);
+  const df = Math.hypot(p.x - 25, p.y - 9, p.z + 29); A.fall.g.gain.setTargetAtTime(Math.max(0, 0.11 * (1 - df / 30)), t, 0.3);
+  const inVillage = p.y < 30 && Math.abs(p.x) < 50 && p.z > -60 && p.z < 52;
+  A.birdT -= dt; if (A.birdT <= 0) { A.birdT = 3 + Math.random() * 6; if (inVillage) sfx('bird', p.clone().add(new THREE.Vector3((Math.random() - 0.5) * 40, 8, (Math.random() - 0.5) * 40)), 0.9); }
+  if (typeof onIsland === 'function' && onIsland(p)) { A.duckT -= dt; if (A.duckT <= 0) { A.duckT = 5 + Math.random() * 8; sfx('quack', POND.clone(), 0.45); } }
+}
+
 
 // ---------- World / colliders ----------
 const colliders = [];
@@ -2853,7 +3122,7 @@ function puddleUnder(pos) {
 // type: 'b' blockable, 'p' projectile, 'x' block break, 'g' grab, 'u' unblockable
 function hitDummy(d, o) {
   if (d.dead) return 'miss';
-  if (d.remote) return netHit(d, o);
+  if (d.remote) { sfxHit(o, d.pos, fighterId); return netHit(d, o); }
   if (!o.otg && ((d.rag && d.ragGround) || d.wake > 0)) return 'miss';
   const hitPos = d.pos.clone().add(new THREE.Vector3(0, 1.5, 0));
   player.lastCombat = clock;
@@ -2864,7 +3133,7 @@ function hitDummy(d, o) {
     d.hp = Math.max(1, d.hp - Math.max(1, Math.round(o.dmg * 0.2)));
     if (d.guard <= 0) guardBreak(d);
     else {
-      floatText('BLOCKED', hitPos.clone().add(new THREE.Vector3(0, 0.8, 0)), 'blk');
+      floatText('BLOCKED', hitPos.clone().add(new THREE.Vector3(0, 0.8, 0)), 'blk'); sfx('block', d.pos);
       sparks(hitPos, 5, 0x9cc8ff, 1); ring(hitPos, 0x9cc8ff, 1.8);
       const f = o.kb ? o.kb.clone().setY(0).normalize() : new THREE.Vector3();
       d.vel.x += f.x * 3; d.vel.z += f.z * 3;
@@ -2876,7 +3145,7 @@ function hitDummy(d, o) {
   let mul = kit.dmgMul ? kit.dmgMul(o) : 1;
   if (d.marked > 0 && fighterId === 'mask') mul *= 1.25;
   const dmg = Math.max(1, Math.round(o.dmg * mul));
-  d.hp = Math.max(0, d.hp - dmg); d.flash = 0.09; d.stun = Math.max(d.stun, o.stun || 0.5); if (o.slow) d.slowT = Math.max(d.slowT || 0, o.slow);
+  d.hp = Math.max(0, d.hp - dmg); sfxHit(o, d.pos, fighterId); d.flash = 0.09; d.stun = Math.max(d.stun, o.stun || 0.5); if (o.slow) d.slowT = Math.max(d.slowT || 0, o.slow);
   if (o.kb) { if (o.set) d.vel.copy(o.kb); else d.vel.add(o.kb); }
   if (d.rag) { if (o.kb) ragKick(d.rag, o.kb.clone().multiplyScalar(0.8)); d.down = Math.max(d.down, o.down || 0.5); }
   else if (o.down && PHYS.world) { d.rag = startRagdoll(d.rig, d.vel.clone(), 4); d.down = Math.max(o.down, 1.3); }
@@ -2900,10 +3169,11 @@ function hitDummy(d, o) {
   if (kit.onHit) kit.onHit(d, o);
   combo += 1; comboTimer = 1.6;
   if (awk >= 100 && !awkAnnounced) { awkAnnounced = true; toast('Awakening ready! Press G'); }
-  if (d.hp <= 0 && !d.dead) { if (!d.rag && PHYS.world) d.rag = startRagdoll(d.rig, d.vel.clone(), 5); d.dead = 0.0001; d.down = 99; floatText('KO!', d.pos.clone().add(new THREE.Vector3(0, 3, 0)), 'ko'); impactFrame(0.1); }
+  if (d.hp <= 0 && !d.dead) { sfx('ko', d.pos); if (!d.rag && PHYS.world) d.rag = startRagdoll(d.rig, d.vel.clone(), 5); d.dead = 0.0001; d.down = 99; floatText('KO!', d.pos.clone().add(new THREE.Vector3(0, 3, 0)), 'ko'); impactFrame(0.1); }
   return 'hit';
 }
 function guardBreak(d) {
+  sfx('guardBreak', d.pos);
   d.guard = 100; d.guardBreak = 1.6; d.stun = 1.6;
   const p = d.pos.clone().add(new THREE.Vector3(0, 2, 0));
   floatText('GUARD BREAK', p.clone().add(new THREE.Vector3(0, 1, 0)), 'ko');
@@ -2923,7 +3193,7 @@ function hitPlayer(o, src) {
   const front = toSrc.dot(facingVec()) > -0.2;
   if (!o.ux && p.blocking && front && (o.type === 'b' || o.type === 'p')) {
     if (clock - p.blockStart < 0.2) {
-      floatText('PARRY', at.clone().add(new THREE.Vector3(0, 1, 0)), 'big');
+      floatText('PARRY', at.clone().add(new THREE.Vector3(0, 1, 0)), 'big'); sfx('parry', p.pos);
       ring(at, 0xffd76a, 3.5); sparks(at, 12, 0xffd76a, 2); hitStop = 0.12; impactFrame(0.08);
       if (src.ai) { src.stun = 1.5; src.ai.wind = 0; src.wobble = 1; }
       return 'parry';
@@ -2933,13 +3203,13 @@ function hitPlayer(o, src) {
     p.hp = Math.max(1, p.hp - chip);
     if (p.guard <= 0) {
       p.guard = 100; p.guardBreak = 1.4; p.stun = 1.4; p.blocking = false;
-      floatText('GUARD BROKEN', at.clone().add(new THREE.Vector3(0, 1, 0)), 'ko'); ring(at, 0xd8364a, 3); addShake(0.3);
-    } else { floatText('BLOCKED', at.clone().add(new THREE.Vector3(0, 0.8, 0)), 'blk'); sparks(at, 5, 0x9cc8ff, 1); }
+      floatText('GUARD BROKEN', at.clone().add(new THREE.Vector3(0, 1, 0)), 'ko'); sfx('guardBreak', p.pos); ring(at, 0xd8364a, 3); addShake(0.3);
+    } else { floatText('BLOCKED', at.clone().add(new THREE.Vector3(0, 0.8, 0)), 'blk'); sparks(at, 5, 0x9cc8ff, 1); sfx('block', p.pos); }
     p.vel.addScaledVector(toSrc, -3);
     return 'blocked';
   }
   const dmg = Math.max(1, Math.round(o.dmg * (kit.takenMul ? kit.takenMul() : 1) * (src && src.duel && duel.lv ? duel.lv.dmg : 1)));
-  p.hp = Math.max(0, p.hp - dmg); p.lastHurt = clock; p.lastCombat = clock;
+  p.hp = Math.max(0, p.hp - dmg); p.lastHurt = clock; p.lastCombat = clock; if (!o.dot) { sfxHit(o, p.pos, src && src.fighter); sfx('hurt', p.pos, 0.5); }
   if (p.hp <= 0 && kit.onKO && kit.onKO(o, src)) return 'hit';
   if (o.dot) { floatText('-' + dmg, at.clone().add(new THREE.Vector3(rv(0.4), 0.8, 0)), 'ink'); P({ tex: 'glow', color: 0x8cff5a, pos: at.clone(), vel: new THREE.Vector3(0, 1.5, 0), life: 0.5, s0: 0.5, s1: 0.1 }); if (p.hp <= 0) { if (PHYS.world && !p.rag) { p.rag = startRagdoll(rig, p.vel.clone(), 4); p.ragT = 1.5; } p.dead = 2.2; p.move = null; toast('Knocked out! Respawning...'); } return 'hit'; }
   if (!awakened) awk = Math.min(100, awk + 4);
@@ -2952,7 +3222,7 @@ function hitPlayer(o, src) {
   sparks(at, 6, 0xff5a5a, 1.2); hitStop = Math.max(hitStop, 0.06); addShake(o.heavy ? 0.5 : 0.25);
   if (p.rag) ragKick(p.rag, (o.kb || new THREE.Vector3()).clone().multiplyScalar(0.8));
   else if ((o.down || p.hp <= 0) && PHYS.world) { p.rag = startRagdoll(rig, p.vel.clone(), 4); p.ragT = Math.max(1.3, (o.down || 1.5) * 0.9); p.move = null; p.anim = null; }
-  if (p.hp <= 0) { p.dead = 2.2; toast('Knocked out! Respawning...'); impactFrame(0.12); }
+  if (p.hp <= 0) { p.dead = 2.2; sfx('ko', p.pos); toast('Knocked out! Respawning...'); impactFrame(0.12); }
   return 'hit';
 }
 
@@ -3012,6 +3282,7 @@ function tryM1() {
   a.idx++;
   const fin = a.idx === 4, sp = kit.m1Speed ? kit.m1Speed() : 1;
   a.kind = !fin ? 'normal' : (!player.grounded ? 'slam' : (jumpHeld || keys.Space) ? 'upper' : 'finisher');
+  sfx(fin || fighterId === 'brick' || fighterId === 'maple' ? 'swingHeavy' : 'swing', player.pos, 0.8);
   a.t = 0; a.dur = (fin ? 0.48 : 0.3) / sp; a.hitAt = (fin ? 0.18 : 0.08) / sp; a.done = false;
   player.lastSwing = clock; player.lastCombat = clock; player.buffered = false;
   if (shiftLock) player.facing = yaw + Math.PI;
@@ -3060,7 +3331,7 @@ function tryDash() {
   } else if (p.dashCd > 0 || p.blocking || p.move || (kit.blocksM1 && kit.blocksM1())) return;
   const mv = moveInput();
   const dir = mv.lengthSq() > 0.01 ? mv.normalize() : (shiftLock ? camForward() : facingVec());
-  p.dashDir.copy(dir); p.dashT = 0.19; p.dashCd = 2.6; p.splatT = 0;
+  p.dashDir.copy(dir); p.dashT = 0.19; p.dashCd = 2.6; p.splatT = 0; sfx('dash', p.pos);
   if (!shiftLock) p.facing = Math.atan2(dir.x, dir.z);
   p.atk.t = p.atk.dur;
   dust(p.pos.clone().add(new THREE.Vector3(0, 0.2, 0)), 5, 4);
@@ -3110,9 +3381,12 @@ function updateProjectiles(dt) {
 function clearProjectiles() { for (const p of projectiles) scene.remove(p.mesh); projectiles.length = 0; }
 function launchVel(dir, speed) { const v = dir.clone().multiplyScalar(speed); v.y = shiftLock ? -Math.sin(pitch - 0.3) * speed * 0.55 : 1.5; return v; }
 function handPos() { const v = new THREE.Vector3(); rig.handR.getWorldPosition(v); return v; }
+let MOVE_SEQ = 0;   // counts moves, so other players' games know when a new one starts (and play its sound)
 function startMove(name, dur, anim, extra) {
+  MOVE_SEQ++;
   const awk = extra && extra.a, spd = awk ? 1 : 0.85;
   player.move = Object.assign({ name, t: 0, dur: dur ? dur + (awk ? 0 : 0.22) : dur, spd }, extra || {});
+  if (fighterId) sfxMove(fighterId, name, player.pos);
   if (anim) playAnim(anim, spd);
   player.atk.t = player.atk.dur; player.lastCombat = clock; return player.move;
 }
@@ -4438,6 +4712,7 @@ let clock = 0;
 function respawn() {
   if (TEAM && TEAM.state !== 'off' && TEAM.state !== 'over' && teamOnKO()) return;
   if (kit && kit.onRespawn) kit.onRespawn();
+  sfx('respawn', null, 0.7);
   const p = player;
   if (onIsland(p.pos)) { p.pos.copy(ISL_SPAWN); p.vel.set(0, 0, 0); p.hp = p.maxHp; p.stun = 0; p.guard = 100; p.dead = 0; p.move = null; p.sinkY = 0; p.hidden = false; p.iframes = 1; ring(p.pos.clone().add(new THREE.Vector3(0, 0.1, 0)), kit.color, 3, true); toast('Back on your feet'); return; }
   const SP = [[0, 44], [-9, 41], [9, 41], [-20, 22], [20, 28], [0, 20]][Math.floor(Math.random() * 6)];
@@ -4522,7 +4797,7 @@ function updatePlayer(dt) {
     if (inWater) speed *= 0.6;
     const k = 1 - Math.exp(-(p.grounded ? 14 : 4.5) * dt);
     p.vel.x += (mv.x * speed - p.vel.x) * k; p.vel.z += (mv.z * speed - p.vel.z) * k;
-    if (p.jumpBuf > 0 && p.coyote > 0 && !p.blocking && !kit.channeling && p.stun <= 0) { p.vel.y = 11.2; p.jumpBuf = 0; p.coyote = 0; p.grounded = false; dust(p.pos.clone().add(new THREE.Vector3(0, 0.1, 0)), 3, 2); }
+    if (p.jumpBuf > 0 && p.coyote > 0 && !p.blocking && !kit.channeling && p.stun <= 0) { p.vel.y = 11.2; p.jumpBuf = 0; p.coyote = 0; p.grounded = false; sfx('jump', p.pos, 0.7); dust(p.pos.clone().add(new THREE.Vector3(0, 0.1, 0)), 3, 2); }
     moveBody(p, dt, (attacking || p.move) && !p.grounded ? 0.35 : 1);
     if (p.stun > 0) { /* keep facing */ }
     else if (shiftLock) p.facing = yaw + Math.PI;
@@ -4530,7 +4805,7 @@ function updatePlayer(dt) {
       let d = Math.atan2(mv.x, mv.z) - p.facing; d = Math.atan2(Math.sin(d), Math.cos(d));
       p.facing += d * (1 - Math.exp(-(p.move ? 7 : 16) * dt));
     }
-    if (p.landSpeed > 6) p.landT = 0.16;
+    if (p.landSpeed > 6) { p.landT = 0.16; sfx('land', p.pos, Math.min(1, p.landSpeed / 16)); }
     if (p.landSpeed > 14) { addShake(0.15); ring(p.pos.clone().add(new THREE.Vector3(0, 0.05, 0)), 0xffffff, 2.2, true); dust(p.pos.clone().add(new THREE.Vector3(0, 0.1, 0)), 6, 4); }
     p.landSpeed = 0;
   }
@@ -4889,6 +5164,7 @@ function setBW(on) { document.body.classList.toggle('bw', on); }
 function setCurtains(on) { document.body.classList.toggle('curtains', on); }
 let calloutT = 0;
 function callout(text, sub) {
+  if (text && !(kit && text === kit.awkName)) sfx('stinger', null, 0.6);
   $('awkName').textContent = text; $('awkLine').textContent = sub || '';
   const b = $('awkBanner'); b.classList.remove('show'); void b.offsetWidth; b.classList.add('show'); calloutT = 2.2;
 }
@@ -4899,7 +5175,7 @@ function tryAwaken() {
   awakened = true; awkTime = 60; freezeT = 1.5;
   const p = player;
   p.iframes = 1.8; p.atk.t = p.atk.dur; p.vel.x = p.vel.z = 0;
-  kit.awaken(); buildBar();
+  kit.awaken(); buildBar(); sfxAwaken(fighterId, player.pos);
   playAnim('awaken');
   startCine({ focus: () => player.pos, dur: 1.5, dist: 3.6, height: 1.7, yaw: p.facing - 0.4, spin: 0.35, onEnd: () => letterbox(false) });
   letterbox(true); callout(kit.awkName, kit.awkLine);
@@ -4914,7 +5190,7 @@ function tryAwaken() {
 function endAwaken() {
   if (!awakened) return;
   awakened = false; awkTime = 0; awk = 0; awkAnnounced = false;
-  kit.unawaken(); buildBar();
+  kit.unawaken(); buildBar(); sfx('awakenEnd', player.pos);
   setBW(false); setCurtains(false); letterbox(false);
   ring(player.pos.clone().add(new THREE.Vector3(0, 1.2, 0)), 0xffffff, 3);
   toast('Awakening faded');
@@ -4981,7 +5257,7 @@ function hashStr(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h
 // the host spot for a room. If whoever holds it stops answering (a frozen tab, a sleeping phone, a bad network),
 // everyone moves to the room's next spot together instead of knocking on a dead door forever
 const hostId = (slot) => 'wsv-' + hashStr(roomKey()) + '-host' + (slot ? slot : '');
-const NETV = 41;   // bump when messages change, so mismatched versions can tell people to refresh
+const NETV = 42;   // bump when messages change, so mismatched versions can tell people to refresh
 // extra STUN servers find a direct route more often; the TURN relay carries the game when no direct route exists
 const ICE = { iceServers: [
   { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] },
@@ -5154,6 +5430,13 @@ function handleMsg(m) {
     setRemoteFighter(r, m.f);
     r.netPos.fromArray(m.p); r.netFacing = m.r;
     if (!r.seen) { r.pos.copy(r.netPos); r.facing = m.r; r.seen = true; }
+    else if (r.rig && !r.hidden) {
+      if (m.mn && m.mc !== r._smc && r.fighter) sfxMove(r.fighter, m.mn, r.pos, 0.85);
+      if (m.aw && !r.aw && r.fighter) sfxAwaken(r.fighter, r.pos);
+      if (m.dsh && !(r.dashT > 0)) sfx('dash', r.pos, 0.8);
+      if (m.an && /^(m1[a-d]|upper|slam)M?$/.test(m.an) && (!r.anim || r.anim.name !== m.an || m.at < r.anim.t - 0.12)) sfx(/^m1[a-c]/.test(m.an) && r.fighter !== 'brick' ? 'swing' : 'swingHeavy', r.pos, 0.7);
+    }
+    if (m.mc != null) r._smc = m.mc;
     r.hp = m.hp; r.dead = m.dead ? 1 : 0; r.hidden = !!m.hid; r.sinkY = m.sy || 0; r.blocking = !!m.blk; r.stun = m.stn ? 0.2 : 0;
     r.speedNow = m.sp || 0; r.grounded = m.gr !== 0; r.vel.y = m.vy || 0; r.dashT = m.dsh ? 0.1 : 0; r.channel = !!m.ch; r.aw = !!m.aw; r.awc = m.awc;
     r.move = m.mv ? { name: m.mv, phase: m.ph } : null;
@@ -5412,6 +5695,7 @@ function sendState(force) {
     sp: +(p.speedNow || 0).toFixed(1), gr: p.grounded ? 1 : 0, vy: +p.vel.y.toFixed(1), dsh: p.dashT > 0 ? 1 : 0, ch: kit.channeling ? 1 : 0, aw: awakened ? 1 : 0, awc: kit.awkColor,
     lc: clock - p.lastCombat < 2.5 ? 1 : 0, sm: kit.netSummons ? kit.netSummons() : [] };
   if (p.move && (p.move.name === 'sink' || p.move.name === 'zip' || p.move.name === 'understudy')) { st.mv = p.move.name; st.ph = p.move.phase; }
+  if (p.move) { st.mn = p.move.name; st.mc = MOVE_SEQ; }
   if (p.anim) { st.an = p.anim.name; st.at = +p.anim.t.toFixed(3); st.as = p.anim.speed; }
   if (kit.faceKind) st.fc = kit.faceKind();
   if (p.rag) { st.rg = packRag(p.rag); st.rdg = p.ragGround ? 1 : 0; }
@@ -7659,21 +7943,21 @@ const ECHO_AUDIO = { ctx: null, lastBeat: -1, muted: false };
 function echoClick(accent) {
   if (ECHO_AUDIO.muted) return;
   try {
-    const ctx = ECHO_AUDIO.ctx || (ECHO_AUDIO.ctx = new (window.AudioContext || window.webkitAudioContext)());
+    const ctx = sfxCtx();
     if (ctx.state === 'suspended') ctx.resume();
     const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine'; o.frequency.value = accent ? 1320 : 880;
     g.gain.setValueAtTime(0.0001, ctx.currentTime); g.gain.exponentialRampToValueAtTime(accent ? 0.07 : 0.04, ctx.currentTime + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.08);
-    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + 0.1);
+    o.connect(g); g.connect(sfxDest()); o.start(); o.stop(ctx.currentTime + 0.1);
   } catch (err) { /* sound is optional */ }
 }
 function echoBass(big) {
   if (ECHO_AUDIO.muted) return;
   try {
-    const ctx = ECHO_AUDIO.ctx || (ECHO_AUDIO.ctx = new (window.AudioContext || window.webkitAudioContext)());
+    const ctx = sfxCtx();
     const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine';
     o.frequency.setValueAtTime(big ? 120 : 90, ctx.currentTime); o.frequency.exponentialRampToValueAtTime(38, ctx.currentTime + 0.4);
     g.gain.setValueAtTime(big ? 0.35 : 0.12, ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.5);
-    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + 0.55);
+    o.connect(g); g.connect(sfxDest()); o.start(); o.stop(ctx.currentTime + 0.55);
   } catch (err) { /* ok */ }
 }
 const WAVETEX = canvasTex(256, (g, S) => {
@@ -8586,17 +8870,17 @@ function makeBigHand() {
 // the screen cuts to black, a white slash tears across it with a "shing", then it flashes back
 function ultShing() {
   try {
-    const ctx = ECHO_AUDIO.ctx || (ECHO_AUDIO.ctx = new (window.AudioContext || window.webkitAudioContext)());
+    const ctx = sfxCtx();
     if (ctx.state === 'suspended') ctx.resume();
     const t0 = ctx.currentTime, len = Math.floor(ctx.sampleRate * 0.35), buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
     for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2);
     const n = ctx.createBufferSource(); n.buffer = buf; const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 6;
     bp.frequency.setValueAtTime(1800, t0); bp.frequency.exponentialRampToValueAtTime(9000, t0 + 0.18);
     const ng = ctx.createGain(); ng.gain.setValueAtTime(0.0001, t0); ng.gain.exponentialRampToValueAtTime(0.5, t0 + 0.012); ng.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.33);
-    n.connect(bp); bp.connect(ng); ng.connect(ctx.destination); n.start(t0); n.stop(t0 + 0.36);
+    n.connect(bp); bp.connect(ng); ng.connect(sfxDest()); n.start(t0); n.stop(t0 + 0.36);
     const o = ctx.createOscillator(), og = ctx.createGain(); o.type = 'triangle'; o.frequency.setValueAtTime(2600, t0); o.frequency.exponentialRampToValueAtTime(5200, t0 + 0.08); o.frequency.exponentialRampToValueAtTime(3800, t0 + 0.5);
     og.gain.setValueAtTime(0.0001, t0); og.gain.exponentialRampToValueAtTime(0.12, t0 + 0.01); og.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.6);
-    o.connect(og); og.connect(ctx.destination); o.start(t0); o.stop(t0 + 0.62);
+    o.connect(og); og.connect(sfxDest()); o.start(t0); o.stop(t0 + 0.62);
   } catch (err) { /* sound is optional */ }
 }
 function ultSlashSet(cls) {
@@ -9553,7 +9837,7 @@ function bkWallMesh(steel) {
 // make a wall (every player's game makes the same one, so everybody bumps into it)
 function bkWall(id, pos, fa, steel, owner) {
   const W = { id, pos: pos.clone(), fa, steel: !!steel, owner, hp: steel ? 80 : 40, t: steel ? 12 : 10, cols: [], mesh: bkWallMesh(steel), age: 0, hitT: new Map() };
-  W.mesh.position.copy(W.pos).add(new THREE.Vector3(0, -2.3, 0)); W.mesh.rotation.y = fa; scene.add(W.mesh);
+  W.mesh.position.copy(W.pos).add(new THREE.Vector3(0, -2.3, 0)); W.mesh.rotation.y = fa; scene.add(W.mesh); sfx('stoneRise', W.pos);
   bkSetBoxes(W); BK_WALLS.push(W);
   vfxDustSlam(W.pos.clone(), 0.55, 0);
   return W;
@@ -9563,7 +9847,7 @@ function bkRemove(W, burst) {
   const i = BK_WALLS.indexOf(W); if (i < 0) return; BK_WALLS.splice(i, 1);
   for (const b of W.cols) { const k = colliders.indexOf(b); if (k >= 0) colliders.splice(k, 1); }
   scene.remove(W.mesh);
-  if (burst) bkBrickBurst(W.pos.clone().add(new THREE.Vector3(0, 1.1, 0)), W.fa, W.steel, burst === 2);
+  if (burst) { bkBrickBurst(W.pos.clone().add(new THREE.Vector3(0, 1.1, 0)), W.fa, W.steel, burst === 2); sfx('rubble', W.pos); }
 }
 // ---------------- rubble: real physics bricks ----------------
 // Loose pieces are real rigid bodies: they tumble, bounce and knock into each other and land on the ground.
@@ -9677,7 +9961,7 @@ function bkPuntVis(id, dir, explode) {
   const W = bkFind(id); if (!W) return null;
   const d = dir.clone().setY(0).normalize(), F = new THREE.Vector3(Math.sin(W.fa), 0, Math.cos(W.fa));
   W.punt = { dir: d, v: 17, t: 0, phase: 'slide', a: 0, av: 0, sgn: d.dot(F) >= 0 ? 1 : -1, explode: !!explode, hits: new Set(), scr: 0, downT: 0 }; W.t = 99;
-  W.mesh.rotation.order = 'YXZ';
+  W.mesh.rotation.order = 'YXZ'; sfx('grind', W.pos);
   vfxDustSlam(W.pos.clone(), 0.6, 0); return W;
 }
 // two long scrape marks left on the ground under the wall's ends
@@ -9726,7 +10010,7 @@ function bkWallTick(dt) {
       // tips over its bottom edge, faster and faster, and slams flat
       pu.av += (5 + 14 * Math.sin(pu.a)) * dt; pu.a = Math.min(Math.PI / 2, pu.a + pu.av * dt);
       if (pu.a >= Math.PI / 2) {
-        pu.phase = 'down'; const mid = W.pos.clone().addScaledVector(pu.dir, 1.3);
+        pu.phase = 'down'; const mid = W.pos.clone().addScaledVector(pu.dir, 1.3); sfx('crash', mid);
         vfxDustSlam(mid, 1.25, 0); addShake(0.6); crack(mid.clone(), 2.2);
         if (mine) for (const d of aliveDummies()) { const v = d.pos.clone().sub(W.pos).setY(0), a = v.dot(pu.dir), s = Math.abs(v.x * pu.dir.z - v.z * pu.dir.x); if (a > -0.2 && a < 2.7 && s < 1.7 && Math.abs(d.pos.y - W.pos.y) < 2) hitDummy(d, { dmg: 8, type: 'x', heavy: true, stun: 1.1, kb: pu.dir.clone().multiplyScalar(3).setY(-2), set: true, down: 1.2, big: true, mats: [fxPaper], spark: BK_RED, ringColor: BK_HAT, label: 'TOPPLED', awk: 4, bkNoSplat: true }); }
       }
@@ -10271,7 +10555,7 @@ function ltDoor(id, pos, fa, col, seq, owner, life) {
   const vis = ltDoorMesh(col);
   const D = { id, pos: pos.clone(), fa, col, seq, owner, t: life || 12, hp: 3, age: 0, open: 0, shut: 0, draftT: 0, mesh: vis.g, leaf: vis.leaf, glow: vis.glow, arrow: vis.arrow, hitT: 0 };
   D.mesh.position.copy(D.pos); D.mesh.rotation.y = fa; D.mesh.scale.set(1, 0.01, 1); scene.add(D.mesh);
-  LT_DOORS.push(D);
+  LT_DOORS.push(D); sfx('doorOpen', D.pos, 0.8);
   dust(D.pos.clone().add(new THREE.Vector3(0, 0.2, 0)), 6, 3); sparks(D.pos.clone().add(new THREE.Vector3(0, 2.8, 0)), 8, col ? LT_SILVER : LT_GOLD, 1.2);
   return D;
 }
@@ -10279,7 +10563,7 @@ function ltFind(id) { return LT_DOORS.find((d) => d.id === id); }
 function ltRemove(D, burst) {
   const i = LT_DOORS.indexOf(D); if (i < 0) return; LT_DOORS.splice(i, 1); scene.remove(D.mesh);
   const at = D.pos.clone().add(new THREE.Vector3(0, 1.3, 0));
-  if (burst) { burst2(at, D.col); } else { ring(at, D.col ? LT_SILVER : LT_GOLD, 2.2); P({ tex: 'glow', color: D.col ? LT_SILVER : LT_GOLD, pos: at, life: 0.3, s0: 2.5, s1: 0.2 }); }
+  if (burst) { burst2(at, D.col); sfx('woodBreak', D.pos); } else { sfx('portal', D.pos, 0.4); ring(at, D.col ? LT_SILVER : LT_GOLD, 2.2); P({ tex: 'glow', color: D.col ? LT_SILVER : LT_GOLD, pos: at, life: 0.3, s0: 2.5, s1: 0.2 }); }
 }
 function burst2(at, col) { sparks(at, 14, col ? LT_SILVER : LT_GOLD, 1.8); burst(at, 10, 7, [fxPaper]); dust(at.clone().add(new THREE.Vector3(0, -1.1, 0)), 6, 4); }
 // where a door leads: the next of its owner's doors (two doors just point at each other; six make a loop)
@@ -10317,6 +10601,7 @@ function ltWarpRag(rd, from, to, dyaw) {
   }
 }
 function ltWhoosh(A, B) {
+  sfx('portal', A.pos); sfx('portal', B.pos, 0.9, 0.06);
   for (const D of [A, B]) { const at = D.pos.clone().add(new THREE.Vector3(0, 1.3, 0)); ring(at, D.col ? LT_SILVER : LT_GOLD, 2.4); P({ tex: 'glow', color: D.col ? LT_SILVER : LT_GOLD, pos: at, life: 0.25, s0: 2.8, s1: 0.4, a: 0.8 }); }
 }
 // send something through A and out of B
@@ -10375,7 +10660,7 @@ function ltDoorDamage(D) {
   ltApplyDmg(D.id); netOnly('lddmg', [D.id]);
 }
 function ltApplyDmg(id) {
-  const D = ltFind(id); if (!D) return; D.hp -= 1; D.flash = 0.15;
+  const D = ltFind(id); if (!D) return; D.hp -= 1; D.flash = 0.15; sfx('hitHeavy', D.pos, 0.6);
   sparks(D.pos.clone().add(new THREE.Vector3(0, 1.4, 0)), 6, D.col ? LT_SILVER : LT_GOLD, 1);
   if (D.hp <= 0) { ltRemove(D, 1); if (ltMine(D)) toast('One of your doors got broken'); }
 }
@@ -10384,11 +10669,11 @@ function ltMeleeDoors(range, cone) {
   for (const D of LT_DOORS.slice()) { if (ltMine(D)) continue; const dx = D.pos.x - player.pos.x, dz = D.pos.z - player.pos.z, dist = Math.hypot(dx, dz); if (dist > range + 0.9 || Math.abs(D.pos.y - player.pos.y) > 2.5) continue; if (dist > 1 && (dx * f.x + dz * f.z) / dist < cone - 0.3) continue; ltDoorDamage(D); }
 }
 function ltAreaDoors(at, r) { for (const D of LT_DOORS.slice()) if (!ltMine(D) && Math.hypot(D.pos.x - at.x, D.pos.z - at.z) < r + 0.8 && Math.abs(D.pos.y - at.y) < 3) ltDoorDamage(D); }
-function ltSlamVis(owner) { for (const D of LT_DOORS) if (D.owner === owner) { D.shut = 0.6; D.slamKick = 0.12; } }
+function ltSlamVis(owner) { for (const D of LT_DOORS) if (D.owner === owner) { D.shut = 0.6; D.slamKick = 0.12; sfx('doorSlam', D.pos, 1, 0.1); } }
 // a door that only lives for a moment (Show You Out, Open House); flat = lying face down in the sky
 function ltTempDoor(pos, fa, col, life, flat) {
   const vis = ltDoorMesh(col), g = vis.g; g.position.copy(pos); g.rotation.order = 'YXZ'; g.rotation.y = fa; if (flat) { g.rotation.x = Math.PI / 2; g.position.y += 1.32; }
-  vis.glow.material.opacity = 0.85; vis.leaf.rotation.y = -1.7; vis.arrow.visible = false; g.scale.set(1, 0.01, 1);
+  vis.glow.material.opacity = 0.85; vis.leaf.rotation.y = -1.7; vis.arrow.visible = false; g.scale.set(1, 0.01, 1); sfx('portal', pos, 0.6);
   sparks(pos.clone().add(new THREE.Vector3(0, 1.3, 0)), 8, col ? LT_SILVER : LT_GOLD, 1.2);
   tempMesh(g, life, (o, k) => { const t = k * life; o.scale.y = Math.min(1, t / 0.15) * (t > life - 0.2 ? Math.max(0.01, (life - t) / 0.2) : 1); vis.glow.material.map.rotation = t * 3; vis.glow.material.opacity = 0.75 + Math.sin(t * 9) * 0.15; });
   return g;
@@ -11375,7 +11660,7 @@ function miniGameTick(dt) {
 var HS = { on: false };
 function hotSpring() {
   if (awakened) endAwaken();
-  HS.on = true; $('fadeFx').classList.add('on');
+  HS.on = true; $('fadeFx').classList.add('on'); sfx('splash', SPRING.clone(), 0.8, 0.5);
   const skin = rig.head && rig.head.material && rig.head.material.color ? rig.head.material.color.getHex() : 0xf1d2bf;
   later(0.5, () => {
     // build a bather version of your fighter: same head, hair and face, in a swimsuit with a towel on top
@@ -11652,6 +11937,11 @@ function applyGfx() {
 }
 $('chipGfx').addEventListener('click', (e) => { e.stopPropagation(); GFX.low = !GFX.low; try { localStorage.setItem('wsv-gfx', GFX.low ? 'low' : 'high'); } catch (err) { /* ok */ } applyGfx(); toast(GFX.low ? 'Graphics: Low. Effects and shadows off for speed' : 'Graphics: High'); e.currentTarget.blur(); });
 applyGfx();
+// sound volume: 80% > 50% > 25% > off > 100% > 80%...
+function soundLabel() { $('chipSound').textContent = 'Sound: ' + (SFX.vol <= 0.001 ? 'Off' : Math.round(SFX.vol * 100) + '%'); $('chipSound').classList.toggle('on', SFX.vol <= 0.001); }
+$('chipSound').addEventListener('click', (e) => { e.stopPropagation(); const steps = [1, 0.8, 0.5, 0.25, 0]; let i = steps.findIndex((v) => Math.abs(v - SFX.vol) < 0.01); i = (i + 1) % steps.length; sfxSetVol(steps[i]); soundLabel(); toast('Sound: ' + (steps[i] ? Math.round(steps[i] * 100) + '%' : 'off')); e.currentTarget.blur(); });
+soundLabel();
+document.addEventListener('click', (e) => { const b = e.target && e.target.closest && e.target.closest('button'); if (b) sfx(b.classList.contains('fcard') ? 'uiPick' : 'ui', null, 0.7); }, true);
 
 // ---------- Loop ----------
 let last = performance.now();
@@ -11672,7 +11962,7 @@ function frame(now) {
   animateFighter(freezeT > 0 ? dt : (gdt || dt * 0.1));
   updateFX(freezeT > 0 ? dt : (gdt || dt * 0.15));
   auraTick(dt);
-  duelTick(dt); teamTick(); screenFxTick(); islandTick(dt); voiceTick(dt); ringTick(); spiderTick(dt); brickTick(dt); latchTick(dt);
+  duelTick(dt); teamTick(); screenFxTick(); islandTick(dt); voiceTick(dt); ringTick(); spiderTick(dt); brickTick(dt); latchTick(dt); sfxAmbientTick(dt);
   updateDrops(gdt || dt * 0.1); updateBlobs();
   hitLightT -= dt; hitLight.intensity = hitLightT > 0 ? hitLight.intensity * Math.exp(-14 * dt) : 0;
   blurStr = Math.max(0, blurStr - dt * 3.5); if (blurPass) { blurPass.enabled = blurStr > 0.02; blurPass.uniforms.uStr.value = blurStr; }
